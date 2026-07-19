@@ -14,7 +14,7 @@ const bootstrapLock = {
 }
 
 describe("upstream lock boundary", () => {
-  it("parses the committed bootstrap lock", () => {
+  it("parses the committed corpus-locked lock", () => {
     // Given
     const input = committedLockInput
 
@@ -22,7 +22,7 @@ describe("upstream lock boundary", () => {
     const parsed = parseUpstreamLock(input)
 
     // Then
-    expect(parsed.lockStage).toBe(LOCK_STAGE.BOOTSTRAP)
+    expect(parsed.lockStage).toBe(LOCK_STAGE.CORPUS_LOCKED)
   })
 
   it("parses the bootstrap stage when only bootstrap fields are present", () => {

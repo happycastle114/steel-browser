@@ -1,3 +1,7 @@
 export * from "./bootstrap-policy.js"
 export * from "./repository-ruleset.js"
+export * from "./upstream-corpus-files.js"
+export * from "./upstream-corpus-model.js"
+export * from "./upstream-corpus-verifier.js"
 export * from "./upstream-lock.js"
+export * from "./upstream-route-source.js"
