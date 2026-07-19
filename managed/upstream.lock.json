@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "lockStage": "BOOTSTRAP",
+  "upstreamRepository": "steel-dev/steel-browser",
+  "upstreamSha": "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2"
+}

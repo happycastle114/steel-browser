@@ -8,12 +8,17 @@
   "workspaces": [
     "api",
     "ui",
-    "repl"
+    "repl",
+    "managed/*"
   ],
   "scripts": {
-    "build": "npm run build -w api -w ui",
+    "build": "npm run build -w api -w ui && npm run build:managed",
+    "build:managed": "npm run build -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-console -w @happycastle/steel-managed-worker",
+    "check:managed": "npm run typecheck:managed && npm run test:managed",
     "dev": "concurrently \"npm run dev -w api\" \"npm run dev -w ui\"",
     "test": "npm run test -w api",
+    "test:managed": "npm run test -w @happycastle/steel-managed-shared",
+    "typecheck:managed": "npm run typecheck -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-console -w @happycastle/steel-managed-worker",
     "prepare": "husky"
   },
   "devDependencies": {

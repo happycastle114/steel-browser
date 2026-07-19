@@ -1,0 +1,13 @@
+{
+  "name": "@happycastle/steel-managed-console",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  }
+}
