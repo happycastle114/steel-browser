@@ -11,13 +11,14 @@ import {
   WebSocketCorpusEntrySchema,
 } from "./upstream-corpus-model.js"
 import {
-  CorpusVerificationError,
   sha256,
   verifyCorpusBundle,
   type CorpusBundle,
   type CorpusSource,
   type CorpusVerification,
 } from "./upstream-corpus-verifier.js"
+import { parseJson, parseNdjson } from "./upstream-corpus-primitives.js"
+import { OBSERVED_RECEIPT_PATH, verifyObservedReceipt } from "./upstream-observed-receipt.js"
 import {
   discoverPinnedRuntimeRoutes,
   PINNED_ROUTE_SOURCE_PATHS,
@@ -40,25 +41,6 @@ async function readUtf8(filePath: string): Promise<string> {
   return readFile(filePath, "utf8")
 }
 
-function parseJson(text: string, artifact: string): unknown {
-  try {
-    return JSON.parse(text)
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      throw new CorpusVerificationError(`invalid JSON: ${artifact}`, { cause: error })
-    }
-    throw error
-  }
-}
-
-function parseNdjsonRecords(text: string, artifact: string): readonly unknown[] {
-  const lines = text.endsWith("\n") ? text.slice(0, -1).split("\n") : text.split("\n")
-  if (lines.some((line) => line.length === 0)) {
-    throw new CorpusVerificationError(`invalid NDJSON records: ${artifact}`)
-  }
-  return lines.map((line) => parseJson(line, artifact))
-}
-
 async function readSources(repositoryRoot: string): Promise<readonly CorpusSource[]> {
   return Promise.all(
     PINNED_ROUTE_SOURCE_PATHS.map(async (sourcePath) => ({
@@ -72,9 +54,10 @@ export async function loadCorpusBundle(repositoryRoot: string): Promise<CorpusBu
   const lockText = await readUtf8(path.join(repositoryRoot, LOCK_PATH))
   const lock = parseUpstreamLock(parseJson(lockText, LOCK_PATH))
   const directory = corpusDirectory(repositoryRoot, lock.upstreamSha)
-  const [manifestText, restText, webSocketText, routeMatrixText, sessionIdVerdictText, sources] =
+  const [manifestText, observedReceiptText, restText, webSocketText, routeMatrixText, sessionIdVerdictText, sources] =
     await Promise.all([
       readUtf8(path.join(directory, "manifest.json")),
+      readUtf8(path.join(directory, OBSERVED_RECEIPT_PATH)),
       readUtf8(path.join(directory, ARTIFACT_PATHS.REST)),
       readUtf8(path.join(directory, ARTIFACT_PATHS.WEBSOCKET)),
       readUtf8(path.join(directory, ARTIFACT_PATHS.ROUTES)),
@@ -84,6 +67,7 @@ export async function loadCorpusBundle(repositoryRoot: string): Promise<CorpusBu
   return {
     lockText,
     manifestText,
+    observedReceiptText,
     restText,
     webSocketText,
     routeMatrixText,
@@ -102,8 +86,9 @@ export async function generateCorpusMetadata(repositoryRoot: string): Promise<vo
   const lockPath = path.join(repositoryRoot, LOCK_PATH)
   const lockInput = parseUpstreamLock(parseJson(await readUtf8(lockPath), LOCK_PATH))
   const directory = corpusDirectory(repositoryRoot, lockInput.upstreamSha)
-  const [restText, webSocketText, routeMatrixText, sessionIdVerdictText, sources] =
+  const [observedReceiptText, restText, webSocketText, routeMatrixText, sessionIdVerdictText, sources] =
     await Promise.all([
+      readUtf8(path.join(directory, OBSERVED_RECEIPT_PATH)),
       readUtf8(path.join(directory, ARTIFACT_PATHS.REST)),
       readUtf8(path.join(directory, ARTIFACT_PATHS.WEBSOCKET)),
       readUtf8(path.join(directory, ARTIFACT_PATHS.ROUTES)),
@@ -111,14 +96,23 @@ export async function generateCorpusMetadata(repositoryRoot: string): Promise<vo
       readSources(repositoryRoot),
     ])
 
+  verifyObservedReceipt({
+    upstreamSha: lockInput.upstreamSha,
+    receiptText: observedReceiptText,
+    restText,
+    webSocketText,
+    routeMatrixText,
+    sessionIdVerdictText,
+  })
+
   const matrix = RouteMatrixSchema.parse(parseJson(routeMatrixText, ARTIFACT_PATHS.ROUTES))
   const verdict = SessionIdVerdictSchema.parse(
     parseJson(sessionIdVerdictText, ARTIFACT_PATHS.SESSION),
   )
-  const restRecords = parseNdjsonRecords(restText, ARTIFACT_PATHS.REST).map((record) =>
+  const restRecords = parseNdjson(restText, ARTIFACT_PATHS.REST).map((record) =>
     RestCorpusEntrySchema.parse(record),
   )
-  const webSocketRecords = parseNdjsonRecords(webSocketText, ARTIFACT_PATHS.WEBSOCKET).map(
+  const webSocketRecords = parseNdjson(webSocketText, ARTIFACT_PATHS.WEBSOCKET).map(
     (record) => WebSocketCorpusEntrySchema.parse(record),
   )
   const discoveredKeys = discoverPinnedRuntimeRoutes(sources).map(routeKey)

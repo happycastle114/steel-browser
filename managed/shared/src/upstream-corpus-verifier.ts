@@ -1,6 +1,10 @@
-import { createHash } from "node:crypto"
-
 import { LOCK_STAGE, parseUpstreamLock } from "./upstream-lock.js"
+import {
+  CorpusVerificationError,
+  parseJson,
+  parseNdjson,
+  sha256,
+} from "./upstream-corpus-primitives.js"
 import {
   CorpusManifestSchema,
   CREATE_JOURNAL_BINDING,
@@ -14,6 +18,7 @@ import {
   WebSocketCorpusEntrySchema,
   type RestCorpusEntry, type RouteMatrix, type SessionIdVerdict, type WebSocketCorpusEntry,
 } from "./upstream-corpus-model.js"
+import { verifyObservedReceipt } from "./upstream-observed-receipt.js"
 import {
   discoverPinnedRuntimeRoutes,
   PINNED_ROUTE_SOURCE_PATHS,
@@ -26,6 +31,7 @@ export type CorpusSource = { readonly path: string; readonly text: string }
 export type CorpusBundle = {
   readonly lockText: string
   readonly manifestText: string
+  readonly observedReceiptText: string
   readonly restText: string
   readonly webSocketText: string
   readonly routeMatrixText: string
@@ -42,36 +48,7 @@ export type CorpusVerification = {
   readonly webSocketRouteCount: number
 }
 
-export class CorpusVerificationError extends Error {
-  override readonly name = "CorpusVerificationError"
-
-  constructor(readonly detail: string, options?: ErrorOptions) {
-    super(detail, options)
-  }
-}
-
-export function sha256(text: string): string {
-  return createHash("sha256").update(text, "utf8").digest("hex")
-}
-
-function parseJson(text: string, artifact: string): unknown {
-  try {
-    return JSON.parse(text)
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      throw new CorpusVerificationError(`invalid JSON: ${artifact}`, { cause: error })
-    }
-    throw error
-  }
-}
-
-function parseNdjson(text: string, artifact: string): readonly unknown[] {
-  const lines = text.endsWith("\n") ? text.slice(0, -1).split("\n") : text.split("\n")
-  if (lines.length === 0 || lines.some((line) => line.length === 0)) {
-    throw new CorpusVerificationError(`invalid NDJSON records: ${artifact}`)
-  }
-  return lines.map((line, index) => parseJson(line, `${artifact}:${index + 1}`))
-}
+export { CorpusVerificationError, sha256 } from "./upstream-corpus-primitives.js"
 
 function requireEqual(actual: unknown, expected: unknown, detail: string): void {
   if (actual !== expected) {
@@ -231,6 +208,14 @@ export function verifyCorpusBundle(bundle: CorpusBundle): CorpusVerification {
     JSON.stringify(routeIds.sort()),
     "one or more runtime routes have no corpus record",
   )
+  verifyObservedReceipt({
+    upstreamSha: lock.upstreamSha,
+    receiptText: bundle.observedReceiptText,
+    restText: bundle.restText,
+    webSocketText: bundle.webSocketText,
+    routeMatrixText: bundle.routeMatrixText,
+    sessionIdVerdictText: bundle.sessionIdVerdictText,
+  })
 
   const artifactInputs = new Map([
     ["rest.ndjson", { text: bundle.restText, records: restEntries.length }],

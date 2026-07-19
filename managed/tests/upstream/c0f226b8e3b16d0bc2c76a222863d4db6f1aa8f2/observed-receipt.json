@@ -1,0 +1,716 @@
+{
+  "schemaVersion": 1,
+  "upstreamSha": "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2",
+  "routeMatrixSha256": "ac3954a2d26a99ae02ca25e6d1ada37cf0135069ca901b1aa97993f46460c4a7",
+  "sessionIdVerdictSha256": "2f5d5fae8ee00725beee4dce6962be79652c167d3bbcbc38333c6d64054257c3",
+  "rest": [
+    {
+      "id": "record.action.scrape",
+      "routeId": "rest.action.scrape",
+      "request": {
+        "method": "POST",
+        "path": "/v1/scrape"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "0245c6596ff894f05aab23ebd1b0919797e7fb07558ba54452c5a78231392ee2",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.action.screenshot",
+      "routeId": "rest.action.screenshot",
+      "request": {
+        "method": "POST",
+        "path": "/v1/screenshot"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/octet-stream",
+        "headers": {
+          "content-type": "application/octet-stream"
+        },
+        "bodySha256": "a5fcba92115215842dd12079365ea46fa2a45c2e094a86eee14e0863c984e6b3",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.action.pdf",
+      "routeId": "rest.action.pdf",
+      "request": {
+        "method": "POST",
+        "path": "/v1/pdf"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/octet-stream",
+        "headers": {
+          "content-type": "application/octet-stream"
+        },
+        "bodySha256": "cf28366bd40d84af3125aa42e3ed3c3c4f1b82dee38839a09e26457481f56db6",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.action.search",
+      "routeId": "rest.action.search",
+      "request": {
+        "method": "POST",
+        "path": "/v1/search"
+      },
+      "response": {
+        "status": 400,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "c76bb3c823d985b610ee8d5ce9c3589227b9503ccb54e28f8fb59618f4517338",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.cdp.devtools",
+      "routeId": "rest.cdp.devtools",
+      "request": {
+        "method": "GET",
+        "path": "/v1/devtools/inspector.html"
+      },
+      "response": {
+        "status": 302,
+        "contentType": "none",
+        "headers": {
+          "location": "<RUNTIME_HTTP_ORIGIN>/devtools/devtools_app.html?ws=//<RUNTIME_AUTHORITY>/devtools/page/<PAGE_ID>"
+        },
+        "bodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "urlFields": {
+          "header:location": "<RUNTIME_HTTP_ORIGIN>/devtools/devtools_app.html?ws=//<RUNTIME_AUTHORITY>/devtools/page/<PAGE_ID>"
+        }
+      }
+    },
+    {
+      "id": "record.files.upload",
+      "routeId": "rest.files.upload",
+      "request": {
+        "method": "POST",
+        "path": "/v1/sessions/:sessionId/files"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "cdc2b3f6f928779767905a81237582d205d97c683ccbd1564a65ac59d75fa841",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.files.head",
+      "routeId": "rest.files.head",
+      "request": {
+        "method": "HEAD",
+        "path": "/v1/sessions/:sessionId/files/*"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/plain",
+        "headers": {
+          "content-type": "text/plain"
+        },
+        "bodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.files.download",
+      "routeId": "rest.files.download",
+      "request": {
+        "method": "GET",
+        "path": "/v1/sessions/:sessionId/files/*"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/plain",
+        "headers": {
+          "content-type": "text/plain"
+        },
+        "bodySha256": "6953fd296d3e83af65407e9c67d9bc84fe44317956142392f783d5afd9680d41",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.files.list",
+      "routeId": "rest.files.list",
+      "request": {
+        "method": "GET",
+        "path": "/v1/sessions/:sessionId/files"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "734e8221abb197664761a874bde60ffcb5425758e241a6de1c1f389588e0c3d8",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.files.delete",
+      "routeId": "rest.files.delete",
+      "request": {
+        "method": "DELETE",
+        "path": "/v1/sessions/:sessionId/files/*"
+      },
+      "response": {
+        "status": 204,
+        "contentType": "none",
+        "headers": {},
+        "bodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.files.delete-all",
+      "routeId": "rest.files.delete-all",
+      "request": {
+        "method": "DELETE",
+        "path": "/v1/sessions/:sessionId/files"
+      },
+      "response": {
+        "status": 204,
+        "contentType": "none",
+        "headers": {},
+        "bodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.files.archive",
+      "routeId": "rest.files.archive",
+      "request": {
+        "method": "GET",
+        "path": "/v1/sessions/:sessionId/files.zip"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/zip",
+        "headers": {
+          "content-type": "application/zip"
+        },
+        "bodySha256": "8e2aa239a2241435106f2534fc19c198b55504ab1bc4358fdb97e13ad0b4e345",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.logs.query",
+      "routeId": "rest.logs.query",
+      "request": {
+        "method": "GET",
+        "path": "/v1/logs/query"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "3d1399a777bfe2c62c1ce96eb829c154769b0222c549b41d450c6badb5195bcc",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.logs.stats",
+      "routeId": "rest.logs.stats",
+      "request": {
+        "method": "GET",
+        "path": "/v1/logs/stats"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "136f9acf50d70faa6aafda08e4241ea122fcc0ba68f26eb43d17aeabf1d63087",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.logs.stream",
+      "routeId": "rest.logs.stream",
+      "request": {
+        "method": "GET",
+        "path": "/v1/logs/stream"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/event-stream",
+        "headers": {
+          "content-type": "text/event-stream",
+          "cache-control": "no-cache",
+          "connection": "keep-alive"
+        },
+        "bodySha256": "ad063653d9e3016097f79a5f4b01b2115996a49f45d6c731724ea65acc3c90d1",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.logs.export",
+      "routeId": "rest.logs.export",
+      "request": {
+        "method": "POST",
+        "path": "/v1/logs/export"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "035ddf16fce9ff81088a636991d6bbdb2947814bed4c6c442c1f21d6c94cc5fa",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.logs.clear",
+      "routeId": "rest.logs.clear",
+      "request": {
+        "method": "DELETE",
+        "path": "/v1/logs/"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "13080388adfcc802a308ed096b94ce2b43bece921e3b15abfca1c12ac9df13e0",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.selenium.proxy",
+      "routeId": "rest.selenium.proxy",
+      "request": {
+        "method": "GET",
+        "path": "/selenium/wd/*"
+      },
+      "response": {
+        "status": 500,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "47b4f6d87d10e9f40eeff9ee8c3f133953e6047059ee813969273cb046705eb0",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.health",
+      "routeId": "rest.health",
+      "request": {
+        "method": "GET",
+        "path": "/v1/health"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.sessions.create",
+      "routeId": "rest.sessions.create",
+      "request": {
+        "method": "POST",
+        "path": "/v1/sessions"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "acb118ad19f3c3700c22893067bea5388457acc4f7885371ec1b09d1fba464ef",
+        "urlFields": {
+          "/websocketUrl": "<RUNTIME_WS_ORIGIN>/",
+          "/debugUrl": "<RUNTIME_HTTP_ORIGIN>/v1/sessions/debug",
+          "/debuggerUrl": "<RUNTIME_HTTP_ORIGIN>/v1/devtools/inspector.html",
+          "/sessionViewerUrl": "<RUNTIME_HTTP_ORIGIN>/"
+        }
+      }
+    },
+    {
+      "id": "record.sessions.list",
+      "routeId": "rest.sessions.list",
+      "request": {
+        "method": "GET",
+        "path": "/v1/sessions"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "1f015beae499d44cd9284f455d251b5a179287118ad319f1d09b7dee29c67245",
+        "urlFields": {
+          "/sessions/0/websocketUrl": "<RUNTIME_WS_ORIGIN>/",
+          "/sessions/0/debugUrl": "<RUNTIME_HTTP_ORIGIN>/v1/sessions/debug",
+          "/sessions/0/debuggerUrl": "<RUNTIME_HTTP_ORIGIN>/v1/devtools/inspector.html",
+          "/sessions/0/sessionViewerUrl": "<RUNTIME_HTTP_ORIGIN>/"
+        }
+      }
+    },
+    {
+      "id": "record.sessions.get",
+      "routeId": "rest.sessions.get",
+      "request": {
+        "method": "GET",
+        "path": "/v1/sessions/:sessionId"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "26eebede1c51f404e2671a0a036118b3656614527960820db020970d0e0381ba",
+        "urlFields": {
+          "/websocketUrl": "<RUNTIME_WS_ORIGIN>/",
+          "/debugUrl": "<RUNTIME_HTTP_ORIGIN>/v1/sessions/debug",
+          "/debuggerUrl": "<RUNTIME_HTTP_ORIGIN>/v1/devtools/inspector.html",
+          "/sessionViewerUrl": "<RUNTIME_HTTP_ORIGIN>/"
+        }
+      }
+    },
+    {
+      "id": "record.sessions.context",
+      "routeId": "rest.sessions.context",
+      "request": {
+        "method": "GET",
+        "path": "/v1/sessions/:sessionId/context"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "7ab309fe2ec4e460f641f3145ca6ba9290af18d429db80d19ff873bafc1ac41d",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.sessions.release-id",
+      "routeId": "rest.sessions.release-id",
+      "request": {
+        "method": "POST",
+        "path": "/v1/sessions/:sessionId/release"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "d5ef65e52dce3cfcf777a54ad182766ffa3000eb94d3763eb1856905d8d7cc7c",
+        "urlFields": {
+          "/websocketUrl": "<RUNTIME_WS_ORIGIN>/",
+          "/debugUrl": "<RUNTIME_HTTP_ORIGIN>/v1/sessions/debug",
+          "/debuggerUrl": "<RUNTIME_HTTP_ORIGIN>/v1/devtools/inspector.html",
+          "/sessionViewerUrl": "<RUNTIME_HTTP_ORIGIN>/"
+        }
+      }
+    },
+    {
+      "id": "record.sessions.release-active",
+      "routeId": "rest.sessions.release-active",
+      "request": {
+        "method": "POST",
+        "path": "/v1/sessions/release"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "5c42f08568207bf56f6b69004a005f14689d77c89894033e2abce27d62597ab7",
+        "urlFields": {
+          "/websocketUrl": "<RUNTIME_WS_ORIGIN>/",
+          "/debugUrl": "<RUNTIME_HTTP_ORIGIN>/v1/sessions/debug",
+          "/debuggerUrl": "<RUNTIME_HTTP_ORIGIN>/v1/devtools/inspector.html",
+          "/sessionViewerUrl": "<RUNTIME_HTTP_ORIGIN>/"
+        }
+      }
+    },
+    {
+      "id": "record.sessions.debug",
+      "routeId": "rest.sessions.debug",
+      "request": {
+        "method": "GET",
+        "path": "/v1/sessions/debug"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/html; charset=utf-8",
+        "headers": {
+          "content-type": "text/html; charset=utf-8"
+        },
+        "bodySha256": "6202158a40b92dafa901e2de9a4eb3d339bc06f6011a81001f789fe36804f967",
+        "urlFields": {
+          "html:wsUrl": "<RUNTIME_WS_ORIGIN>/v1/sessions/cast"
+        }
+      }
+    },
+    {
+      "id": "record.sessions.events",
+      "routeId": "rest.sessions.events",
+      "request": {
+        "method": "POST",
+        "path": "/v1/events"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.sessions.live-details",
+      "routeId": "rest.sessions.live-details",
+      "request": {
+        "method": "GET",
+        "path": "/v1/sessions/:id/live-details"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "dbadd1ec2f308847251a981ae7771de79d6145c47d9a910cd2880f92e7e6b751",
+        "urlFields": {
+          "/websocketUrl": "<RUNTIME_WS_ORIGIN>/",
+          "/sessionViewerUrl": "<RUNTIME_HTTP_ORIGIN>/",
+          "/sessionViewerFullscreenUrl": "<RUNTIME_HTTP_ORIGIN>/?showControls=false"
+        }
+      }
+    },
+    {
+      "id": "record.sessions.scrape",
+      "routeId": "rest.sessions.scrape",
+      "request": {
+        "method": "POST",
+        "path": "/v1/sessions/scrape"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "a57a48fdf1f8570372dafdcd4408b0e6b58857ada6c6a4e2fde6f9e7ebcaf90d",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.sessions.screenshot",
+      "routeId": "rest.sessions.screenshot",
+      "request": {
+        "method": "POST",
+        "path": "/v1/sessions/screenshot"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/octet-stream",
+        "headers": {
+          "content-type": "application/octet-stream"
+        },
+        "bodySha256": "a5fcba92115215842dd12079365ea46fa2a45c2e094a86eee14e0863c984e6b3",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.sessions.pdf",
+      "routeId": "rest.sessions.pdf",
+      "request": {
+        "method": "POST",
+        "path": "/v1/sessions/pdf"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/octet-stream",
+        "headers": {
+          "content-type": "application/octet-stream"
+        },
+        "bodySha256": "cf28366bd40d84af3125aa42e3ed3c3c4f1b82dee38839a09e26457481f56db6",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.docs.redirect",
+      "routeId": "rest.docs.redirect",
+      "request": {
+        "method": "GET",
+        "path": "/documentation"
+      },
+      "response": {
+        "status": 301,
+        "contentType": "none",
+        "headers": {
+          "location": "/documentation/"
+        },
+        "bodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "urlFields": {
+          "header:location": "/documentation/"
+        }
+      }
+    },
+    {
+      "id": "record.docs.html",
+      "routeId": "rest.docs.html",
+      "request": {
+        "method": "GET",
+        "path": "/documentation/"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "text/html; charset=utf-8",
+        "headers": {
+          "content-type": "text/html; charset=utf-8"
+        },
+        "bodySha256": "6bd2033d49074c5a364e805e062c997f49e875dd7d62975862b315eee40bab5a",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.docs.openapi-json",
+      "routeId": "rest.docs.openapi-json",
+      "request": {
+        "method": "GET",
+        "path": "/documentation/openapi.json"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/json; charset=utf-8",
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "bodySha256": "79919316aa9ffbbf5ba3c1ebb7d50fddbc2b4c21763571e4a0c717dd27ef242f",
+        "urlFields": {
+          "/servers/0/url": "<RUNTIME_HTTP_ORIGIN>/"
+        }
+      }
+    },
+    {
+      "id": "record.docs.openapi-yaml",
+      "routeId": "rest.docs.openapi-yaml",
+      "request": {
+        "method": "GET",
+        "path": "/documentation/openapi.yaml"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/yaml",
+        "headers": {
+          "content-type": "application/yaml"
+        },
+        "bodySha256": "c5fdf2fe29ff2c51e522e92a5bcdeca2f13b4a91878d9c4b98658ff2714ef962",
+        "urlFields": {
+          "yaml:servers.0.url": "<RUNTIME_HTTP_ORIGIN>/"
+        }
+      }
+    },
+    {
+      "id": "record.docs.scalar-js",
+      "routeId": "rest.docs.scalar-js",
+      "request": {
+        "method": "GET",
+        "path": "/documentation/js/scalar.js"
+      },
+      "response": {
+        "status": 200,
+        "contentType": "application/javascript; charset=utf-8",
+        "headers": {
+          "content-type": "application/javascript; charset=utf-8"
+        },
+        "bodySha256": "e5cab69c3b20583a60fff3fd97eb3ae6b66fa8c0aa218ed36fb94163f2fbd66a",
+        "urlFields": {}
+      }
+    },
+    {
+      "id": "record.cors.options",
+      "routeId": "rest.cors.options",
+      "request": {
+        "method": "OPTIONS",
+        "path": "/*"
+      },
+      "response": {
+        "status": 204,
+        "contentType": "none",
+        "headers": {
+          "access-control-allow-origin": "<REQUEST_ORIGIN>"
+        },
+        "bodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "urlFields": {}
+      }
+    }
+  ],
+  "webSocket": [
+    {
+      "id": "record.ws.cast",
+      "routeId": "ws.cast",
+      "requestPath": "/v1/sessions/cast",
+      "opened": true,
+      "messageKind": "TAB_LIST",
+      "closeCode": 1000
+    },
+    {
+      "id": "record.ws.logs",
+      "routeId": "ws.logs",
+      "requestPath": "/v1/sessions/logs",
+      "opened": true,
+      "messageKind": "OPEN_NO_MESSAGE",
+      "closeCode": 1000
+    },
+    {
+      "id": "record.ws.page-id",
+      "routeId": "ws.page-id",
+      "requestPath": "/v1/sessions/pageId",
+      "opened": true,
+      "messageKind": "OPEN_NO_MESSAGE",
+      "closeCode": 1000
+    },
+    {
+      "id": "record.ws.recording",
+      "routeId": "ws.recording",
+      "requestPath": "/v1/sessions/recording",
+      "opened": true,
+      "messageKind": "OPEN_NO_MESSAGE",
+      "closeCode": 1000
+    },
+    {
+      "id": "record.ws.root-cdp",
+      "routeId": "ws.root-cdp",
+      "requestPath": "/",
+      "opened": true,
+      "messageKind": "BROWSER_GET_VERSION",
+      "closeCode": 1000
+    }
+  ]
+}

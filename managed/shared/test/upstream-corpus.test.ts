@@ -27,6 +27,7 @@ const CORPUS_DIRECTORY = fileURLToPath(
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../../", import.meta.url))
 const REQUIRED_CORPUS_FILES = [
   "manifest.json",
+  "observed-receipt.json",
   "rest.ndjson",
   "websocket.ndjson",
   "route-matrix.json",
