@@ -14,6 +14,7 @@
   "scripts": {
     "build": "npm run build -w api -w ui && npm run build:managed",
     "build:managed": "npm run build -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-console -w @happycastle/steel-managed-worker",
+    "check:raw-state-comparisons": "tsx managed/shared/src/raw-state-comparison-cli.ts",
     "check:managed": "npm run typecheck:managed && npm run test:managed",
     "dev": "concurrently \"npm run dev -w api\" \"npm run dev -w ui\"",
     "generate:upstream-corpus": "tsx managed/shared/src/upstream-corpus-cli.ts generate",

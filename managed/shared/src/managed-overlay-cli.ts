@@ -3,6 +3,7 @@ import path from "node:path"
 
 import {
   OVERLAY_DESCRIPTOR_PATH,
+  OVERLAY_ERROR_CODE,
   FIXTURE_EVALUATION_STATUS,
   VERIFICATION_STATUS,
   evaluateOverlayFixture,
@@ -79,7 +80,7 @@ async function verifyFixtureOnly(repositoryRoot: string, descriptorPath: string,
   const fixture = parseOverlayFixture(JSON.parse(await readFile(fixturePath, "utf8")))
   const result = evaluateOverlayFixture(descriptor, fixture)
   if (result.status === FIXTURE_EVALUATION_STATUS.ACCEPTED) {
-    throw new Error(`FIXTURE_UNEXPECTEDLY_ACCEPTED ${path.relative(repositoryRoot, fixturePath)}`)
+    throw new Error(`${OVERLAY_ERROR_CODE.FIXTURE_UNEXPECTED_ACCEPTANCE} ${path.relative(repositoryRoot, fixturePath)}`)
   }
   console.error(`EXPECTED_FIXTURE_REJECTION code=${result.code} detail=${result.detail}`)
   process.exitCode = 1

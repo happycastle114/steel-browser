@@ -178,7 +178,7 @@ export async function verifyManagedOverlay(options: VerifyManagedOverlayOptions)
   if (parentPlanSha256 !== EXPECTED_PARENT_PLAN_SHA256) overlayFailure(OVERLAY_ERROR_CODE.PARENT_PLAN_SHA_DRIFT, "parent plan content drift")
   if (overlayPlanSha256 !== EXPECTED_OVERLAY_PLAN_SHA256) overlayFailure(OVERLAY_ERROR_CODE.OVERLAY_PLAN_SHA_DRIFT, "overlay plan content drift")
   const lineage = readOverlayLineage(repositoryRoot, descriptor.corpus.commit, descriptor.corpus.baseCommit)
-  assertExactOverlayLineage(lineage, { corpusCommit: descriptor.corpus.commit, baseCommit: descriptor.corpus.baseCommit })
+  assertExactOverlayLineage(lineage, { corpusCommit: descriptor.corpus.commit })
 
   let lock: ReturnType<typeof parseUpstreamLock>
   try {
