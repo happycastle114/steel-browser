@@ -20,8 +20,12 @@ type LocalWorkerFakeOptions = {
   readonly reportedInstanceSequence?: number
   readonly headerWorkerSequence?: number
   readonly headerInstanceSequence?: number
+  readonly omitWorkerHeader?: boolean
+  readonly omitInstanceHeader?: boolean
   readonly createStatus?: number
   readonly releaseStatus?: number
+  readonly metadataStatus?: number
+  readonly malformedMetadata?: boolean
   readonly releaseApplies?: boolean
   readonly reportedActiveSessionId?: string
   readonly activeSessionStatus?: number
@@ -57,9 +61,13 @@ export class LocalWorkerFake {
   private readonly reportedInstanceId: InstanceId | undefined
   private readonly headerWorkerId: LocalWorkerFake["workerId"] | undefined
   private readonly headerInstanceId: InstanceId | undefined
+  private readonly omitWorkerHeader: boolean
+  private readonly omitInstanceHeader: boolean
   private currentInstanceId: InstanceId
   private readonly createStatus: number
   private readonly releaseStatus: number
+  private readonly metadataStatus: number
+  private readonly malformedMetadata: boolean
   private readonly releaseApplies: boolean
   private reportedActiveSessionId: string | undefined
   private activeSessionStatus: number
@@ -92,8 +100,12 @@ export class LocalWorkerFake {
       options.headerInstanceSequence === undefined
         ? undefined
         : instanceId(options.headerInstanceSequence)
+    this.omitWorkerHeader = options.omitWorkerHeader ?? false
+    this.omitInstanceHeader = options.omitInstanceHeader ?? false
     this.createStatus = options.createStatus ?? 200
     this.releaseStatus = options.releaseStatus ?? 200
+    this.metadataStatus = options.metadataStatus ?? 200
+    this.malformedMetadata = options.malformedMetadata ?? false
     this.releaseApplies = options.releaseApplies ?? true
     this.reportedActiveSessionId = options.reportedActiveSessionId
     this.activeSessionStatus = options.activeSessionStatus ?? 200
@@ -153,21 +165,26 @@ export class LocalWorkerFake {
 
   private registerRoutes(): void {
     this.server.addHook("onSend", async (_request, reply, payload) => {
-      reply.header("x-managed-worker-id", this.headerWorkerId ?? this.workerId)
-      reply.header(
-        "x-managed-worker-instance-id",
-        this.headerInstanceId ?? this.currentInstanceId,
-      )
+      if (!this.omitWorkerHeader) {
+        reply.header("x-managed-worker-id", this.headerWorkerId ?? this.workerId)
+      }
+      if (!this.omitInstanceHeader) {
+        reply.header(
+          "x-managed-worker-instance-id",
+          this.headerInstanceId ?? this.currentInstanceId,
+        )
+      }
       return payload
     })
-    this.server.get("/v1/managed-worker/meta", async () => {
+    this.server.get("/v1/managed-worker/meta", async (_request, reply) => {
       this.onMetadata?.()
       if (this.metadataGate !== undefined) await this.metadataGate
-      return {
+      if (this.malformedMetadata) return reply.code(this.metadataStatus).send("not-json")
+      return reply.code(this.metadataStatus).send({
         workerId: this.reportedWorkerId,
         instanceId: this.reportedInstanceId ?? this.currentInstanceId,
         status: WorkerBootStatus.READY,
-      }
+      })
     })
     this.server.get("/v1/managed-worker/active-session", async (_request, reply) => {
       this.onSessionList?.()

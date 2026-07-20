@@ -2,9 +2,17 @@ import { describe, expect, it } from "vitest"
 import {
   StaticWorkerConfigSchema,
   StaticWorkerProvider,
+  WorkerOriginSchema,
 } from "../src/index.js"
 
 describe("StaticWorkerProvider", () => {
+  it("accepts only private origin syntax at the endpoint boundary", () => {
+    expect(WorkerOriginSchema.safeParse("http://[fd00::1]:3000").success).toBe(true)
+    expect(WorkerOriginSchema.safeParse("http://169.254.1.10:3000").success).toBe(true)
+    expect(WorkerOriginSchema.safeParse("http://worker-00:3000/..").success).toBe(false)
+    expect(WorkerOriginSchema.safeParse("http://example.com:3000").success).toBe(false)
+  })
+
   it("returns the two configured workers in stable order", () => {
     // Given
     const config = StaticWorkerConfigSchema.parse({
@@ -27,6 +35,13 @@ describe("StaticWorkerProvider", () => {
       workers: [
         { workerId: "worker-00", origin: "http://worker-00:3000" },
         { workerId: "worker-00", origin: "http://worker-01:3000" },
+      ],
+    },
+    {
+      name: "a duplicate worker origin",
+      workers: [
+        { workerId: "worker-00", origin: "http://worker-00:3000" },
+        { workerId: "worker-01", origin: "http://worker-00:3000" },
       ],
     },
     {

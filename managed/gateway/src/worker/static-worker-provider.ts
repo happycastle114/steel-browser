@@ -4,6 +4,7 @@ import { WorkerIdSchema } from "../domain/ids.js"
 
 export const STATIC_WORKER_COUNT = 2
 const supportedSchemes = new Set(["http:"])
+const rootOriginPattern = /^[a-z][a-z0-9+.-]*:\/\/[^\/?#]+\/?$/iu
 export const STATIC_WORKER_ENDPOINTS = Object.freeze([
   Object.freeze({ workerId: "worker-00", origin: "http://worker-00:3000" }),
   Object.freeze({ workerId: "worker-01", origin: "http://worker-01:3000" }),
@@ -15,14 +16,24 @@ function isPrivateIpv4(hostname: string): boolean {
   const second = octets.at(1)
   if (first === 10 || first === 127) return true
   if (first === 192 && second === 168) return true
+  if (first === 169 && second === 254) return true
   return first === 172 && second !== undefined && second >= 16 && second <= 31
 }
 
+function isPrivateIpv6(hostname: string): boolean {
+  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "")
+  if (normalized === "::1") return true
+  if (normalized.startsWith("fe8") || normalized.startsWith("fe9")) return true
+  if (normalized.startsWith("fea") || normalized.startsWith("feb")) return true
+  return normalized.startsWith("fc") || normalized.startsWith("fd")
+}
+
 function isPrivateHost(hostname: string): boolean {
-  if (hostname === "localhost" || hostname === "[::1]") return true
-  if (isIP(hostname) === 4) return isPrivateIpv4(hostname)
-  if (isIP(hostname) === 6) return hostname === "::1"
-  return /^worker-(00|01)$/.test(hostname)
+  const normalized = hostname.replace(/^\[|\]$/g, "")
+  if (hostname === "localhost") return true
+  if (isIP(normalized) === 4) return isPrivateIpv4(normalized)
+  if (isIP(normalized) === 6) return isPrivateIpv6(normalized)
+  return /^worker-(00|01)$/.test(normalized)
 }
 
 export const WorkerOriginSchema = z
@@ -35,6 +46,7 @@ export const WorkerOriginSchema = z
       !isPrivateHost(url.hostname) ||
       url.username.length > 0 ||
       url.password.length > 0 ||
+      !rootOriginPattern.test(value) ||
       url.pathname !== "/" ||
       url.search.length > 0 ||
       url.hash.length > 0
@@ -52,14 +64,21 @@ export const StaticWorkerEndpointSchema = z.object({
 }).strict().readonly()
 export type StaticWorkerEndpoint = z.infer<typeof StaticWorkerEndpointSchema>
 
+export const StaticWorkerEndpointsSchema = z
+  .tuple([StaticWorkerEndpointSchema, StaticWorkerEndpointSchema])
+  .readonly()
+
 export const StaticWorkerConfigSchema = z
   .object({
-    workers: z.tuple([StaticWorkerEndpointSchema, StaticWorkerEndpointSchema]).readonly(),
+    workers: StaticWorkerEndpointsSchema,
   })
   .strict()
   .superRefine(({ workers }, context) => {
     if (new Set(workers.map(({ workerId }) => workerId)).size !== STATIC_WORKER_COUNT) {
       context.addIssue({ code: z.ZodIssueCode.custom, message: "worker ids must be distinct" })
+    }
+    if (new Set(workers.map(({ origin }) => origin)).size !== STATIC_WORKER_COUNT) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "worker origins must be distinct" })
     }
     for (const [index, worker] of workers.entries()) {
       const expected = STATIC_WORKER_ENDPOINTS.find(

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import {
   AllocationIdSchema,
   EventLedger,
+  GatewayEventType,
   ReconcileOutcome,
   WorkerHttpAdapter,
   WorkerProtocolError,
@@ -11,7 +12,7 @@ import {
   WorkerTransportReason,
 } from "../src/index.js"
 import { LocalWorkerFake, localWorkerProvider } from "./http-worker-fake.js"
-import { FakeClock, publicSessionId, upstreamSessionId } from "./test-support.js"
+import { FakeClock, instanceId, publicSessionId, upstreamSessionId } from "./test-support.js"
 
 const openWorkers: LocalWorkerFake[] = []
 
@@ -79,6 +80,27 @@ describe("WorkerReconciler HTTP integration", () => {
 
     expect(registry.snapshot()).toEqual(before)
     expect(ledger.readAfter()).toHaveLength(eventCount)
+    await adapter.close()
+  })
+
+  it("retires the old generation when a static endpoint restarts in place", async () => {
+    const first = new LocalWorkerFake({ workerSequence: 0, instanceSequence: 1 })
+    const second = new LocalWorkerFake({ workerSequence: 1, instanceSequence: 1 })
+    openWorkers.push(first, second)
+    const provider = await localWorkerProvider(first, second)
+    const clock = new FakeClock()
+    const ledger = new EventLedger({ clock })
+    const registry = new WorkerRegistry({ clock, ledger })
+    const adapter = new WorkerHttpAdapter({ timeoutMilliseconds: 1_000, maxResponseBytes: 8_192 })
+    const reconciler = new WorkerReconciler({ provider, client: adapter, registry })
+
+    await reconciler.run(new AbortController().signal)
+    first.restart(2)
+    await reconciler.run(new AbortController().signal)
+
+    const replacement = registry.workers().find(({ workerId }) => workerId === first.workerId)
+    expect(replacement?.instanceId).toBe(instanceId(2))
+    expect(ledger.readAfter().some(({ type }) => type === GatewayEventType.WORKER_REPLACED)).toBe(true)
     await adapter.close()
   })
 })

@@ -4,6 +4,7 @@ import {
   WorkerHttpAdapter,
   WorkerHttpStatusError,
   WorkerIdentityMismatchError,
+  WorkerProtocolError,
   WorkerRemoteState,
   WorkerTransportError,
   WorkerTransportReason,
@@ -101,6 +102,44 @@ describe("WorkerHttpAdapter integration", () => {
     await adapter.close()
   })
 
+  it("rejects a late old-generation mutation response after same-endpoint restart", async () => {
+    let openCreateGate: (() => void) | undefined
+    let signalCreateStarted: (() => void) | undefined
+    const createGate = new Promise<void>((resolve) => {
+      openCreateGate = resolve
+    })
+    const createStarted = new Promise<void>((resolve) => {
+      signalCreateStarted = resolve
+    })
+    const fake = new LocalWorkerFake({
+      workerSequence: 0,
+      instanceSequence: 1,
+      gatedCreateSequence: 1,
+      createResponseGate: createGate,
+      onGatedCreate: () => signalCreateStarted?.(),
+    })
+    openWorkers.push(fake)
+    const endpoint = StaticWorkerEndpointSchema.parse({
+      workerId: fake.workerId,
+      origin: await fake.listen(),
+    })
+    const adapter = new WorkerHttpAdapter({ timeoutMilliseconds: 1_000, maxResponseBytes: 8_192 })
+    const probe = await adapter.probe(endpoint, new AbortController().signal)
+    const create = adapter.create(
+      probe.worker,
+      { publicSessionId: publicSessionId(1) },
+      new AbortController().signal,
+    )
+
+    await createStarted
+    fake.restart(2)
+    openCreateGate?.()
+
+    await expect(create).rejects.toBeInstanceOf(WorkerIdentityMismatchError)
+    expect(fake.createRequestCount).toBe(1)
+    await adapter.close()
+  })
+
   it("returns a typed status error for a worker 503", async () => {
     // Given
     const fake = new LocalWorkerFake({ workerSequence: 0, instanceSequence: 1, createStatus: 503 })
@@ -182,6 +221,67 @@ describe("WorkerHttpAdapter integration", () => {
 
     // Then
     await expect(probe).rejects.toBeInstanceOf(WorkerIdentityMismatchError)
+    await adapter.close()
+  })
+
+  it.each([
+    { name: "worker", options: { omitWorkerHeader: true } },
+    { name: "instance", options: { omitInstanceHeader: true } },
+  ])("rejects metadata with a missing $name identity header", async ({ options }) => {
+    const fake = new LocalWorkerFake({
+      workerSequence: 0,
+      instanceSequence: 1,
+      ...options,
+    })
+    openWorkers.push(fake)
+    const endpoint = StaticWorkerEndpointSchema.parse({
+      workerId: fake.workerId,
+      origin: await fake.listen(),
+    })
+    const adapter = new WorkerHttpAdapter({ timeoutMilliseconds: 1_000, maxResponseBytes: 8_192 })
+
+    await expect(adapter.probe(endpoint, new AbortController().signal)).rejects.toThrow(
+      "worker response instance header missing",
+    )
+    await adapter.close()
+  })
+
+  it("keeps a bounded HTTP 503 typed after validating metadata identity", async () => {
+    const fake = new LocalWorkerFake({
+      workerSequence: 0,
+      instanceSequence: 1,
+      metadataStatus: 503,
+    })
+    openWorkers.push(fake)
+    const endpoint = StaticWorkerEndpointSchema.parse({
+      workerId: fake.workerId,
+      origin: await fake.listen(),
+    })
+    const adapter = new WorkerHttpAdapter({ timeoutMilliseconds: 1_000, maxResponseBytes: 8_192 })
+
+    await expect(adapter.probe(endpoint, new AbortController().signal)).rejects.toBeInstanceOf(
+      WorkerHttpStatusError,
+    )
+    await adapter.close()
+  })
+
+  it("rejects malformed metadata even when the worker reports 503", async () => {
+    const fake = new LocalWorkerFake({
+      workerSequence: 0,
+      instanceSequence: 1,
+      metadataStatus: 503,
+      malformedMetadata: true,
+    })
+    openWorkers.push(fake)
+    const endpoint = StaticWorkerEndpointSchema.parse({
+      workerId: fake.workerId,
+      origin: await fake.listen(),
+    })
+    const adapter = new WorkerHttpAdapter({ timeoutMilliseconds: 1_000, maxResponseBytes: 8_192 })
+
+    await expect(adapter.probe(endpoint, new AbortController().signal)).rejects.toBeInstanceOf(
+      WorkerProtocolError,
+    )
     await adapter.close()
   })
 

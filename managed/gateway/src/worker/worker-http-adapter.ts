@@ -22,7 +22,11 @@ import {
   type WorkerDescriptor,
 } from "../registry/registry-model.js"
 import type { StaticWorkerEndpoint } from "./static-worker-provider.js"
-import { BoundedJsonClient, type BoundedJsonClientOptions } from "./bounded-json-client.js"
+import {
+  assertWorkerIdentityHeaders,
+  BoundedJsonClient,
+  type BoundedJsonClientOptions,
+} from "./bounded-json-client.js"
 import {
   UpstreamCreateRequestSchema,
   UpstreamReleaseResponseSchema,
@@ -30,7 +34,6 @@ import {
   UpstreamSessionState,
   WorkerBootStatus,
   WorkerActiveSessionResponseSchema,
-  WorkerHeader,
   WorkerMetaResponseSchema,
   WorkerPath,
   type WorkerCreateCommand,
@@ -75,6 +78,7 @@ export class WorkerHttpAdapter implements WorkerHttpClient {
     const wireRequest = UpstreamCreateRequestSchema.parse({ sessionId: command.publicSessionId })
     const response = await this.client.send({
       workerId: worker.workerId,
+      identity: worker,
       url: new URL(WorkerPath.SESSIONS, worker.origin),
       method: HTTP_METHOD.POST,
       schema: UpstreamSessionResponseSchema,
@@ -103,6 +107,7 @@ export class WorkerHttpAdapter implements WorkerHttpClient {
     await this.requireMutationPreflight(worker, signal, WorkerMutation.RELEASE)
     const response = await this.client.send({
       workerId: worker.workerId,
+      identity: worker,
       url: new URL(
         `${WorkerPath.SESSIONS}/${encodeURIComponent(upstreamSessionId)}/release`,
         worker.origin,
@@ -131,10 +136,20 @@ export class WorkerHttpAdapter implements WorkerHttpClient {
   ): Promise<WorkerProbe["worker"]> {
     const response = await this.client.send({
       workerId: endpoint.workerId,
+      identity: { workerId: endpoint.workerId },
       url: new URL(WorkerPath.META, endpoint.origin),
       method: HTTP_METHOD.GET,
       schema: WorkerMetaResponseSchema,
       signal,
+      validateErrorResponse: (body, headers) => {
+        const parsed = WorkerMetaResponseSchema.safeParse(body)
+        if (!parsed.success) {
+          throw new WorkerProtocolError(endpoint.workerId, "worker metadata response mismatched", {
+            cause: parsed.error,
+          })
+        }
+        this.requireWireIdentity(parsed.data, headers, endpoint.workerId)
+      },
     })
     const metadata = response.body
     this.requireWireIdentity(metadata, response.headers, endpoint.workerId)
@@ -188,6 +203,7 @@ export class WorkerHttpAdapter implements WorkerHttpClient {
   ): Promise<WorkerListResult> {
     const response = await this.client.send({
       workerId: worker.workerId,
+      identity: worker,
       url: new URL(WorkerPath.ACTIVE_SESSION, worker.origin),
       method: HTTP_METHOD.GET,
       schema: WorkerActiveSessionResponseSchema,
@@ -224,12 +240,7 @@ export class WorkerHttpAdapter implements WorkerHttpClient {
     headers: Readonly<Record<string, string | readonly string[] | undefined>>,
     expected: WireIdentity,
   ): void {
-    if (
-      headers[WorkerHeader.WORKER_ID] !== expected.workerId ||
-      headers[WorkerHeader.INSTANCE_ID] !== expected.instanceId
-    ) {
-      throw new WorkerIdentityMismatchError(expected.workerId, expected.instanceId)
-    }
+    assertWorkerIdentityHeaders(headers, expected)
   }
 
   private recoverableSession(publicSessionId: PublicSessionId): RecoverableSession {
