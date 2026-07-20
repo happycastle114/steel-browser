@@ -27,3 +27,35 @@ test("workflow verifier rejects automatic merge", async () => {
     /automatic merge is forbidden/,
   )
 })
+
+test("workflow verifier rejects candidate publication without an exact committed bundle", async () => {
+  const workflow = await readFile(workflowPath, "utf8")
+  assert.throws(
+    () => verifyWorkflowText(workflow.replace(/git bundle create [^\n]+\n/u, "")),
+    /candidate bundle must be created from the verified commit/,
+  )
+})
+
+test("workflow verifier rejects workflow self-modification in the generated allowlist", async () => {
+  const workflow = await readFile(workflowPath, "utf8")
+  assert.throws(
+    () => verifyWorkflowText(workflow.replace("git add -- managed/upstream.lock.json", "git add -- .github/workflows/upstream-sync.yml")),
+    /workflow file may not be part of generated candidate changes/,
+  )
+})
+
+test("workflow verifier rejects a write permission on the candidate job", async () => {
+  const workflow = await readFile(workflowPath, "utf8")
+  assert.throws(
+    () => verifyWorkflowText(workflow.replace("      contents: read", "      contents: write")),
+    /candidate job must use read-only contents permission/,
+  )
+})
+
+test("workflow verifier rejects unused guard definitions with no candidate call sites", async () => {
+  const workflow = await readFile(workflowPath, "utf8")
+  assert.throws(
+    () => verifyWorkflowText(workflow.replace(/^          verify_upstream_delta\s*$/gmu, "")),
+    /candidate must guard upstream-owned paths before and after merge/,
+  )
+})

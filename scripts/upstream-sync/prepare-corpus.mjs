@@ -6,23 +6,22 @@ import { fileURLToPath } from "node:url"
 const LOCK_PATH = path.join("managed", "upstream.lock.json")
 const CORPUS_ROOT = path.join("managed", "tests", "upstream")
 const RECEIPT_SOURCE_PATH = path.join("managed", "shared", "src", "upstream-observed-receipt.ts")
+const FINAL_LOCK_FIELDS_FILE = "final-lock-fields.json"
+const CORPUS_FILES = [
+  "manifest.json",
+  "observed-receipt.json",
+  "rest.ndjson",
+  "route-matrix.json",
+  "session-id-verdict.json",
+  "websocket.ndjson",
+]
 const UPSTREAM_SHA_PATTERN = /^[0-9a-f]{40}$/u
+const DIGEST_PATTERN = /^[0-9a-f]{64}$/u
 
 function assertUpstreamSha(value) {
   if (!UPSTREAM_SHA_PATTERN.test(value)) {
     throw new Error(`upstream SHA must be 40 lowercase hexadecimal characters: ${String(value)}`)
   }
-}
-
-function rewriteUpstreamSha(value, upstreamSha) {
-  if (Array.isArray(value)) return value.map((entry) => rewriteUpstreamSha(entry, upstreamSha))
-  if (value === null || typeof value !== "object") return value
-
-  const rewritten = {}
-  for (const [key, entry] of Object.entries(value)) {
-    rewritten[key] = key === "upstreamSha" ? upstreamSha : rewriteUpstreamSha(entry, upstreamSha)
-  }
-  return rewritten
 }
 
 export function sha256(text) {
@@ -43,48 +42,65 @@ async function pathExists(filePath) {
   }
 }
 
-async function rewriteCorpusFiles(directory, upstreamSha) {
-  const paths = {
-    manifest: path.join(directory, "manifest.json"),
-    observedReceipt: path.join(directory, "observed-receipt.json"),
-    routeMatrix: path.join(directory, "route-matrix.json"),
-    sessionIdVerdict: path.join(directory, "session-id-verdict.json"),
+function requireObservationSha(value, expectedSha, artifact) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || value.upstreamSha !== expectedSha) {
+    throw new Error(`observed ${artifact} is not pinned to the requested upstream SHA`)
   }
-  const manifest = rewriteUpstreamSha(JSON.parse(await readFile(paths.manifest, "utf8")), upstreamSha)
-  const observedReceipt = rewriteUpstreamSha(JSON.parse(await readFile(paths.observedReceipt, "utf8")), upstreamSha)
-  const routeMatrix = rewriteUpstreamSha(JSON.parse(await readFile(paths.routeMatrix, "utf8")), upstreamSha)
-  const sessionIdVerdict = rewriteUpstreamSha(JSON.parse(await readFile(paths.sessionIdVerdict, "utf8")), upstreamSha)
-  const routeMatrixText = renderJson(routeMatrix)
-  const sessionIdVerdictText = renderJson(sessionIdVerdict)
+}
 
-  if (Array.isArray(manifest.artifacts)) {
-    manifest.artifacts = manifest.artifacts.map((artifact) => {
-      if (artifact.path === "route-matrix.json") return { ...artifact, sha256: sha256(routeMatrixText) }
-      if (artifact.path === "session-id-verdict.json") return { ...artifact, sha256: sha256(sessionIdVerdictText) }
-      return artifact
-    })
+async function validateObservedCorpus(directory, upstreamSha) {
+  const texts = new Map()
+  for (const fileName of CORPUS_FILES) {
+    const filePath = path.join(directory, fileName)
+    if (!(await pathExists(filePath))) throw new Error(`observed corpus artifact is missing: ${fileName}`)
+    texts.set(fileName, await readFile(filePath, "utf8"))
   }
-  if ("routeMatrixSha256" in observedReceipt) observedReceipt.routeMatrixSha256 = sha256(routeMatrixText)
-  if ("sessionIdVerdictSha256" in observedReceipt) observedReceipt.sessionIdVerdictSha256 = sha256(sessionIdVerdictText)
 
-  await Promise.all([
-    writeFile(paths.routeMatrix, routeMatrixText, "utf8"),
-    writeFile(paths.sessionIdVerdict, sessionIdVerdictText, "utf8"),
-    writeFile(paths.observedReceipt, renderJson(observedReceipt), "utf8"),
-  ])
-  const manifestText = renderJson(manifest)
-  await writeFile(paths.manifest, manifestText, "utf8")
+  requireObservationSha(JSON.parse(texts.get("manifest.json")), upstreamSha, "manifest")
+  requireObservationSha(JSON.parse(texts.get("observed-receipt.json")), upstreamSha, "receipt")
+  requireObservationSha(JSON.parse(texts.get("route-matrix.json")), upstreamSha, "route matrix")
+  requireObservationSha(JSON.parse(texts.get("session-id-verdict.json")), upstreamSha, "session verdict")
+  return texts
+}
+
+async function readFinalLockFields(directory) {
+  const filePath = path.join(directory, FINAL_LOCK_FIELDS_FILE)
+  if (!(await pathExists(filePath))) {
+    throw new Error(`FINAL lock requires an observed ${FINAL_LOCK_FIELDS_FILE} artifact`)
+  }
+  const fields = JSON.parse(await readFile(filePath, "utf8"))
+  for (const field of ["browserRuntimeContractSha256", "licenseManifestSha256", "scopeManifestSha256"]) {
+    if (typeof fields[field] !== "string" || !DIGEST_PATTERN.test(fields[field])) {
+      throw new Error(`FINAL lock field is missing or invalid: ${field}`)
+    }
+  }
   return {
-    manifestText,
-    observedReceiptText: await readFile(paths.observedReceipt, "utf8"),
-    sessionIdVerdictText,
+    browserRuntimeContractSha256: fields.browserRuntimeContractSha256,
+    licenseManifestSha256: fields.licenseManifestSha256,
+    scopeManifestSha256: fields.scopeManifestSha256,
   }
+}
+
+async function copyObservedCorpus({ sourceDirectory, destinationDirectory, observedTexts }) {
+  if (await pathExists(destinationDirectory)) {
+    const existingTexts = await validateObservedCorpus(destinationDirectory, JSON.parse(observedTexts.get("manifest.json")).upstreamSha)
+    for (const fileName of CORPUS_FILES) {
+      if (existingTexts.get(fileName) !== observedTexts.get(fileName)) {
+        throw new Error(`destination corpus already exists with different bytes: ${fileName}`)
+      }
+    }
+    return false
+  }
+  await mkdir(path.dirname(destinationDirectory), { recursive: true })
+  await cp(sourceDirectory, destinationDirectory, { recursive: true, errorOnExist: true })
+  return true
 }
 
 async function updateReceiptSourceAnchor(repositoryRoot, upstreamSha, receiptText) {
   const sourcePath = path.join(repositoryRoot, RECEIPT_SOURCE_PATH)
   const source = await readFile(sourcePath, "utf8")
   const receiptDigest = sha256(receiptText)
+  if (!DIGEST_PATTERN.test(receiptDigest)) throw new Error("observed receipt digest could not be computed")
   const existingEntry = source.match(new RegExp(`\\["${upstreamSha}",\\s*"([0-9a-f]{64})"\\]`, "u"))
   if (existingEntry !== null) {
     if (existingEntry[1] !== receiptDigest) throw new Error(`source-pinned receipt digest drift: ${upstreamSha}`)
@@ -99,56 +115,63 @@ async function updateReceiptSourceAnchor(repositoryRoot, upstreamSha, receiptTex
 }
 
 /**
- * Copy the already observed corpus to a new immutable upstream-SHA directory.
- * The sync workflow calls this only after the old corpus verifies against the
- * merged source, proving that the pinned route sources remain byte-compatible.
+ * Install a corpus captured against the exact requested upstream runtime.
+ *
+ * This function deliberately does not copy, rewrite, or re-anchor an older
+ * observation. A caller must provide an independently captured directory whose
+ * four JSON artifacts already carry the requested upstream SHA. FINAL locks
+ * additionally require the captured browser/license/scope digest artifact.
  */
-export async function prepareCorpus({ repositoryRoot, upstreamSha }) {
+export async function prepareCorpus({ repositoryRoot, upstreamSha, observedCorpusDirectory }) {
   assertUpstreamSha(upstreamSha)
+  if (observedCorpusDirectory === undefined) {
+    throw new Error("legitimate observed corpus directory is required; refusing to carry forward an old receipt")
+  }
   const root = path.resolve(repositoryRoot)
+  const observedRoot = path.resolve(observedCorpusDirectory)
   const lockPath = path.join(root, LOCK_PATH)
   const lock = JSON.parse(await readFile(lockPath, "utf8"))
   const previousUpstreamSha = lock.upstreamSha
   assertUpstreamSha(previousUpstreamSha)
-
-  if (previousUpstreamSha === upstreamSha) {
-    return { changed: false, previousUpstreamSha, upstreamSha }
-  }
-
-  const sourceDirectory = path.join(root, CORPUS_ROOT, previousUpstreamSha)
+  const observedTexts = await validateObservedCorpus(observedRoot, upstreamSha)
+  const finalLockFields = lock.lockStage === "FINAL" ? await readFinalLockFields(observedRoot) : {}
   const destinationDirectory = path.join(root, CORPUS_ROOT, upstreamSha)
-  if (!(await pathExists(sourceDirectory))) {
-    throw new Error(`locked corpus directory is missing: ${path.relative(root, sourceDirectory)}`)
+  const changed = await copyObservedCorpus({
+    sourceDirectory: observedRoot,
+    destinationDirectory,
+    observedTexts,
+  })
+  const receiptChanged = await updateReceiptSourceAnchor(root, upstreamSha, observedTexts.get("observed-receipt.json"))
+  const manifestText = observedTexts.get("manifest.json")
+  const sessionIdVerdictText = observedTexts.get("session-id-verdict.json")
+  const nextLock = {
+    ...lock,
+    ...finalLockFields,
+    upstreamSha,
+    protocolCorpusSha256: sha256(manifestText),
+    sessionIdVerdictSha256: sha256(sessionIdVerdictText),
   }
-  if (await pathExists(destinationDirectory)) {
-    throw new Error(`destination corpus already exists: ${path.relative(root, destinationDirectory)}`)
+  await writeFile(lockPath, renderJson(nextLock), "utf8")
+  return {
+    changed: changed || receiptChanged || previousUpstreamSha !== upstreamSha,
+    previousUpstreamSha,
+    upstreamSha,
+    receiptChanged,
   }
-
-  await mkdir(path.dirname(destinationDirectory), { recursive: true })
-  await cp(sourceDirectory, destinationDirectory, { recursive: true, errorOnExist: true })
-  const { manifestText, observedReceiptText, sessionIdVerdictText } = await rewriteCorpusFiles(destinationDirectory, upstreamSha)
-  await updateReceiptSourceAnchor(root, upstreamSha, observedReceiptText)
-  await writeFile(
-    lockPath,
-    renderJson({
-      ...lock,
-      upstreamSha,
-      protocolCorpusSha256: sha256(manifestText),
-      sessionIdVerdictSha256: sha256(sessionIdVerdictText),
-    }),
-    "utf8",
-  )
-  return { changed: true, previousUpstreamSha, upstreamSha }
 }
 
 async function main() {
   const args = process.argv.slice(2)
   const repositoryRootIndex = args.indexOf("--repository-root")
   const upstreamShaIndex = args.indexOf("--upstream-sha")
+  const observedDirectoryIndex = args.indexOf("--observed-corpus-directory")
   const repositoryRoot = repositoryRootIndex === -1 ? process.cwd() : args[repositoryRootIndex + 1]
   const upstreamSha = upstreamShaIndex === -1 ? undefined : args[upstreamShaIndex + 1]
-  if (upstreamSha === undefined) throw new Error("usage: prepare-corpus.mjs [--repository-root <path>] --upstream-sha <sha>")
-  const result = await prepareCorpus({ repositoryRoot, upstreamSha })
+  const observedCorpusDirectory = observedDirectoryIndex === -1 ? undefined : args[observedDirectoryIndex + 1]
+  if (upstreamSha === undefined || observedCorpusDirectory === undefined) {
+    throw new Error("usage: prepare-corpus.mjs [--repository-root <path>] --upstream-sha <sha> --observed-corpus-directory <path>")
+  }
+  const result = await prepareCorpus({ repositoryRoot, upstreamSha, observedCorpusDirectory })
   console.log(`UPSTREAM_CORPUS_PREPARED ${JSON.stringify(result)}`)
 }
 

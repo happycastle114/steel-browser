@@ -3,28 +3,29 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 const ACTION_SHA_PATTERN = /^[0-9a-f]{40}$/u
-const REQUIRED_PERMISSIONS = new Map([
-  ["contents", "write"],
-  ["pull-requests", "write"],
-])
 
 function requireMatch(workflow, pattern, detail) {
   if (!pattern.test(workflow)) throw new Error(detail)
 }
 
+function extractJob(workflow, jobName) {
+  const jobPattern = new RegExp(`^  ${jobName}:\\n([\\s\\S]*?)(?=^  [a-z][a-z0-9-]*:\\n|(?![\\s\\S]))`, "mu")
+  const match = workflow.match(jobPattern)
+  if (match === null) throw new Error(`${jobName} job is missing`)
+  return match[1]
+}
+
 function verifyPermissions(workflow) {
-  const match = workflow.match(/(?:^|\n)permissions:\n((?: {2}[a-z-]+:\s*(?:read|write|none)\s*\n)+)/u)
-  if (match === null) throw new Error("workflow permissions block is missing")
-  const entries = new Map()
-  for (const line of match[1].trimEnd().split("\n")) {
-    const [, key, value] = line.match(/^\s{2}([a-z-]+):\s*(read|write|none)\s*$/u) ?? []
-    if (key === undefined || value === undefined) throw new Error(`invalid workflow permission line: ${line}`)
-    entries.set(key, value)
+  requireMatch(workflow, /^permissions:\s*\{\}\s*$/mu, "workflow default permissions must be read-only")
+  const candidate = extractJob(workflow, "candidate")
+  requireMatch(candidate, /^    permissions:\n      contents:\s*read\s*$/mu, "candidate job must use read-only contents permission")
+  if (/^      (?:pull-requests|actions|contents):\s*write\s*$/mu.test(candidate)) {
+    throw new Error("candidate job must use read-only contents permission")
   }
-  if (entries.size !== REQUIRED_PERMISSIONS.size) throw new Error("workflow permissions are broader than the sync contract")
-  for (const [key, value] of REQUIRED_PERMISSIONS) {
-    if (entries.get(key) !== value) throw new Error(`workflow permission drift: ${key}`)
-  }
+  const publisher = extractJob(workflow, "publish")
+  requireMatch(publisher, /^    permissions:\n      contents:\s*write\n      pull-requests:\s*write\s*$/mu, "publisher job must own the narrow write permissions")
+  const blockedReport = extractJob(workflow, "report-blocked")
+  requireMatch(blockedReport, /^    permissions:\n      contents:\s*read\n      issues:\s*write\s*$/mu, "blocked report job must own only issue write permission")
 }
 
 function verifyActions(workflow) {
@@ -37,9 +38,28 @@ function verifyActions(workflow) {
   }
 }
 
+function verifyCandidateOrdering(workflow) {
+  const candidate = extractJob(workflow, "candidate")
+  const guardCalls = [...candidate.matchAll(/^          verify_upstream_delta\s*$/gmu)].map((match) => match.index)
+  if (guardCalls.length < 2) throw new Error("candidate must guard upstream-owned paths before and after merge")
+  const mergeIndex = candidate.indexOf("git merge --no-edit --no-ff")
+  const installIndex = candidate.indexOf("npm ci")
+  const credentialClearIndex = candidate.indexOf("unset READ_TOKEN GITHUB_TOKEN GH_TOKEN PUBLISH_TOKEN ACTIONS_RUNTIME_TOKEN")
+  if (mergeIndex === -1 || installIndex === -1 || credentialClearIndex === -1 || guardCalls[0] > mergeIndex || credentialClearIndex > installIndex || guardCalls[1] > installIndex) {
+    throw new Error("candidate fork-owned-path guard must run before candidate install")
+  }
+  const prepareIndex = candidate.indexOf("prepare-corpus.mjs")
+  const generatedGuardIndex = candidate.indexOf("verify_generated_worktree")
+  const commitIndex = candidate.indexOf('git commit -m "ci(managed): record observed upstream corpus ${SOURCE_SHA}"')
+  if (prepareIndex === -1 || generatedGuardIndex === -1 || commitIndex === -1 || prepareIndex > generatedGuardIndex || generatedGuardIndex > commitIndex) {
+    throw new Error("generated candidate changes must be guarded and committed in order")
+  }
+}
+
 export function verifyWorkflowText(workflow) {
   verifyPermissions(workflow)
   verifyActions(workflow)
+  verifyCandidateOrdering(workflow)
   requireMatch(workflow, /^on:\n(?=[\s\S]*^  schedule:\n)(?=[\s\S]*^  workflow_dispatch:\s*$)/mu, "workflow must expose weekly schedule and workflow_dispatch")
   requireMatch(workflow, /^\s*-?\s*cron:\s*['"]\S+\s+\S+\s+\S+\s+\S+\s+\S+['"]\s*$/mu, "workflow schedule must use a five-field cron")
   requireMatch(workflow, /^concurrency:\n\s+group:\s+steel-managed-upstream-sync\n\s+cancel-in-progress:\s+false\s*$/mu, "workflow concurrency must serialize runs")
@@ -47,23 +67,41 @@ export function verifyWorkflowText(workflow) {
   requireMatch(workflow, /git ls-remote --symref .*UPSTREAM_URL.* HEAD/u, "upstream default branch must be resolved from the canonical remote")
   requireMatch(workflow, /git fetch --no-tags upstream "\$\{UPSTREAM_DEFAULT_BRANCH\}"/u, "upstream default branch must be fetched without tags")
   requireMatch(workflow, /git merge --no-edit --no-ff/u, "candidate must merge upstream without rebase")
-  requireMatch(workflow, /refs\/heads\/upstream-main/u, "upstream-main mirror ref is missing")
+  requireMatch(workflow, /MIRROR_BRANCH:\s*main/u, "protected main mirror is missing")
+  if (/upstream-main/u.test(workflow)) throw new Error("unprotected upstream-main mirror is forbidden")
   requireMatch(workflow, /SYNC_BRANCH="upstream-sync\/\$\{SOURCE_SHA\}"/u, "sync branch must include exact source SHA")
   requireMatch(workflow, /Source SHA:\s+\\?`\$\{SOURCE_SHA\}\\?`/u, "PR body must include exact source SHA")
   requireMatch(workflow, /--head "\$\{GITHUB_REPOSITORY_OWNER\}:\$\{SYNC_BRANCH\}"/u, "PR head must be fork-qualified")
-  requireMatch(workflow, /--base managed/u, "PR base must be protected managed")
+  requireMatch(workflow, /--base "\$\{MANAGED_BRANCH\}"/u, "PR base must be protected managed")
   requireMatch(workflow, /gh pr (?:create|edit)/u, "workflow must create or update a reviewed PR")
   requireMatch(workflow, /npm run verify:upstream-corpus/u, "corpus compatibility check is missing")
   requireMatch(workflow, /npm run check:managed/u, "managed check is missing")
   requireMatch(workflow, /npm run test\b/u, "root test is missing")
   requireMatch(workflow, /npm run build\b/u, "root build is missing")
   requireMatch(workflow, /npm ci/u, "candidate dependencies must be installed from the lockfile")
+  requireMatch(workflow, /unset READ_TOKEN GITHUB_TOKEN GH_TOKEN PUBLISH_TOKEN ACTIONS_RUNTIME_TOKEN/u, "candidate credentials must be cleared before untrusted code runs")
   requireMatch(workflow, /managed\/shared\/src\/upstream-observed-receipt\.ts/u, "source-pinned receipt update allowlist is missing")
-  requireMatch(workflow, /verify_managed_layer_unchanged/u, "managed layer preservation guard is missing")
-  requireMatch(workflow, /\.github\/CODEOWNERS|\.github\/rulesets/u, "protected review policy guard is missing")
-  requireMatch(workflow, /verify-license\.mjs/u, "license check is missing")
-  requireMatch(workflow, /node --test scripts\/upstream-sync\/\*\.test\.mjs/u, "workflow contract tests are missing")
-  requireMatch(workflow, /set -euo pipefail/u, "shell steps must fail closed")
+  requireMatch(workflow, /--observed-corpus-directory/u, "corpus preparation must use a captured observation")
+  requireMatch(workflow, /classify-upstream\.mjs/u, "upstream API/browser/license/migration classification is missing")
+  requireMatch(workflow, /blockedReasons/u, "blocked classification reasons must be published")
+  if (/git add --[^\n]*\.github\/workflows\/upstream-sync\.yml/u.test(workflow)) {
+    throw new Error("workflow file may not be part of generated candidate changes")
+  }
+  requireMatch(workflow, /git add -- managed\/upstream\.lock\.json "managed\/tests\/upstream\/\$\{SOURCE_SHA\}" managed\/shared\/src\/upstream-observed-receipt\.ts/u, "generated candidate paths must be explicitly staged")
+  requireMatch(workflow, /git commit -m "ci\(managed\): record observed upstream corpus \$\{SOURCE_SHA\}"/u, "generated candidate changes must be committed")
+  requireMatch(workflow, /git diff-tree --no-commit-id --name-only -r HEAD/u, "committed generated tree must be inspected")
+  requireMatch(workflow, /git bundle create [^\n]*candidate\.bundle/u, "candidate bundle must be created from the verified commit")
+  requireMatch(workflow, /git bundle verify/u, "publisher must verify the candidate bundle")
+  requireMatch(workflow, /refs\/remotes\/upstream\/\$\{UPSTREAM_DEFAULT_BRANCH\}.*META_SOURCE_SHA/u, "publisher must re-read the exact upstream source SHA")
+  requireMatch(workflow, /EXISTING_COMMIT EXISTING_PARENT EXISTING_EXTRA/u, "existing candidate refs must have exact one-commit provenance")
+  requireMatch(workflow, /META_BRANCH.*\^upstream-sync\/\[0-9a-f\]\{40\}\$/u, "publisher must validate the content-addressed candidate branch")
+  requireMatch(workflow, /persist-credentials:\s*false/u, "checkout credentials must not persist")
+  requireMatch(workflow, /git -c "http\.extraheader=AUTHORIZATION: bearer \$\{PUBLISH_TOKEN\}" push origin "\$\{SOURCE_SHA\}:refs\/heads\/\$\{MIRROR_BRANCH\}"/u, "mirror push must be fast-forward-only")
+  requireMatch(workflow, /managed\/tests\/upstream\/\$\{SOURCE_SHA\}\/\*/u, "candidate corpus path must be source-SHA scoped")
+  requireMatch(workflow, /\.github\/workflows\/upstream-sync\.yml/u, "workflow self-modification guard is missing")
+  if (/managed\/upstream\.lock\.json\|managed\/shared\/src\/upstream-observed-receipt\.ts\|\.github\/workflows\/upstream-sync\.yml/u.test(workflow)) {
+    throw new Error("workflow file may not be part of generated candidate changes")
+  }
   if (/\bgit\s+rebase\b/u.test(workflow) || /\bgit\s+(?:push|fetch|merge)[^\n]*--force\b/u.test(workflow)) {
     throw new Error("force push/rebase is forbidden")
   }
@@ -75,6 +113,9 @@ export function verifyWorkflowText(workflow) {
   }
   if (/git\s+push[^\n]*refs\/heads\/managed\b/u.test(workflow)) {
     throw new Error("workflow may not push protected managed")
+  }
+  if (/git\s+fetch[^\n]*\|\|\s*true/u.test(workflow)) {
+    throw new Error("remote fetch failures may not be treated as missing refs")
   }
   return { status: "VERIFIED" }
 }
