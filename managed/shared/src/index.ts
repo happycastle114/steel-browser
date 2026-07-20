@@ -1,4 +1,5 @@
 export * from "./bootstrap-policy.js"
+export * from "./managed-overlay.js"
 export * from "./repository-ruleset.js"
 export * from "./upstream-corpus-files.js"
 export * from "./upstream-corpus-model.js"
