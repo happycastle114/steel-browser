@@ -1,0 +1,206 @@
+name: Reviewed upstream sync
+
+on:
+  schedule:
+    - cron: "17 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: steel-managed-upstream-sync
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPOSITORY: steel-dev/steel-browser
+  UPSTREAM_URL: https://github.com/steel-dev/steel-browser.git
+  MIRROR_BRANCH: upstream-main
+  MANAGED_BRANCH: managed
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out protected managed baseline
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: managed
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.23.1
+          cache: npm
+
+      - name: Verify sync automation contract
+        run: |
+          set -euo pipefail
+          node scripts/upstream-sync/verify-workflow.mjs
+          node --test scripts/upstream-sync/*.test.mjs
+          node scripts/upstream-sync/verify-license.mjs
+
+      - name: Prepare and verify immutable upstream candidate
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REPOSITORY}" == "${UPSTREAM_REPOSITORY}" ]]; then
+            echo "canonical upstream repository is not a writable fork" >&2
+            exit 1
+          fi
+          if [[ -z "${GITHUB_REPOSITORY_OWNER}" || -z "${GITHUB_REPOSITORY}" ]]; then
+            echo "fork repository identity is missing" >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "${UPSTREAM_URL}"
+          UPSTREAM_DEFAULT_BRANCH="$(git ls-remote --symref "${UPSTREAM_URL}" HEAD | awk '$1 == "ref:" && $2 ~ /^refs\/heads\// {sub(/^refs\/heads\//, "", $2); print $2; exit}')"
+          if [[ -z "${UPSTREAM_DEFAULT_BRANCH}" || ! "${UPSTREAM_DEFAULT_BRANCH}" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "canonical upstream default branch could not be resolved safely" >&2
+            exit 1
+          fi
+          git fetch --no-tags upstream "${UPSTREAM_DEFAULT_BRANCH}"
+          git fetch --no-tags origin "${MANAGED_BRANCH}"
+          if ! git fetch --no-tags origin "${MIRROR_BRANCH}"; then
+            true
+          fi
+
+          SOURCE_SHA="$(git rev-parse "refs/remotes/upstream/${UPSTREAM_DEFAULT_BRANCH}")"
+          MANAGED_SHA="$(git rev-parse "refs/remotes/origin/${MANAGED_BRANCH}")"
+          SYNC_BRANCH="upstream-sync/${SOURCE_SHA}"
+          echo "UPSTREAM_DEFAULT_BRANCH=${UPSTREAM_DEFAULT_BRANCH}" >> "${GITHUB_ENV}"
+          echo "SOURCE_SHA=${SOURCE_SHA}" >> "${GITHUB_ENV}"
+          echo "MANAGED_SHA=${MANAGED_SHA}" >> "${GITHUB_ENV}"
+          echo "SYNC_BRANCH=${SYNC_BRANCH}" >> "${GITHUB_ENV}"
+
+          run_candidate_checks() {
+            node scripts/upstream-sync/verify-workflow.mjs
+            node --test scripts/upstream-sync/*.test.mjs
+            npm run verify:upstream-corpus
+            npm run check:managed
+            npm run test
+            npm run build
+            node scripts/upstream-sync/verify-license.mjs
+            git diff --check
+          }
+
+          verify_managed_layer_unchanged() {
+            while IFS= read -r changed_path; do
+              case "${changed_path}" in
+                managed/upstream.lock.json|managed/tests/upstream/*|managed/shared/src/upstream-observed-receipt.ts)
+                  ;;
+                .github/CODEOWNERS|.github/rulesets/*)
+                  echo "protected review policy changed by upstream: ${changed_path}" >&2
+                  return 1
+                  ;;
+                managed/*)
+                  echo "managed layer changed outside the lock/corpus allowlist: ${changed_path}" >&2
+                  return 1
+                  ;;
+              esac
+            done < <(git diff --name-only "${MANAGED_SHA}...HEAD")
+          }
+
+          MIRROR_EXISTS=false
+          if git show-ref --verify --quiet "refs/remotes/origin/${MIRROR_BRANCH}"; then
+            MIRROR_EXISTS=true
+            MIRROR_SHA="$(git rev-parse "refs/remotes/origin/${MIRROR_BRANCH}")"
+            if ! git merge-base --is-ancestor "${MIRROR_SHA}" "${SOURCE_SHA}"; then
+              echo "upstream-main mirror is not an ancestor of canonical upstream; refusing rewrite" >&2
+              exit 1
+            fi
+          fi
+
+          if git merge-base --is-ancestor "${SOURCE_SHA}" "${MANAGED_SHA}"; then
+            git push origin "${SOURCE_SHA}:refs/heads/upstream-main"
+            echo "SYNC_STATUS=no-change" >> "${GITHUB_ENV}"
+            echo "UPSTREAM_SYNC_NO_CHANGE source_sha=${SOURCE_SHA} mirror_exists=${MIRROR_EXISTS}"
+            exit 0
+          fi
+
+          if ! git fetch --no-tags origin "${SYNC_BRANCH}"; then
+            true
+          fi
+          if git show-ref --verify --quiet "refs/remotes/origin/${SYNC_BRANCH}"; then
+            EXISTING_TIP="$(git rev-parse "refs/remotes/origin/${SYNC_BRANCH}")"
+            if ! git merge-base --is-ancestor "${SOURCE_SHA}" "${EXISTING_TIP}"; then
+              echo "existing sync branch does not contain the exact upstream source" >&2
+              exit 1
+            fi
+            git switch --detach "${EXISTING_TIP}"
+            npm ci
+            verify_managed_layer_unchanged
+            run_candidate_checks
+            git push origin "${SOURCE_SHA}:refs/heads/upstream-main"
+            git push origin "HEAD:refs/heads/${SYNC_BRANCH}"
+            echo "SYNC_STATUS=ready" >> "${GITHUB_ENV}"
+            echo "UPSTREAM_SYNC_CANDIDATE_REUSED source_sha=${SOURCE_SHA} branch=${SYNC_BRANCH}"
+            exit 0
+          fi
+
+          git switch --detach "${MANAGED_SHA}"
+          git merge --no-edit --no-ff "${SOURCE_SHA}"
+
+          # This compatibility gate intentionally runs before the corpus copy.
+          # Any pinned upstream route/source drift blocks automation for human review.
+          npm ci
+          npm run verify:upstream-corpus
+          node scripts/upstream-sync/prepare-corpus.mjs --upstream-sha "${SOURCE_SHA}"
+          verify_managed_layer_unchanged
+          run_candidate_checks
+
+          git switch -c "${SYNC_BRANCH}"
+
+          # Default git push rejects non-fast-forward updates; no force/rebase is permitted.
+          git push origin "${SOURCE_SHA}:refs/heads/upstream-main"
+          git push origin "HEAD:refs/heads/${SYNC_BRANCH}"
+          echo "SYNC_STATUS=ready" >> "${GITHUB_ENV}"
+          echo "UPSTREAM_SYNC_CANDIDATE_READY source_sha=${SOURCE_SHA} branch=${SYNC_BRANCH}"
+
+      - name: Create or update reviewed managed PR
+        if: env.SYNC_STATUS == 'ready'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PR_TITLE="chore(upstream): sync ${SOURCE_SHA}"
+          PR_BODY=$(cat <<EOF
+          ## Reviewed upstream sync
+
+          Source repository: [${UPSTREAM_REPOSITORY}](https://github.com/${UPSTREAM_REPOSITORY})
+          Default branch: \`${UPSTREAM_DEFAULT_BRANCH}\`
+          Source SHA: \`${SOURCE_SHA}\`
+          Mirror branch: \`${MIRROR_BRANCH}\`
+          Candidate branch: \`${SYNC_BRANCH}\`
+          Target branch: \`${MANAGED_BRANCH}\`
+
+          This PR was produced from a fast-forward-only upstream mirror and an exact
+          source merge into the protected managed baseline. Conflicts, route/corpus
+          drift, compatibility failures, license changes, and failed tests block PR
+          creation. No automatic merge, release, deploy, or force push is performed.
+
+          Checks run before publication:
+          - \`npm run verify:upstream-corpus\`
+          - \`npm run check:managed\`
+          - \`npm run test\`
+          - \`npm run build\`
+          - Apache-2.0 license policy
+          - upstream-sync workflow contract tests
+          EOF
+          )
+          PR_NUMBER="$(gh pr list --repo "${GITHUB_REPOSITORY}" --state open --base managed --head "${GITHUB_REPOSITORY_OWNER}:${SYNC_BRANCH}" --json number --jq '.[0].number // empty')"
+          if [[ -n "${PR_NUMBER}" ]]; then
+            gh pr edit "${PR_NUMBER}" --repo "${GITHUB_REPOSITORY}" --title "${PR_TITLE}" --body "${PR_BODY}"
+            echo "UPSTREAM_SYNC_PR_UPDATED source_sha=${SOURCE_SHA} pr=${PR_NUMBER}"
+          else
+            gh pr create --repo "${GITHUB_REPOSITORY}" --base managed --head "${GITHUB_REPOSITORY_OWNER}:${SYNC_BRANCH}" --title "${PR_TITLE}" --body "${PR_BODY}"
+            echo "UPSTREAM_SYNC_PR_CREATED source_sha=${SOURCE_SHA}"
+          fi
