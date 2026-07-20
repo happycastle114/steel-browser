@@ -48,7 +48,6 @@ jobs:
           set -euo pipefail
           node scripts/upstream-sync/verify-workflow.mjs
           node --test scripts/upstream-sync/*.test.mjs
-          node scripts/upstream-sync/verify-license.mjs
 
       - name: Resolve and test an unprivileged candidate
         id: candidate
@@ -71,7 +70,7 @@ jobs:
 
           git remote add upstream "${UPSTREAM_URL}"
           UPSTREAM_DEFAULT_BRANCH="$(git ls-remote --symref "${UPSTREAM_URL}" HEAD | awk '$1 == "ref:" && $2 ~ /^refs\/heads\// {sub(/^refs\/heads\//, "", $2); print $2; exit}')"
-          if [[ -z "${UPSTREAM_DEFAULT_BRANCH}" || ! "${UPSTREAM_DEFAULT_BRANCH}" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+          if [[ -z "${UPSTREAM_DEFAULT_BRANCH}" || ! "${UPSTREAM_DEFAULT_BRANCH}" =~ ^[A-Za-z0-9._/-]+$ ]] || ! git check-ref-format "refs/heads/${UPSTREAM_DEFAULT_BRANCH}"; then
             echo "canonical upstream default branch could not be resolved safely" >&2
             exit 1
           fi
@@ -101,10 +100,15 @@ jobs:
           }
 
           write_blocked_classification() {
+            local observation_flag=()
+            if [[ -d "${OBSERVED_CORPUS_ROOT}/${SOURCE_SHA}" ]]; then
+              observation_flag=(--observation-available)
+            fi
             node scripts/upstream-sync/classify-upstream.mjs \
               --managed-sha "${MANAGED_SHA}" \
               --source-sha "${SOURCE_SHA}" \
               --lock-sha "${LOCK_SHA}" \
+              "${observation_flag[@]}" \
               --output "${ARTIFACT_ROOT}/classification.json"
             printf '{"schemaVersion":1,"status":"BLOCKED","sourceSha":"%s","managedSha":"%s"}\n' "${SOURCE_SHA}" "${MANAGED_SHA}" > "${ARTIFACT_ROOT}/candidate-metadata.json"
             echo "sync_status=blocked" >> "${GITHUB_OUTPUT}"
@@ -148,12 +152,20 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch --detach "${MANAGED_SHA}"
           git merge --no-edit --no-ff "${SOURCE_SHA}"
+          MERGE_COMMIT_SHA="$(git rev-parse HEAD)"
           verify_upstream_delta
 
           npm ci
           node scripts/upstream-sync/prepare-corpus.mjs \
             --upstream-sha "${SOURCE_SHA}" \
             --observed-corpus-directory "${OBSERVED_CORPUS_ROOT}/${SOURCE_SHA}"
+          node scripts/upstream-sync/classify-upstream.mjs \
+            --managed-sha "${MANAGED_SHA}" \
+            --source-sha "${SOURCE_SHA}" \
+            --lock-sha "${LOCK_SHA}" \
+            --merge-sha "${MERGE_COMMIT_SHA}" \
+            --observation-available \
+            --output "managed/tests/upstream/${SOURCE_SHA}/classification.json"
           npm run verify:upstream-corpus
 
           verify_generated_worktree() {
@@ -222,9 +234,14 @@ jobs:
           node scripts/upstream-sync/verify-license.mjs
           git diff --check
 
-          MERGE_COMMIT_SHA="$(git rev-parse HEAD^1)"
           CANDIDATE_COMMIT_SHA="$(git rev-parse HEAD)"
           CANDIDATE_TREE_SHA="$(git rev-parse HEAD^{tree})"
+          node scripts/upstream-sync/verify-candidate-commit.mjs \
+            --commit-sha "${CANDIDATE_COMMIT_SHA}" \
+            --merge-commit-sha "${MERGE_COMMIT_SHA}" \
+            --managed-sha "${MANAGED_SHA}" \
+            --source-sha "${SOURCE_SHA}" \
+            --tree-sha "${CANDIDATE_TREE_SHA}"
           git bundle create "${ARTIFACT_ROOT}/candidate.bundle" "refs/heads/${SYNC_BRANCH}" "^${MANAGED_SHA}"
           printf '{"schemaVersion":1,"status":"READY","sourceSha":"%s","managedSha":"%s","syncBranch":"%s","mergeCommitSha":"%s","candidateCommitSha":"%s","candidateTreeSha":"%s"}\n' \
             "${SOURCE_SHA}" "${MANAGED_SHA}" "${SYNC_BRANCH}" "${MERGE_COMMIT_SHA}" "${CANDIDATE_COMMIT_SHA}" "${CANDIDATE_TREE_SHA}" > "${ARTIFACT_ROOT}/candidate-metadata.json"
@@ -284,7 +301,7 @@ jobs:
           fi
           git remote add upstream "${UPSTREAM_URL}"
           UPSTREAM_DEFAULT_BRANCH="$(git ls-remote --symref "${UPSTREAM_URL}" HEAD | awk '$1 == "ref:" && $2 ~ /^refs\/heads\// {sub(/^refs\/heads\//, "", $2); print $2; exit}')"
-          [[ "${UPSTREAM_DEFAULT_BRANCH}" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "upstream default branch could not be resolved safely" >&2; exit 1; }
+          [[ "${UPSTREAM_DEFAULT_BRANCH}" =~ ^[A-Za-z0-9._/-]+$ ]] && git check-ref-format "refs/heads/${UPSTREAM_DEFAULT_BRANCH}" || { echo "upstream default branch could not be resolved safely" >&2; exit 1; }
           git -c "http.extraheader=AUTHORIZATION: bearer ${PUBLISH_TOKEN}" fetch --no-tags origin "${MANAGED_BRANCH}" "${MIRROR_BRANCH}"
           git fetch --no-tags upstream "${UPSTREAM_DEFAULT_BRANCH}"
           [[ "$(git rev-parse "refs/remotes/upstream/${UPSTREAM_DEFAULT_BRANCH}")" == "${META_SOURCE_SHA}" ]] || { echo "upstream advanced after candidate checks; refusing stale publication" >&2; exit 1; }
@@ -306,35 +323,45 @@ jobs:
           BUNDLE_TIP="$(git rev-parse "refs/remotes/bundle/${SYNC_BRANCH}")"
           [[ "${BUNDLE_TIP}" == "${META_COMMIT_SHA}" ]] || { echo "candidate bundle tip does not match metadata" >&2; exit 1; }
           [[ "${META_MERGE_SHA}" =~ ^[0-9a-f]{40}$ && "${META_TREE_SHA}" =~ ^[0-9a-f]{40}$ ]] || { echo "candidate topology metadata is invalid" >&2; exit 1; }
-          read -r TIP PARENT EXTRA <<<"$(git rev-list --parents -n 1 "${BUNDLE_TIP}")"
-          [[ "${TIP}" == "${BUNDLE_TIP}" && "${PARENT}" == "${META_MERGE_SHA}" && -z "${EXTRA}" ]] || { echo "candidate generated commit topology is invalid" >&2; exit 1; }
-          read -r MERGE MERGE_PARENT_ONE MERGE_PARENT_TWO MERGE_EXTRA <<<"$(git rev-list --parents -n 1 "${META_MERGE_SHA}")"
-          [[ "${MERGE}" == "${META_MERGE_SHA}" && "${MERGE_PARENT_ONE}" == "${MANAGED_SHA}" && "${MERGE_PARENT_TWO}" == "${SOURCE_SHA}" && -z "${MERGE_EXTRA}" ]] || { echo "candidate merge parents are not the exact managed/source pair" >&2; exit 1; }
-          [[ "$(git rev-parse "${BUNDLE_TIP}^{tree}")" == "${META_TREE_SHA}" ]] || { echo "candidate tree digest drift" >&2; exit 1; }
-          PUBLISHED_PATHS="$(git diff-tree --no-commit-id --name-only -r "${BUNDLE_TIP}")"
-          grep -Fxq "managed/upstream.lock.json" <<<"${PUBLISHED_PATHS}"
-          grep -Fxq "managed/shared/src/upstream-observed-receipt.ts" <<<"${PUBLISHED_PATHS}"
-          grep -Fq "managed/tests/upstream/${SOURCE_SHA}/" <<<"${PUBLISHED_PATHS}"
-          if grep -Fxq ".github/workflows/upstream-sync.yml" <<<"${PUBLISHED_PATHS}"; then
-            echo "candidate bundle contains workflow self-modification" >&2
-            exit 1
-          fi
+          node scripts/upstream-sync/verify-candidate-commit.mjs \
+            --commit-sha "${BUNDLE_TIP}" \
+            --merge-commit-sha "${META_MERGE_SHA}" \
+            --managed-sha "${MANAGED_SHA}" \
+            --source-sha "${SOURCE_SHA}" \
+            --tree-sha "${META_TREE_SHA}" \
+            --allow-untracked-prefix "sync-artifact/"
 
           EXISTING_TIP="$(git -c "http.extraheader=AUTHORIZATION: bearer ${PUBLISH_TOKEN}" ls-remote origin "refs/heads/${SYNC_BRANCH}" | awk '{print $1; exit}')"
           if [[ -n "${EXISTING_TIP}" ]]; then
             git -c "http.extraheader=AUTHORIZATION: bearer ${PUBLISH_TOKEN}" fetch origin "${SYNC_BRANCH}"
-            [[ "$(git rev-parse "refs/remotes/origin/${SYNC_BRANCH}^{tree}")" == "${META_TREE_SHA}" ]] || { echo "existing candidate ref has a different tree" >&2; exit 1; }
-            read -r EXISTING_COMMIT EXISTING_PARENT EXISTING_EXTRA <<<"$(git rev-list --parents -n 1 "refs/remotes/origin/${SYNC_BRANCH}")"
-            [[ "${EXISTING_COMMIT}" == "${EXISTING_TIP}" && "${EXISTING_PARENT}" == "${META_MERGE_SHA}" && -z "${EXISTING_EXTRA}" ]] || { echo "existing candidate ref has different provenance" >&2; exit 1; }
-            EXISTING_PATHS="$(git diff-tree --no-commit-id --name-only -r "refs/remotes/origin/${SYNC_BRANCH}")"
-            grep -Fxq "managed/upstream.lock.json" <<<"${EXISTING_PATHS}"
-            grep -Fxq "managed/shared/src/upstream-observed-receipt.ts" <<<"${EXISTING_PATHS}"
-            grep -Fq "managed/tests/upstream/${SOURCE_SHA}/" <<<"${EXISTING_PATHS}"
-            if grep -Fxq ".github/workflows/upstream-sync.yml" <<<"${EXISTING_PATHS}"; then
-              echo "existing candidate ref contains workflow self-modification" >&2
-              exit 1
+            if node scripts/upstream-sync/verify-candidate-commit.mjs \
+              --commit-sha "${EXISTING_TIP}" \
+              --merge-commit-sha "${META_MERGE_SHA}" \
+                --managed-sha "${MANAGED_SHA}" \
+                --source-sha "${SOURCE_SHA}" \
+                --tree-sha "${META_TREE_SHA}" \
+                --allow-untracked-prefix "sync-artifact/"; then
+              PUBLISHED_TIP="${EXISTING_TIP}"
+            else
+              RECOVERY_BRANCH="${META_BRANCH}-${MANAGED_SHA}"
+              [[ "${RECOVERY_BRANCH}" =~ ^upstream-sync/[0-9a-f]{40}-[0-9a-f]{40}$ ]] || { echo "candidate recovery branch metadata is invalid" >&2; exit 1; }
+              RECOVERY_TIP="$(git -c "http.extraheader=AUTHORIZATION: bearer ${PUBLISH_TOKEN}" ls-remote origin "refs/heads/${RECOVERY_BRANCH}" | awk '{print $1; exit}')"
+              if [[ -n "${RECOVERY_TIP}" ]]; then
+                git -c "http.extraheader=AUTHORIZATION: bearer ${PUBLISH_TOKEN}" fetch origin "${RECOVERY_BRANCH}"
+                node scripts/upstream-sync/verify-candidate-commit.mjs \
+                  --commit-sha "${RECOVERY_TIP}" \
+                  --merge-commit-sha "${META_MERGE_SHA}" \
+                  --managed-sha "${MANAGED_SHA}" \
+                  --source-sha "${SOURCE_SHA}" \
+                  --tree-sha "${META_TREE_SHA}" \
+                  --allow-untracked-prefix "sync-artifact/"
+                PUBLISHED_TIP="${RECOVERY_TIP}"
+              else
+                git -c "http.extraheader=AUTHORIZATION: bearer ${PUBLISH_TOKEN}" push origin "${BUNDLE_TIP}:refs/heads/${RECOVERY_BRANCH}"
+                SYNC_BRANCH="${RECOVERY_BRANCH}"
+                PUBLISHED_TIP="${BUNDLE_TIP}"
+              fi
             fi
-            PUBLISHED_TIP="${EXISTING_TIP}"
           else
             git -c "http.extraheader=AUTHORIZATION: bearer ${PUBLISH_TOKEN}" push origin "${BUNDLE_TIP}:refs/heads/${SYNC_BRANCH}"
             PUBLISHED_TIP="${BUNDLE_TIP}"
@@ -384,6 +411,9 @@ jobs:
             gh pr create --repo "${GITHUB_REPOSITORY}" --base "${MANAGED_BRANCH}" --head "${GITHUB_REPOSITORY_OWNER}:${SYNC_BRANCH}" --title "${PR_TITLE}" --body "${PR_BODY}"
             echo "UPSTREAM_SYNC_PR_CREATED source_sha=${SOURCE_SHA}"
           fi
+          PR_NUMBER="$(gh pr list --repo "${GITHUB_REPOSITORY}" --state open --base "${MANAGED_BRANCH}" --head "${GITHUB_REPOSITORY_OWNER}:${SYNC_BRANCH}" --json number --jq '.[0].number // empty')"
+          [[ -n "${PR_NUMBER}" ]] || { echo "managed pull request could not be read back" >&2; exit 1; }
+          gh pr checks "${PR_NUMBER}" --repo "${GITHUB_REPOSITORY}" --watch --fail-fast
 
   report-blocked:
     if: needs.candidate.outputs.sync_status == 'blocked'

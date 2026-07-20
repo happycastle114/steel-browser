@@ -1,0 +1,133 @@
+import { execFile } from "node:child_process"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+import { promisify } from "node:util"
+import { createHash } from "node:crypto"
+import { CORPUS_FILES, FINAL_ARTIFACT_FILES, LOCK_STAGE } from "./prepare-corpus.mjs"
+
+const execFileAsync = promisify(execFile)
+const SHA_PATTERN = /^[0-9a-f]{40}$/u
+
+function assertSha(value, name) {
+  if (!SHA_PATTERN.test(value)) throw new Error(`${name} must be a 40-character lowercase SHA`)
+}
+
+async function git(repositoryRoot, args, options = {}) {
+  const result = await execFileAsync("git", args, { cwd: repositoryRoot, encoding: "utf8", ...options })
+  return result.stdout
+}
+
+async function show(repositoryRoot, commitSha, filePath) {
+  return git(repositoryRoot, ["show", `${commitSha}:${filePath}`])
+}
+
+function parseStatuses(output) {
+  const tokens = output.split("\0").filter(Boolean)
+  const statuses = []
+  for (let index = 0; index < tokens.length;) {
+    const status = tokens[index++]
+    if (!/^(?:A|M)$/u.test(status)) {
+      throw new Error(`candidate commit contains unsupported change status: ${status}`)
+    }
+    const filePath = tokens[index++]
+    if (filePath === undefined) throw new Error("candidate commit has a truncated name-status record")
+    statuses.push({ status, path: filePath })
+  }
+  return statuses
+}
+
+async function assertRegularBlob(repositoryRoot, commitSha, filePath) {
+  const output = await git(repositoryRoot, ["ls-tree", "-r", "--full-tree", commitSha, "--", filePath])
+  const lines = output.trimEnd().split("\n").filter(Boolean)
+  if (lines.length !== 1 || !/^100644 blob [0-9a-f]{40}\t/u.test(lines[0]) || !lines[0].endsWith(`\t${filePath}`)) {
+    throw new Error(`candidate artifact is not a regular blob: ${filePath}`)
+  }
+}
+
+function expectedGeneratedPaths(sourceSha, lockStage) {
+  const corpusRoot = `managed/tests/upstream/${sourceSha}`
+  const paths = [
+    "managed/upstream.lock.json",
+    "managed/shared/src/upstream-observed-receipt.ts",
+    `${corpusRoot}/classification.json`,
+    ...CORPUS_FILES.map((fileName) => `${corpusRoot}/${fileName}`),
+  ]
+  if (lockStage === LOCK_STAGE.FINAL) paths.push(...FINAL_ARTIFACT_FILES.map((fileName) => `${corpusRoot}/${fileName}`))
+  return paths.sort()
+}
+
+/** Verify the exact candidate commit after all untrusted build/test gates. */
+export async function verifyCandidateCommit({ repositoryRoot, commitSha, mergeCommitSha, managedSha, sourceSha, treeSha, allowedUntrackedPaths = [] }) {
+  for (const [value, name] of [[commitSha, "candidate commit SHA"], [mergeCommitSha, "merge commit SHA"], [managedSha, "managed SHA"], [sourceSha, "source SHA"], [treeSha, "candidate tree SHA"]]) assertSha(value, name)
+  const root = path.resolve(repositoryRoot)
+  const parents = (await git(root, ["rev-list", "--parents", "-n", "1", commitSha])).trim().split(/\s+/u)
+  if (parents.length !== 2 || parents[0] !== commitSha || parents[1] !== mergeCommitSha) {
+    throw new Error("candidate commit must have exactly the generated commit and merge parent")
+  }
+  const mergeParents = (await git(root, ["rev-list", "--parents", "-n", "1", mergeCommitSha])).trim().split(/\s+/u)
+  if (mergeParents.length !== 3 || mergeParents[0] !== mergeCommitSha || mergeParents[1] !== managedSha || mergeParents[2] !== sourceSha) {
+    throw new Error("candidate merge parents are not the exact managed/source pair")
+  }
+  if ((await git(root, ["rev-parse", `${commitSha}^{tree}`])).trim() !== treeSha) throw new Error("candidate tree digest drift")
+  const dirtyEntries = (await git(root, ["status", "--porcelain=v1", "--untracked-files=all"]))
+    .split("\n")
+    .filter(Boolean)
+    .filter((entry) => !allowedUntrackedPaths.some((prefix) => entry.slice(3).startsWith(prefix)))
+  if (dirtyEntries.length > 0) throw new Error(`candidate worktree must be clean: ${dirtyEntries.join(" | ")}`)
+
+  const lock = JSON.parse(await show(root, commitSha, "managed/upstream.lock.json"))
+  if (lock.upstreamSha !== sourceSha) throw new Error("candidate lock is not pinned to source SHA")
+  if (lock.lockStage !== LOCK_STAGE.FINAL && lock.lockStage !== LOCK_STAGE.CORPUS_LOCKED) throw new Error("candidate lock stage is invalid")
+  const lockStage = lock.lockStage
+  const expected = expectedGeneratedPaths(sourceSha, lockStage)
+  const statuses = parseStatuses(await git(root, ["diff-tree", "--no-commit-id", "--name-status", "-z", "--find-renames", "-r", commitSha]))
+  const actual = statuses.map((entry) => entry.path).sort()
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    const unexpected = actual.filter((entry) => !expected.includes(entry))
+    const missing = expected.filter((entry) => !actual.includes(entry))
+    throw new Error(`candidate generated path allowlist mismatch (unexpected=${unexpected.join(",")}; missing=${missing.join(",")})`)
+  }
+  for (const entry of statuses) {
+    const expectedStatus = entry.path === "managed/upstream.lock.json" || entry.path === "managed/shared/src/upstream-observed-receipt.ts" ? "M" : "A"
+    if (entry.status !== expectedStatus) throw new Error(`candidate generated path has wrong status: ${entry.status} ${entry.path}`)
+  }
+  for (const filePath of expected) await assertRegularBlob(root, commitSha, filePath)
+
+  const classificationPath = `managed/tests/upstream/${sourceSha}/classification.json`
+  const classification = JSON.parse(await show(root, commitSha, classificationPath))
+  if (classification.schemaVersion !== 1 || classification.sourceSha !== sourceSha || classification.managedSha !== managedSha || classification.mergeSha !== mergeCommitSha || classification.blocked === true) {
+    throw new Error("candidate classification is not bound to the exact candidate topology")
+  }
+  const sourceDiff = Buffer.from(await git(root, ["diff", "--binary", "--no-ext-diff", `${managedSha}...${sourceSha}`]), "utf8")
+  const diffSha256 = createHash("sha256").update(sourceDiff).digest("hex")
+  if (classification.diffSha256 !== diffSha256) throw new Error("candidate classification diff digest drift")
+  return { status: "VERIFIED", commitSha, mergeCommitSha, managedSha, sourceSha, treeSha, lockStage, paths: expected }
+}
+
+async function main() {
+  const args = process.argv.slice(2)
+  const readArgument = (name) => {
+    const index = args.indexOf(name)
+    return index === -1 ? undefined : args[index + 1]
+  }
+  const repositoryRoot = readArgument("--repository-root") ?? process.cwd()
+  const values = {
+    repositoryRoot,
+    commitSha: readArgument("--commit-sha"),
+    mergeCommitSha: readArgument("--merge-commit-sha"),
+    managedSha: readArgument("--managed-sha"),
+    sourceSha: readArgument("--source-sha"),
+    treeSha: readArgument("--tree-sha"),
+    allowedUntrackedPaths: args.flatMap((argument, index) => argument === "--allow-untracked-prefix" && args[index + 1] !== undefined ? [args[index + 1]] : []),
+  }
+  if (Object.values(values).some((value) => value === undefined)) throw new Error("usage: verify-candidate-commit.mjs --commit-sha <sha> --merge-commit-sha <sha> --managed-sha <sha> --source-sha <sha> --tree-sha <sha>")
+  const result = await verifyCandidateCommit(values)
+  console.log(`UPSTREAM_CANDIDATE_COMMIT_VERIFIED ${JSON.stringify(result)}`)
+}
+
+if (process.argv[1] !== undefined && path.basename(process.argv[1]) === path.basename(fileURLToPath(import.meta.url))) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : "unknown candidate verification failure")
+    process.exitCode = 1
+  })
+}

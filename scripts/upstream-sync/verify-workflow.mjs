@@ -15,6 +15,33 @@ function extractJob(workflow, jobName) {
   return match[1]
 }
 
+function extractExecutableCandidateStep(candidateJob) {
+  const stepStart = candidateJob.indexOf("- name: Resolve and test an unprivileged candidate")
+  if (stepStart === -1) throw new Error("candidate executable step is missing")
+  const remaining = candidateJob.slice(stepStart)
+  const nextStep = remaining.search(/\n\s{6}- name:/u)
+  const step = nextStep === -1 ? remaining : remaining.slice(0, nextStep)
+  const runStart = step.indexOf("\n        run: |\n")
+  if (runStart === -1) throw new Error("candidate executable step must use a multiline run block")
+  return step.slice(runStart + "\n        run: |\n".length)
+}
+
+function verifyExecutableCandidateGates(workflow) {
+  const candidate = extractJob(workflow, "candidate")
+  const executable = extractExecutableCandidateStep(candidate)
+  const executableLines = executable.split("\n").map((line) => line.trim())
+  const hasExecutableCommand = (command) => executableLines.some((line) => line === command || line.startsWith(`${command} `) || line.startsWith(`${command}&&`) || line.startsWith(`${command}||`))
+  for (const gate of ["npm run check:managed", "npm run test", "npm run build", "node scripts/upstream-sync/verify-license.mjs", "git diff --check", "node scripts/upstream-sync/verify-candidate-commit.mjs"]) {
+    if (!hasExecutableCommand(gate)) throw new Error(`candidate gate is missing from the executable candidate step: ${gate}`)
+  }
+  if (!/if \[\[ -n "\$\(git status --porcelain\)" \]\]; then/u.test(executable)) {
+    throw new Error("candidate clean-tree check is missing from the executable candidate step")
+  }
+  const finalVerifierIndex = executable.indexOf("node scripts/upstream-sync/verify-candidate-commit.mjs")
+  const lastGateIndex = Math.max(...["npm run check:managed", "npm run test", "npm run build", "node scripts/upstream-sync/verify-license.mjs", "git diff --check"].map((gate) => executable.lastIndexOf(gate)))
+  if (finalVerifierIndex < lastGateIndex) throw new Error("candidate commit verifier must run after all executable gates")
+}
+
 function verifyPermissions(workflow) {
   requireMatch(workflow, /^permissions:\s*\{\}\s*$/mu, "workflow default permissions must be read-only")
   const candidate = extractJob(workflow, "candidate")
@@ -54,6 +81,7 @@ function verifyCandidateOrdering(workflow) {
   if (prepareIndex === -1 || generatedGuardIndex === -1 || commitIndex === -1 || prepareIndex > generatedGuardIndex || generatedGuardIndex > commitIndex) {
     throw new Error("generated candidate changes must be guarded and committed in order")
   }
+  verifyExecutableCandidateGates(workflow)
 }
 
 export function verifyWorkflowText(workflow) {
@@ -65,6 +93,7 @@ export function verifyWorkflowText(workflow) {
   requireMatch(workflow, /^concurrency:\n\s+group:\s+steel-managed-upstream-sync\n\s+cancel-in-progress:\s+false\s*$/mu, "workflow concurrency must serialize runs")
   requireMatch(workflow, /https:\/\/github\.com\/steel-dev\/steel-browser\.git/u, "canonical upstream URL is missing")
   requireMatch(workflow, /git ls-remote --symref .*UPSTREAM_URL.* HEAD/u, "upstream default branch must be resolved from the canonical remote")
+  requireMatch(workflow, /git check-ref-format "refs\/heads\/\$\{UPSTREAM_DEFAULT_BRANCH\}"/u, "upstream default branch must pass git ref validation")
   requireMatch(workflow, /git fetch --no-tags upstream "\$\{UPSTREAM_DEFAULT_BRANCH\}"/u, "upstream default branch must be fetched without tags")
   requireMatch(workflow, /git merge --no-edit --no-ff/u, "candidate must merge upstream without rebase")
   requireMatch(workflow, /MIRROR_BRANCH:\s*main/u, "protected main mirror is missing")
@@ -92,10 +121,12 @@ export function verifyWorkflowText(workflow) {
   requireMatch(workflow, /git diff-tree --no-commit-id --name-only -r HEAD/u, "committed generated tree must be inspected")
   requireMatch(workflow, /git bundle create [^\n]*candidate\.bundle/u, "candidate bundle must be created from the verified commit")
   requireMatch(workflow, /git bundle verify/u, "publisher must verify the candidate bundle")
+  requireMatch(workflow, /verify-candidate-commit\.mjs/u, "publisher must verify the candidate commit with the production verifier")
   requireMatch(workflow, /refs\/remotes\/upstream\/\$\{UPSTREAM_DEFAULT_BRANCH\}.*META_SOURCE_SHA/u, "publisher must re-read the exact upstream source SHA")
-  requireMatch(workflow, /EXISTING_COMMIT EXISTING_PARENT EXISTING_EXTRA/u, "existing candidate refs must have exact one-commit provenance")
+  requireMatch(workflow, /EXISTING_TIP[\s\S]*verify-candidate-commit\.mjs/u, "existing candidate refs must have exact one-commit provenance")
   requireMatch(workflow, /META_BRANCH.*\^upstream-sync\/\[0-9a-f\]\{40\}\$/u, "publisher must validate the content-addressed candidate branch")
   requireMatch(workflow, /persist-credentials:\s*false/u, "checkout credentials must not persist")
+  requireMatch(workflow, /RECOVERY_BRANCH="\$\{META_BRANCH\}-\$\{MANAGED_SHA\}"/u, "stale candidate refs must recover on a managed-base-qualified branch")
   requireMatch(workflow, /git -c "http\.extraheader=AUTHORIZATION: bearer \$\{PUBLISH_TOKEN\}" push origin "\$\{SOURCE_SHA\}:refs\/heads\/\$\{MIRROR_BRANCH\}"/u, "mirror push must be fast-forward-only")
   requireMatch(workflow, /managed\/tests\/upstream\/\$\{SOURCE_SHA\}\/\*/u, "candidate corpus path must be source-SHA scoped")
   requireMatch(workflow, /\.github\/workflows\/upstream-sync\.yml/u, "workflow self-modification guard is missing")

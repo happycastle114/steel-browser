@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdtemp, readFile, rm, writeFile, mkdir, cp } from "node:fs/promises"
+import { mkdtemp, readFile, rm, writeFile, mkdir, cp, readdir } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
@@ -58,7 +58,52 @@ async function createObservedCorpus(root) {
   )
   await writeFile(path.join(sourceDirectory, "rest.ndjson"), "captured-rest\n")
   await writeFile(path.join(sourceDirectory, "websocket.ndjson"), "captured-websocket\n")
+  await writeFile(path.join(sourceDirectory, "runtime-identity.json"), json({
+    schemaVersion: 1,
+    upstreamSha: NEW_SHA,
+    runtimeVersion: "fixture-runtime",
+    browserVersion: "fixture-browser",
+    workerImageDigest: `sha256:${"1".repeat(64)}`,
+  }))
+  await writeObservedProvenance(sourceDirectory)
   return sourceDirectory
+}
+
+async function writeObservedProvenance(directory) {
+  const artifactNames = [
+    "manifest.json",
+    "observed-receipt.json",
+    "rest.ndjson",
+    "route-matrix.json",
+    "session-id-verdict.json",
+    "websocket.ndjson",
+    "runtime-identity.json",
+  ]
+  for (const optionalName of ["license-manifest.json", "scope-manifest.json"]) {
+    try {
+      await readFile(path.join(directory, optionalName), "utf8")
+      artifactNames.push(optionalName)
+    } catch {
+      // Corpus-locked observations intentionally omit FINAL-only evidence.
+    }
+  }
+  const artifacts = []
+  for (const name of artifactNames) {
+    const text = await readFile(path.join(directory, name), "utf8")
+    artifacts.push({ path: name, sha256: sha256(Buffer.from(text, "utf8")) })
+  }
+  const runtimeIdentityText = await readFile(path.join(directory, "runtime-identity.json"), "utf8")
+  await writeFile(path.join(directory, "observation-provenance.json"), json({
+    schemaVersion: 1,
+    upstreamSha: NEW_SHA,
+    gitHead: NEW_SHA,
+    captureToolVersion: "fixture",
+    capturedAt: "2026-01-01T00:00:00.000Z",
+    runtimeExecutable: "fixture",
+    runtimeArgs: [],
+    runtimeIdentitySha256: sha256(Buffer.from(runtimeIdentityText, "utf8")),
+    artifacts,
+  }))
 }
 
 test("prepareCorpus refuses to fabricate an observation when no captured directory is supplied", async (t) => {
@@ -107,7 +152,7 @@ test("prepareCorpus rejects an existing destination with different bytes", async
   )
 })
 
-test("prepareCorpus refreshes every FINAL lock digest from the captured artifact", async (t) => {
+test("prepareCorpus refreshes every FINAL lock digest from captured artifact bytes", async (t) => {
   const root = await createCorpusRepository()
   const observedDirectory = await createObservedCorpus(root)
   const lockPath = path.join(root, "managed", "upstream.lock.json")
@@ -119,17 +164,43 @@ test("prepareCorpus refreshes every FINAL lock digest from the captured artifact
     licenseManifestSha256: "2".repeat(64),
     scopeManifestSha256: "3".repeat(64),
   }))
-  await writeFile(path.join(observedDirectory, "final-lock-fields.json"), json({
-    browserRuntimeContractSha256: "4".repeat(64),
-    licenseManifestSha256: "5".repeat(64),
-    scopeManifestSha256: "6".repeat(64),
-  }))
+  await writeFile(path.join(observedDirectory, "license-manifest.json"), "license evidence\n")
+  await writeFile(path.join(observedDirectory, "scope-manifest.json"), "scope evidence\n")
+  await writeObservedProvenance(observedDirectory)
   t.after(() => rm(root, { recursive: true, force: true }))
 
   await prepareCorpus({ repositoryRoot: root, upstreamSha: NEW_SHA, observedCorpusDirectory: observedDirectory })
 
   const refreshed = JSON.parse(await readFile(lockPath, "utf8"))
-  assert.equal(refreshed.browserRuntimeContractSha256, "4".repeat(64))
-  assert.equal(refreshed.licenseManifestSha256, "5".repeat(64))
-  assert.equal(refreshed.scopeManifestSha256, "6".repeat(64))
+  assert.equal(refreshed.browserRuntimeContractSha256, sha256(await readFile(path.join(observedDirectory, "runtime-identity.json"))))
+  assert.equal(refreshed.licenseManifestSha256, sha256(await readFile(path.join(observedDirectory, "license-manifest.json"))))
+  assert.equal(refreshed.scopeManifestSha256, sha256(await readFile(path.join(observedDirectory, "scope-manifest.json"))))
+})
+
+test("prepareCorpus rejects observation bytes that drift from captured provenance", async (t) => {
+  const root = await createCorpusRepository()
+  const observedDirectory = await createObservedCorpus(root)
+  t.after(() => rm(root, { recursive: true, force: true }))
+  await writeFile(path.join(observedDirectory, "runtime-identity.json"), json({
+    schemaVersion: 1,
+    upstreamSha: NEW_SHA,
+    runtimeVersion: "tampered",
+    browserVersion: "fixture-browser",
+    workerImageDigest: `sha256:${"1".repeat(64)}`,
+  }))
+  await assert.rejects(
+    prepareCorpus({ repositoryRoot: root, upstreamSha: NEW_SHA, observedCorpusDirectory: observedDirectory }),
+    /observation provenance artifact hash drift|runtime identity hash drift/,
+  )
+})
+
+test("prepareCorpus rejects unknown and nested observation artifacts before copying", async (t) => {
+  const root = await createCorpusRepository()
+  const observedDirectory = await createObservedCorpus(root)
+  t.after(() => rm(root, { recursive: true, force: true }))
+  await writeFile(path.join(observedDirectory, "unexpected.json"), "not part of the capture contract\n")
+  await assert.rejects(
+    prepareCorpus({ repositoryRoot: root, upstreamSha: NEW_SHA, observedCorpusDirectory: observedDirectory }),
+    /unauthorized artifacts|non-regular artifact/,
+  )
 })

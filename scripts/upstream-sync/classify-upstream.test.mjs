@@ -25,3 +25,10 @@ test("classification emits stable categories for API, browser, license, migratio
 test("classification does not claim a runtime category for documentation-only drift", () => {
   assert.deepEqual(classifyChangedPaths(["README.md", "docs/operations.md"]), [])
 })
+
+test("classification binds dependency and browser review to content markers, not only paths", () => {
+  assert.deepEqual(
+    classifyChangedPaths(["package.json", "docs/release-notes.md"], '+  "playwright": "1.0.0"\n+  "license": "Apache-2.0"'),
+    [CHANGE_CATEGORY.BROWSER, CHANGE_CATEGORY.DEPENDENCY, CHANGE_CATEGORY.LICENSE],
+  )
+})

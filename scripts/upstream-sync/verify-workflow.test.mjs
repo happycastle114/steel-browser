@@ -59,3 +59,22 @@ test("workflow verifier rejects unused guard definitions with no candidate call 
     /candidate must guard upstream-owned paths before and after merge/,
   )
 })
+
+test("workflow verifier rejects removal of the actual candidate gates, not just PR prose", async () => {
+  const workflow = await readFile(workflowPath, "utf8")
+  for (const gate of ["npm run check:managed", "npm run test", "npm run build", "node scripts/upstream-sync/verify-license.mjs", "git diff --check"]) {
+    assert.throws(
+      () => verifyWorkflowText(workflow.replace(`          ${gate}\n`, "")),
+      /candidate gate is missing from the executable candidate step/,
+      gate,
+    )
+  }
+})
+
+test("workflow verifier rejects removal of the final clean-tree check", async () => {
+  const workflow = await readFile(workflowPath, "utf8")
+  assert.throws(
+    () => verifyWorkflowText(workflow.replace(/          if \[\[ -n "\$\(git status --porcelain\)" \]\]; then[\s\S]*?          fi\n/u, "")),
+    /candidate clean-tree check is missing from the executable candidate step/,
+  )
+})
