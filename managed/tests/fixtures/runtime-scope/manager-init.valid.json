@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "verificationSurface": "SYNTHETIC_CONTRACT",
+  "proofLevel": "CONFIG_BOUND",
+  "platform": "CONTRACT_FIXTURE",
+  "compose": {
+    "deploymentMode": "RAW_EXPLICIT_PROXY",
+    "secretIsolationMode": "RAW_COMPOSE_MANAGER_SECRET",
+    "generatedServiceEnvFile": false,
+    "serviceEnvironmentKeys": {
+      "manager": [],
+      "worker00": [],
+      "worker01": []
+    }
+  },
+  "initialProcess": {
+    "pid": 1,
+    "uid": 0,
+    "gid": 0,
+    "supplementaryGroups": [],
+    "capabilities": ["CHOWN", "SETUID", "SETGID", "SETPCAP"]
+  },
+  "secretSource": {
+    "directoryPath": "/run/steel-secret-source",
+    "directoryUid": 0,
+    "directoryGid": 0,
+    "directoryMode": 448,
+    "path": "/run/steel-secret-source/managed-create-token-key",
+    "regularFile": true,
+    "validatedByteLength": 64,
+    "lowercaseHex": true,
+    "mountedServices": ["manager"],
+    "traversableByFinalManager": false,
+    "workerReadPaths": []
+  },
+  "openRecords": [
+    {
+      "kind": "SOURCE",
+      "fd": 3,
+      "path": "/run/steel-secret-source/managed-create-token-key",
+      "flags": ["O_RDONLY", "O_CLOEXEC", "O_NOFOLLOW"],
+      "closedBeforePrivilegeDrop": true
+    },
+    {
+      "kind": "DESTINATION",
+      "fd": 4,
+      "path": "/run/steel/managed-create-token-key",
+      "flags": ["O_WRONLY", "O_CREAT", "O_EXCL", "O_CLOEXEC", "O_NOFOLLOW"],
+      "closedBeforePrivilegeDrop": true
+    }
+  ],
+  "copy": {
+    "copiedByteLength": 64,
+    "sourceValidated": true,
+    "destinationValidated": true,
+    "fsynced": true,
+    "plaintextBuffersZeroized": true
+  },
+  "destinationMount": {
+    "evidenceSource": "SYNTHETIC_EXPECTED_CONTRACT",
+    "mountInfoObserved": false,
+    "mountPoint": "/run/steel",
+    "fileSystemType": "tmpfs",
+    "source": "tmpfs",
+    "uid": 10001,
+    "gid": 10001,
+    "mode": 448,
+    "sizeBytes": 8388608,
+    "requiredFlags": ["rw", "nosuid", "nodev", "noexec"]
+  },
+  "initTrace": [
+    "OPEN_SOURCE",
+    "VALIDATE_SOURCE",
+    "OPEN_DESTINATION",
+    "COPY_VALIDATE",
+    "FSYNC_DESTINATION",
+    "CLOSE_SECRET_DESCRIPTORS",
+    "ZEROIZE_PLAINTEXT",
+    "SCAN_FDS_BEFORE_DROP",
+    "SETGROUPS_EMPTY",
+    "DROP_CAPABILITY_BOUNDING_SET",
+    "SET_NO_NEW_PRIVS",
+    "SETRESGID",
+    "SETRESUID",
+    "CLEAR_CAPABILITY_SETS",
+    "VERIFY_STATUS",
+    "SCAN_FDS_AFTER_DROP",
+    "EXEC_MANAGER"
+  ],
+  "fdScans": {
+    "beforePrivilegeDrop": {
+      "descriptors": [
+        { "fd": 0, "targetClass": "STDIN" },
+        { "fd": 1, "targetClass": "STDOUT" },
+        { "fd": 2, "targetClass": "STDERR" }
+      ],
+      "secretPathMatches": 0,
+      "unclassifiedDescriptors": 0
+    },
+    "afterPrivilegeDrop": {
+      "descriptors": [
+        { "fd": 0, "targetClass": "STDIN" },
+        { "fd": 1, "targetClass": "STDOUT" },
+        { "fd": 2, "targetClass": "STDERR" }
+      ],
+      "secretPathMatches": 0,
+      "unclassifiedDescriptors": 0
+    }
+  },
+  "finalSecret": {
+    "path": "/run/steel/managed-create-token-key",
+    "uid": 10001,
+    "gid": 10001,
+    "mode": 256,
+    "regularFile": true,
+    "readableByManager": true,
+    "readableByWorkers": false
+  },
+  "finalStatus": {
+    "uid": [10001, 10001, 10001, 10001],
+    "gid": [10001, 10001, 10001, 10001],
+    "supplementaryGroups": [],
+    "capabilities": {
+      "CapInh": "0000000000000000",
+      "CapPrm": "0000000000000000",
+      "CapEff": "0000000000000000",
+      "CapBnd": "0000000000000000",
+      "CapAmb": "0000000000000000"
+    },
+    "noNewPrivs": 1
+  },
+  "leakScan": {
+    "containerConfigEnvMatches": 0,
+    "processEnvironmentMatches": 0,
+    "inheritedDescriptorMatches": 0,
+    "renderedConfigMatches": 0,
+    "workerMountMatches": 0,
+    "imageHistoryMatches": 0,
+    "buildArgumentMatches": 0,
+    "logMatches": 0
+  },
+  "executionReceipt": {
+    "kind": "SYNTHETIC_CONTRACT_EXECUTION",
+    "proofLevel": "CONFIG_BOUND",
+    "liveResourcesCreated": 0,
+    "cleanupStatus": "NOT_APPLICABLE"
+  }
+}
