@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "upstreamSha": "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2",
+  "mode": "CLIENT_SUPPLIED",
+  "callerSessionId": "11111111-2222-4333-8444-555555555555",
+  "createReturnedCallerId": true,
+  "freshConnectionListRecoveredActiveId": true,
+  "freshConnectionGetRecoveredActiveId": true,
+  "releaseReturnedActiveId": true,
+  "createJournalBinding": "CLIENT_ID_DIRECT"
+}

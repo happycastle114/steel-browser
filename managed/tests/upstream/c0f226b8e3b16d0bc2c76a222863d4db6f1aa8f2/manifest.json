@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "upstreamSha": "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2",
+  "sessionIdMode": "CLIENT_SUPPLIED",
+  "sourceInventorySha256": "4f9b1876b6df1a20cb343c064985a9ea56cd0aab145a2867e74e2649dc1e556b",
+  "sources": [
+    {
+      "path": "api/src/index.ts",
+      "sha256": "a6601d26e172895e0b845c6c424d7f59ca55070de7fed3a5528c647225759982"
+    },
+    {
+      "path": "api/src/modules/actions/actions.routes.ts",
+      "sha256": "0e2dc113733406a7b6fbb1702da0db2d5e07aa6b6172698f869d96f65384ea07"
+    },
+    {
+      "path": "api/src/modules/cdp/cdp.routes.ts",
+      "sha256": "2849411903818b8e39a2dc5cf7f9e5e6fff0f31215f2118f7a7446420da57c5c"
+    },
+    {
+      "path": "api/src/modules/files/files.routes.ts",
+      "sha256": "213dbbd6d5581b3ad844900e0880ecb540fad93c8adb92b21456d3ff08f67449"
+    },
+    {
+      "path": "api/src/modules/logs/logs.routes.ts",
+      "sha256": "1ee36f3efcd79414f056a39a0ac9f01dd88185619882edf306f4388148ebb080"
+    },
+    {
+      "path": "api/src/modules/selenium/selenium.routes.ts",
+      "sha256": "96a2d0dec8b74c8505e1b7580303b80e51443e797fc1dd6c1d632ea07e8e51cf"
+    },
+    {
+      "path": "api/src/modules/sessions/sessions.routes.ts",
+      "sha256": "d2f00d506b09e3d323f03f49984e32cc55c0849b3c3d1fee67aff641f8616e6b"
+    },
+    {
+      "path": "api/src/plugins/browser-socket/browser-socket.ts",
+      "sha256": "0c81df8624053c1704e2d445e1fccca1e91abf5527f729d8f7a168d9c08097d5"
+    },
+    {
+      "path": "api/src/plugins/browser-socket/handlers/cast.handler.ts",
+      "sha256": "606d5ed592a3fa4ac0a766212ee9f37fadcc878e6151fe8da497a197857aee4e"
+    },
+    {
+      "path": "api/src/plugins/browser-socket/handlers/logs.handler.ts",
+      "sha256": "9001f1550dcaffb5da7832601342a57f94db948ea5f5b2417e729fbc8d4c0813"
+    },
+    {
+      "path": "api/src/plugins/browser-socket/handlers/pageId.handler.ts",
+      "sha256": "e1a4cdfe97c3ba0195296638f4fc741a032ff13e321b6f3d80489762e395a905"
+    },
+    {
+      "path": "api/src/plugins/browser-socket/handlers/recording.handler.ts",
+      "sha256": "9880e2b9ba9b88401f7e2b68ffdd48410199981e387f371871326c3bcb028695"
+    },
+    {
+      "path": "api/src/plugins/schemas.ts",
+      "sha256": "79ae1b09207998418568094b573598495021dd2fa03b8dd204da6bb1e3ecc5df"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "rest.ndjson",
+      "sha256": "1637120430fbd678edba8649e7e54edcd9acea58f02b7cf5d6dedbc664395fea",
+      "records": 37
+    },
+    {
+      "path": "websocket.ndjson",
+      "sha256": "9d951675567454d3cff44fadae0c374872fc270deff2e67f987abba321d5250b",
+      "records": 5
+    },
+    {
+      "path": "route-matrix.json",
+      "sha256": "ac3954a2d26a99ae02ca25e6d1ada37cf0135069ca901b1aa97993f46460c4a7",
+      "records": 42
+    },
+    {
+      "path": "session-id-verdict.json",
+      "sha256": "2f5d5fae8ee00725beee4dce6962be79652c167d3bbcbc38333c6d64054257c3",
+      "records": 1
+    }
+  ],
+  "restRouteCount": 37,
+  "webSocketRouteCount": 5
+}

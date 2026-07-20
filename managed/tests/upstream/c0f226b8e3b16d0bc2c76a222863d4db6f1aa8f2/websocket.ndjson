@@ -1,0 +1,5 @@
+{"schemaVersion":1,"id":"record.ws.cast","routeId":"ws.cast","scenario":"upgrade-golden","requestPath":"/v1/sessions/cast","opened":true,"messageKind":"TAB_LIST","closeCode":1000}
+{"schemaVersion":1,"id":"record.ws.logs","routeId":"ws.logs","scenario":"upgrade-golden","requestPath":"/v1/sessions/logs","opened":true,"messageKind":"OPEN_NO_MESSAGE","closeCode":1000}
+{"schemaVersion":1,"id":"record.ws.page-id","routeId":"ws.page-id","scenario":"upgrade-golden","requestPath":"/v1/sessions/pageId","opened":true,"messageKind":"OPEN_NO_MESSAGE","closeCode":1000}
+{"schemaVersion":1,"id":"record.ws.recording","routeId":"ws.recording","scenario":"upgrade-golden","requestPath":"/v1/sessions/recording","opened":true,"messageKind":"OPEN_NO_MESSAGE","closeCode":1000}
+{"schemaVersion":1,"id":"record.ws.root-cdp","routeId":"ws.root-cdp","scenario":"upgrade-golden","requestPath":"/","opened":true,"messageKind":"BROWSER_GET_VERSION","closeCode":1000}
