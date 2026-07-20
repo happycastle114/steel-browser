@@ -78,3 +78,11 @@ test("workflow verifier rejects removal of the final clean-tree check", async ()
     /candidate clean-tree check is missing from the executable candidate step/,
   )
 })
+
+test("workflow verifier rejects a gate neutralized with a successful fallback", async () => {
+  const workflow = await readFile(workflowPath, "utf8")
+  assert.throws(
+    () => verifyWorkflowText(workflow.replace("          npm run test\n", "          npm run test || true\n")),
+    /failure neutralizer/,
+  )
+})

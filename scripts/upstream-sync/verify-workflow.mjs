@@ -34,6 +34,9 @@ function verifyExecutableCandidateGates(workflow) {
   for (const gate of ["npm run check:managed", "npm run test", "npm run build", "node scripts/upstream-sync/verify-license.mjs", "git diff --check", "node scripts/upstream-sync/verify-candidate-commit.mjs"]) {
     if (!hasExecutableCommand(gate)) throw new Error(`candidate gate is missing from the executable candidate step: ${gate}`)
   }
+  if (executableLines.some((line) => /(?:npm run (?:check:managed|test|build)|node scripts\/upstream-sync\/verify-license\.mjs|git diff --check)[^\n]*(?:\|\|\s*true|;\s*true|&&\s*true)/u.test(line))) {
+    throw new Error("candidate executable gate contains a failure neutralizer")
+  }
   if (!/if \[\[ -n "\$\(git status --porcelain\)" \]\]; then/u.test(executable)) {
     throw new Error("candidate clean-tree check is missing from the executable candidate step")
   }
@@ -98,7 +101,7 @@ export function verifyWorkflowText(workflow) {
   requireMatch(workflow, /git merge --no-edit --no-ff/u, "candidate must merge upstream without rebase")
   requireMatch(workflow, /MIRROR_BRANCH:\s*main/u, "protected main mirror is missing")
   if (/upstream-main/u.test(workflow)) throw new Error("unprotected upstream-main mirror is forbidden")
-  requireMatch(workflow, /SYNC_BRANCH="upstream-sync\/\$\{SOURCE_SHA\}"/u, "sync branch must include exact source SHA")
+  requireMatch(workflow, /SYNC_BRANCH="upstream-sync\/\$\{SOURCE_SHA\}-\$\{MANAGED_SHA\}"/u, "sync branch must include exact source and managed SHA")
   requireMatch(workflow, /Source SHA:\s+\\?`\$\{SOURCE_SHA\}\\?`/u, "PR body must include exact source SHA")
   requireMatch(workflow, /--head "\$\{GITHUB_REPOSITORY_OWNER\}:\$\{SYNC_BRANCH\}"/u, "PR head must be fork-qualified")
   requireMatch(workflow, /--base "\$\{MANAGED_BRANCH\}"/u, "PR base must be protected managed")
@@ -122,11 +125,13 @@ export function verifyWorkflowText(workflow) {
   requireMatch(workflow, /git bundle create [^\n]*candidate\.bundle/u, "candidate bundle must be created from the verified commit")
   requireMatch(workflow, /git bundle verify/u, "publisher must verify the candidate bundle")
   requireMatch(workflow, /verify-candidate-commit\.mjs/u, "publisher must verify the candidate commit with the production verifier")
+  requireMatch(workflow, /verify-repository-rules\.mjs --repository/u, "publisher must preflight GitHub repository rulesets before publication")
+  requireMatch(workflow, /required checks and immutable upstream-sync refs/u, "PR evidence must describe enforced repository rules")
   requireMatch(workflow, /refs\/remotes\/upstream\/\$\{UPSTREAM_DEFAULT_BRANCH\}.*META_SOURCE_SHA/u, "publisher must re-read the exact upstream source SHA")
   requireMatch(workflow, /EXISTING_TIP[\s\S]*verify-candidate-commit\.mjs/u, "existing candidate refs must have exact one-commit provenance")
-  requireMatch(workflow, /META_BRANCH.*\^upstream-sync\/\[0-9a-f\]\{40\}\$/u, "publisher must validate the content-addressed candidate branch")
+  requireMatch(workflow, /META_BRANCH.*\^upstream-sync\/\[0-9a-f\]\{40\}-\[0-9a-f\]\{40\}\$/u, "publisher must validate the source-and-managed content-addressed candidate branch")
   requireMatch(workflow, /persist-credentials:\s*false/u, "checkout credentials must not persist")
-  requireMatch(workflow, /RECOVERY_BRANCH="\$\{META_BRANCH\}-\$\{MANAGED_SHA\}"/u, "stale candidate refs must recover on a managed-base-qualified branch")
+  requireMatch(workflow, /RECOVERY_BRANCH="\$\{META_BRANCH\}-\$\{META_COMMIT_SHA\}"/u, "stale candidate refs must recover on a candidate-commit-qualified branch")
   requireMatch(workflow, /git -c "http\.extraheader=AUTHORIZATION: bearer \$\{PUBLISH_TOKEN\}" push origin "\$\{SOURCE_SHA\}:refs\/heads\/\$\{MIRROR_BRANCH\}"/u, "mirror push must be fast-forward-only")
   requireMatch(workflow, /managed\/tests\/upstream\/\$\{SOURCE_SHA\}\/\*/u, "candidate corpus path must be source-SHA scoped")
   requireMatch(workflow, /\.github\/workflows\/upstream-sync\.yml/u, "workflow self-modification guard is missing")

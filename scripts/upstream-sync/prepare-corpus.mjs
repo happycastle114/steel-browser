@@ -1,15 +1,29 @@
 import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises"
-import { createHash } from "node:crypto"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+
+import {
+  DIGEST_PATTERN,
+  assertRuntimeIdentity,
+  assertStrictCoreArtifacts,
+  assertUpstreamSha,
+  parseObject,
+  sha256,
+} from "./corpus-schema.mjs"
+import { assertProvenance, validateEvidenceManifest } from "./corpus-evidence.mjs"
+
+export { sha256 } from "./corpus-schema.mjs"
+export { validateEvidenceManifest } from "./corpus-evidence.mjs"
 
 const LOCK_PATH = path.join("managed", "upstream.lock.json")
 const CORPUS_ROOT = path.join("managed", "tests", "upstream")
 const RECEIPT_SOURCE_PATH = path.join("managed", "shared", "src", "upstream-observed-receipt.ts")
+
 export const LOCK_STAGE = Object.freeze({
   CORPUS_LOCKED: "CORPUS_LOCKED",
   FINAL: "FINAL",
 })
+
 export const CORPUS_FILES = Object.freeze([
   "manifest.json",
   "observed-receipt.json",
@@ -20,20 +34,8 @@ export const CORPUS_FILES = Object.freeze([
   "runtime-identity.json",
   "observation-provenance.json",
 ])
+
 export const FINAL_ARTIFACT_FILES = Object.freeze(["license-manifest.json", "scope-manifest.json"])
-const UPSTREAM_SHA_PATTERN = /^[0-9a-f]{40}$/u
-const DIGEST_PATTERN = /^[0-9a-f]{64}$/u
-const IMAGE_DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/u
-
-function assertUpstreamSha(value) {
-  if (!UPSTREAM_SHA_PATTERN.test(value)) {
-    throw new Error(`upstream SHA must be 40 lowercase hexadecimal characters: ${String(value)}`)
-  }
-}
-
-export function sha256(value) {
-  return createHash("sha256").update(value).digest("hex")
-}
 
 function renderJson(value) {
   return `${JSON.stringify(value, null, 2)}\n`
@@ -55,16 +57,6 @@ function requireObservationSha(value, expectedSha, artifact) {
   }
 }
 
-function parseObject(text, artifact) {
-  try {
-    const value = JSON.parse(text)
-    if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("not an object")
-    return value
-  } catch {
-    throw new Error(`observed ${artifact} is not valid JSON`)
-  }
-}
-
 async function exactFileNames(directory) {
   const entries = await readdir(directory, { withFileTypes: true })
   const names = []
@@ -83,50 +75,9 @@ function expectedFiles(lockStage) {
   throw new Error(`unsupported upstream lock stage: ${String(lockStage)}`)
 }
 
-function assertRuntimeIdentity(identity, upstreamSha) {
-  requireObservationSha(identity, upstreamSha, "runtime identity")
-  if (identity.schemaVersion !== 1 || typeof identity.runtimeVersion !== "string" || identity.runtimeVersion.trim() === "") {
-    throw new Error("runtime identity is missing its version contract")
-  }
-  if (typeof identity.browserVersion !== "string" || identity.browserVersion.trim() === "") {
-    throw new Error("runtime identity is missing browserVersion")
-  }
-  if (typeof identity.workerImageDigest !== "string" || !IMAGE_DIGEST_PATTERN.test(identity.workerImageDigest)) {
-    throw new Error("runtime identity workerImageDigest is not pinned")
-  }
-}
-
-function assertProvenance(provenance, upstreamSha, artifactTexts) {
-  requireObservationSha(provenance, upstreamSha, "observation provenance")
-  if (provenance.schemaVersion !== 1 || provenance.gitHead !== upstreamSha) {
-    throw new Error("observation provenance is not pinned to the exact upstream commit")
-  }
-  if (typeof provenance.captureToolVersion !== "string" || typeof provenance.capturedAt !== "string" || !Array.isArray(provenance.artifacts)) {
-    throw new Error("observation provenance is incomplete")
-  }
-  const expectedArtifacts = [...artifactTexts.keys()].sort()
-  const actualArtifacts = provenance.artifacts.map((entry) => entry?.path).sort()
-  if (JSON.stringify(actualArtifacts) !== JSON.stringify(expectedArtifacts)) {
-    throw new Error("observation provenance artifact set does not match captured output")
-  }
-  for (const entry of provenance.artifacts) {
-    if (!entry || typeof entry.path !== "string" || !DIGEST_PATTERN.test(entry.sha256)) {
-      throw new Error(`observation provenance has an invalid artifact hash: ${String(entry?.path)}`)
-    }
-    if (sha256(Buffer.from(artifactTexts.get(entry.path), "utf8")) !== entry.sha256) {
-      throw new Error(`observation provenance artifact hash drift: ${entry.path}`)
-    }
-  }
-  const runtimeIdentityText = artifactTexts.get("runtime-identity.json")
-  if (typeof provenance.runtimeIdentitySha256 !== "string" || !DIGEST_PATTERN.test(provenance.runtimeIdentitySha256)) {
-    throw new Error("observation provenance runtime identity hash is missing")
-  }
-  if (sha256(Buffer.from(runtimeIdentityText, "utf8")) !== provenance.runtimeIdentitySha256) {
-    throw new Error("observation provenance runtime identity hash drift")
-  }
-}
-
-export async function validateObservedCorpus(directory, upstreamSha, lockStage = LOCK_STAGE.CORPUS_LOCKED) {
+export async function validateObservedCorpus(directory, upstreamSha, lockStage = LOCK_STAGE.CORPUS_LOCKED, options = {}) {
+  const { repositoryRoot, strict = false } = options
+  assertUpstreamSha(upstreamSha)
   const expected = expectedFiles(lockStage)
   const names = await exactFileNames(directory)
   if (JSON.stringify(names) !== JSON.stringify(expected)) {
@@ -135,24 +86,26 @@ export async function validateObservedCorpus(directory, upstreamSha, lockStage =
     if (missing.length > 0) throw new Error(`observed corpus artifact is missing: ${missing.join(", ")}`)
     throw new Error(`observed corpus has unauthorized artifacts: ${extra.join(", ")}`)
   }
+
   const texts = new Map()
   for (const fileName of expected) texts.set(fileName, await readFile(path.join(directory, fileName), "utf8"))
-
   requireObservationSha(parseObject(texts.get("manifest.json"), "manifest"), upstreamSha, "manifest")
   requireObservationSha(parseObject(texts.get("observed-receipt.json"), "receipt"), upstreamSha, "receipt")
   requireObservationSha(parseObject(texts.get("route-matrix.json"), "route matrix"), upstreamSha, "route matrix")
   requireObservationSha(parseObject(texts.get("session-id-verdict.json"), "session verdict"), upstreamSha, "session verdict")
   assertRuntimeIdentity(parseObject(texts.get("runtime-identity.json"), "runtime identity"), upstreamSha)
-  assertProvenance(parseObject(texts.get("observation-provenance.json"), "observation provenance"), upstreamSha, new Map(expected.filter((name) => name !== "observation-provenance.json").map((name) => [name, texts.get(name)])))
+
+  const observedArtifacts = new Map(expected.filter((name) => name !== "observation-provenance.json").map((name) => [name, texts.get(name)]))
+  await assertProvenance(parseObject(texts.get("observation-provenance.json"), "observation provenance"), upstreamSha, observedArtifacts, { repositoryRoot, strict })
+  if (strict) assertStrictCoreArtifacts(texts, upstreamSha)
   if (lockStage === LOCK_STAGE.FINAL) {
-    for (const fileName of FINAL_ARTIFACT_FILES) {
-      if (texts.get(fileName).trim() === "") throw new Error(`FINAL observation artifact is empty: ${fileName}`)
-    }
+    validateEvidenceManifest(texts.get("license-manifest.json"), upstreamSha, "LICENSE")
+    validateEvidenceManifest(texts.get("scope-manifest.json"), upstreamSha, "SCOPE")
   }
   return texts
 }
 
-async function copyObservedCorpus({ sourceDirectory, destinationDirectory, observedTexts, lockStage }) {
+async function copyObservedCorpus({ destinationDirectory, observedTexts, lockStage, repositoryRoot }) {
   const expected = expectedFiles(lockStage)
   if (await pathExists(destinationDirectory)) {
     for (const fileName of expected) {
@@ -163,7 +116,12 @@ async function copyObservedCorpus({ sourceDirectory, destinationDirectory, obser
         throw new Error(`destination corpus already exists with different bytes: ${fileName}`)
       }
     }
-    const existingTexts = await validateObservedCorpus(destinationDirectory, parseObject(observedTexts.get("manifest.json"), "manifest").upstreamSha, lockStage)
+    const existingTexts = await validateObservedCorpus(
+      destinationDirectory,
+      parseObject(observedTexts.get("manifest.json"), "manifest").upstreamSha,
+      lockStage,
+      { repositoryRoot },
+    )
     for (const fileName of expected) {
       if (existingTexts.get(fileName) !== observedTexts.get(fileName)) {
         throw new Error(`destination corpus already exists with different bytes: ${fileName}`)
@@ -209,18 +167,17 @@ export async function prepareCorpus({ repositoryRoot, upstreamSha, observedCorpu
   if (lock.lockStage !== LOCK_STAGE.FINAL && lock.lockStage !== LOCK_STAGE.CORPUS_LOCKED) {
     throw new Error(`unsupported upstream lock stage: ${String(lock.lockStage)}`)
   }
+
   const lockStage = lock.lockStage
-  const observedTexts = await validateObservedCorpus(observedRoot, upstreamSha, lockStage)
+  const observedTexts = await validateObservedCorpus(observedRoot, upstreamSha, lockStage, { repositoryRoot: root, strict: false })
   const destinationDirectory = path.join(root, CORPUS_ROOT, upstreamSha)
-  const changed = await copyObservedCorpus({ sourceDirectory: observedRoot, destinationDirectory, observedTexts, lockStage })
+  const changed = await copyObservedCorpus({ destinationDirectory, observedTexts, lockStage, repositoryRoot: root })
   const receiptChanged = await updateReceiptSourceAnchor(root, upstreamSha, observedTexts.get("observed-receipt.json"))
-  const manifestText = observedTexts.get("manifest.json")
-  const sessionIdVerdictText = observedTexts.get("session-id-verdict.json")
   const nextLock = {
     ...lock,
     upstreamSha,
-    protocolCorpusSha256: sha256(Buffer.from(manifestText, "utf8")),
-    sessionIdVerdictSha256: sha256(Buffer.from(sessionIdVerdictText, "utf8")),
+    protocolCorpusSha256: sha256(Buffer.from(observedTexts.get("manifest.json"), "utf8")),
+    sessionIdVerdictSha256: sha256(Buffer.from(observedTexts.get("session-id-verdict.json"), "utf8")),
   }
   if (lockStage === LOCK_STAGE.FINAL) {
     nextLock.browserRuntimeContractSha256 = sha256(Buffer.from(observedTexts.get("runtime-identity.json"), "utf8"))

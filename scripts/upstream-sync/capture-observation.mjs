@@ -76,8 +76,11 @@ function parseRuntimeIdentity(text, upstreamSha) {
 }
 
 async function assertCommit(repositoryRoot, upstreamSha) {
-  const { stdout } = await execFileAsync("git", ["-C", repositoryRoot, "cat-file", "-e", `${upstreamSha}^{commit}`])
-  void stdout
+  await execFileAsync("git", ["-C", repositoryRoot, "cat-file", "-e", `${upstreamSha}^{commit}`])
+  const { stdout } = await execFileAsync("git", ["-C", repositoryRoot, "rev-parse", "HEAD"])
+  const gitHead = stdout.trim()
+  assertSha(gitHead, "checked-out git HEAD")
+  return gitHead
 }
 
 /**
@@ -101,7 +104,7 @@ export async function captureObservation({
   }
   const root = path.resolve(repositoryRoot)
   const destination = path.resolve(outputDirectory)
-  await assertCommit(root, upstreamSha)
+  const gitHead = await assertCommit(root, upstreamSha)
   if (await exists(destination)) {
     if ((await lstat(destination)).isSymbolicLink()) throw new Error("observation output directory may not be a symlink")
     const existing = await readdir(destination)
@@ -139,7 +142,7 @@ export async function captureObservation({
   const provenance = {
     schemaVersion: 1,
     upstreamSha,
-    gitHead: upstreamSha,
+    gitHead,
     captureToolVersion: "steel-managed-observation-v1",
     runtimeExecutable,
     runtimeArgs,
@@ -161,7 +164,14 @@ async function main() {
   const upstreamSha = readArgument("--upstream-sha")
   const outputDirectory = readArgument("--output-directory")
   const runtimeExecutable = readArgument("--runtime-executable")
-  const runtimeArgs = args.slice(args.indexOf("--runtime-arg") === -1 ? args.length : args.indexOf("--runtime-arg") + 1)
+  const runtimeArgs = []
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] !== "--runtime-arg") continue
+    const value = args[index + 1]
+    if (value === undefined) throw new Error("--runtime-arg requires one value")
+    runtimeArgs.push(value)
+    index += 1
+  }
   if (upstreamSha === undefined || outputDirectory === undefined || runtimeExecutable === undefined) {
     throw new Error("usage: capture-observation.mjs --upstream-sha <sha> --output-directory <path> --runtime-executable <path> [--runtime-arg <arg> ...]")
   }

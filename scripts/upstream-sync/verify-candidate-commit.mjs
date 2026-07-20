@@ -1,9 +1,12 @@
 import { execFile } from "node:child_process"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import { createHash } from "node:crypto"
-import { CORPUS_FILES, FINAL_ARTIFACT_FILES, LOCK_STAGE } from "./prepare-corpus.mjs"
+import { CORPUS_FILES, FINAL_ARTIFACT_FILES, LOCK_STAGE, sha256, validateEvidenceManifest, validateObservedCorpus } from "./prepare-corpus.mjs"
+import { CHANGE_CATEGORY, classifyChangedPaths, validateReviewAcknowledgement } from "./classify-upstream.mjs"
 
 const execFileAsync = promisify(execFile)
 const SHA_PATTERN = /^[0-9a-f]{40}$/u
@@ -19,6 +22,35 @@ async function git(repositoryRoot, args, options = {}) {
 
 async function show(repositoryRoot, commitSha, filePath) {
   return git(repositoryRoot, ["show", `${commitSha}:${filePath}`])
+}
+
+async function verifyEvidenceBindings(repositoryRoot, commitSha, corpusRoot, manifestText, kind) {
+  const manifest = validateEvidenceManifest(manifestText, corpusRoot.split("/").at(-1), kind)
+  for (const artifact of manifest.artifacts) {
+    let bytes
+    try {
+      bytes = Buffer.from(await show(repositoryRoot, commitSha, artifact.path), "utf8")
+    } catch {
+      throw new Error(`${kind} evidence artifact is not present in candidate commit: ${artifact.path}`)
+    }
+    if (bytes.byteLength !== artifact.bytes || sha256(bytes) !== artifact.sha256) {
+      throw new Error(`${kind} evidence artifact hash drift: ${artifact.path}`)
+    }
+  }
+}
+
+async function verifyCommittedCorpus(repositoryRoot, commitSha, sourceSha, lockStage) {
+  const corpusRoot = `managed/tests/upstream/${sourceSha}`
+  const directory = await mkdtemp(path.join(os.tmpdir(), "steel-candidate-corpus-"))
+  try {
+    for (const fileName of [...CORPUS_FILES, ...(lockStage === LOCK_STAGE.FINAL ? FINAL_ARTIFACT_FILES : [])]) {
+      await writeFile(path.join(directory, fileName), await show(repositoryRoot, commitSha, `${corpusRoot}/${fileName}`))
+    }
+    const texts = await validateObservedCorpus(directory, sourceSha, lockStage, { repositoryRoot, strict: true })
+    return { corpusRoot, texts }
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
 }
 
 function parseStatuses(output) {
@@ -75,8 +107,9 @@ export async function verifyCandidateCommit({ repositoryRoot, commitSha, mergeCo
     .filter((entry) => !allowedUntrackedPaths.some((prefix) => entry.slice(3).startsWith(prefix)))
   if (dirtyEntries.length > 0) throw new Error(`candidate worktree must be clean: ${dirtyEntries.join(" | ")}`)
 
-  const lock = JSON.parse(await show(root, commitSha, "managed/upstream.lock.json"))
-  if (lock.upstreamSha !== sourceSha) throw new Error("candidate lock is not pinned to source SHA")
+  const lockText = await show(root, commitSha, "managed/upstream.lock.json")
+  const lock = JSON.parse(lockText)
+  if (lock.schemaVersion !== 1 || lock.upstreamSha !== sourceSha) throw new Error("candidate lock is not pinned to source SHA")
   if (lock.lockStage !== LOCK_STAGE.FINAL && lock.lockStage !== LOCK_STAGE.CORPUS_LOCKED) throw new Error("candidate lock stage is invalid")
   const lockStage = lock.lockStage
   const expected = expectedGeneratedPaths(sourceSha, lockStage)
@@ -93,14 +126,49 @@ export async function verifyCandidateCommit({ repositoryRoot, commitSha, mergeCo
   }
   for (const filePath of expected) await assertRegularBlob(root, commitSha, filePath)
 
+  const { corpusRoot, texts } = await verifyCommittedCorpus(root, commitSha, sourceSha, lockStage)
+  if (lock.protocolCorpusSha256 !== sha256(Buffer.from(texts.get("manifest.json"), "utf8"))) throw new Error("candidate lock protocol corpus digest drift")
+  if (lock.sessionIdVerdictSha256 !== sha256(Buffer.from(texts.get("session-id-verdict.json"), "utf8"))) throw new Error("candidate lock session verdict digest drift")
+  if (lockStage === LOCK_STAGE.FINAL) {
+    if (lock.browserRuntimeContractSha256 !== sha256(Buffer.from(texts.get("runtime-identity.json"), "utf8"))) throw new Error("candidate lock runtime contract digest drift")
+    if (lock.licenseManifestSha256 !== sha256(Buffer.from(texts.get("license-manifest.json"), "utf8"))) throw new Error("candidate lock license manifest digest drift")
+    if (lock.scopeManifestSha256 !== sha256(Buffer.from(texts.get("scope-manifest.json"), "utf8"))) throw new Error("candidate lock scope manifest digest drift")
+    await verifyEvidenceBindings(root, commitSha, corpusRoot, texts.get("license-manifest.json"), "LICENSE")
+    await verifyEvidenceBindings(root, commitSha, corpusRoot, texts.get("scope-manifest.json"), "SCOPE")
+  }
+  const receiptDigest = sha256(Buffer.from(texts.get("observed-receipt.json"), "utf8"))
+  const receiptSource = await show(root, commitSha, "managed/shared/src/upstream-observed-receipt.ts")
+  const receiptMatch = receiptSource.match(new RegExp(`\\["${sourceSha}",\\s*"([0-9a-f]{64})"\\]`, "u"))
+  if (receiptMatch?.[1] !== receiptDigest) throw new Error("candidate receipt source anchor does not bind observed receipt bytes")
+
   const classificationPath = `managed/tests/upstream/${sourceSha}/classification.json`
   const classification = JSON.parse(await show(root, commitSha, classificationPath))
-  if (classification.schemaVersion !== 1 || classification.sourceSha !== sourceSha || classification.managedSha !== managedSha || classification.mergeSha !== mergeCommitSha || classification.blocked === true) {
+  if (classification.schemaVersion !== 1 || classification.sourceSha !== sourceSha || classification.managedSha !== managedSha || classification.mergeSha !== mergeCommitSha || classification.blocked === true || classification.observationAvailable !== true || !Array.isArray(classification.changedPaths) || !Array.isArray(classification.blockedReasons) || typeof classification.blocked !== "boolean" || classification.blocked !== (classification.blockedReasons.length > 0)) {
     throw new Error("candidate classification is not bound to the exact candidate topology")
   }
   const sourceDiff = Buffer.from(await git(root, ["diff", "--binary", "--no-ext-diff", `${managedSha}...${sourceSha}`]), "utf8")
   const diffSha256 = createHash("sha256").update(sourceDiff).digest("hex")
   if (classification.diffSha256 !== diffSha256) throw new Error("candidate classification diff digest drift")
+  const changedPaths = (await git(root, ["diff", "--name-only", "--find-renames", `${managedSha}...${sourceSha}`])).split("\n").map((entry) => entry.trim()).filter(Boolean).sort()
+  if (JSON.stringify(classification.changedPaths) !== JSON.stringify(changedPaths)) throw new Error("candidate classification changed paths drift")
+  const expectedCategories = classifyChangedPaths(changedPaths, sourceDiff.toString("utf8"))
+  if (JSON.stringify(classification.categories) !== JSON.stringify(expectedCategories)) throw new Error("candidate classification categories drift")
+  const reviewCategories = expectedCategories.filter((category) => [CHANGE_CATEGORY.BROWSER, CHANGE_CATEGORY.DEPENDENCY, CHANGE_CATEGORY.LICENSE, CHANGE_CATEGORY.MIGRATION].includes(category))
+  const acknowledgementPath = `managed/tests/upstream-acknowledgements/${sourceSha}.json`
+  const classificationAcknowledgement = classification.reviewAcknowledgement ?? null
+  if (reviewCategories.length > 0) {
+    let canonicalAcknowledgement
+    try {
+      canonicalAcknowledgement = JSON.parse(await show(root, commitSha, acknowledgementPath))
+    } catch {
+      throw new Error("candidate review acknowledgement is missing")
+    }
+    validateReviewAcknowledgement(canonicalAcknowledgement, { sourceSha, managedSha, diffSha256, categories: expectedCategories })
+    validateReviewAcknowledgement(classificationAcknowledgement, { sourceSha, managedSha, diffSha256, categories: expectedCategories })
+    if (JSON.stringify(canonicalAcknowledgement) !== JSON.stringify(classificationAcknowledgement)) throw new Error("candidate classification acknowledgement does not match canonical review evidence")
+  } else if (classificationAcknowledgement !== null) {
+    throw new Error("candidate classification contains an acknowledgement for an unreviewed change")
+  }
   return { status: "VERIFIED", commitSha, mergeCommitSha, managedSha, sourceSha, treeSha, lockStage, paths: expected }
 }
 

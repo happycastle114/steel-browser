@@ -164,8 +164,20 @@ test("prepareCorpus refreshes every FINAL lock digest from captured artifact byt
     licenseManifestSha256: "2".repeat(64),
     scopeManifestSha256: "3".repeat(64),
   }))
-  await writeFile(path.join(observedDirectory, "license-manifest.json"), "license evidence\n")
-  await writeFile(path.join(observedDirectory, "scope-manifest.json"), "scope evidence\n")
+  await writeFile(path.join(observedDirectory, "license-manifest.json"), json({
+    schemaVersion: 1,
+    upstreamSha: NEW_SHA,
+    manifestKind: "LICENSE",
+    spdxLicense: "Apache-2.0",
+    artifacts: [{ path: "LICENSE", sha256: sha256(Buffer.from("Apache License\n")), bytes: Buffer.byteLength("Apache License\n") }],
+  }))
+  await writeFile(path.join(observedDirectory, "scope-manifest.json"), json({
+    schemaVersion: 1,
+    upstreamSha: NEW_SHA,
+    manifestKind: "SCOPE",
+    allowedPaths: ["managed/tests/upstream"],
+    artifacts: [{ path: "managed/upstream.lock.json", sha256: sha256(Buffer.from("scope\n")), bytes: Buffer.byteLength("scope\n") }],
+  }))
   await writeObservedProvenance(observedDirectory)
   t.after(() => rm(root, { recursive: true, force: true }))
 

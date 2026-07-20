@@ -17,6 +17,7 @@ env:
   MIRROR_BRANCH: main
   MANAGED_BRANCH: managed
   OBSERVED_CORPUS_ROOT: managed/tests/upstream-observations
+  REVIEW_ACKNOWLEDGEMENT_ROOT: managed/tests/upstream-acknowledgements
 
 jobs:
   candidate:
@@ -84,7 +85,7 @@ jobs:
           SOURCE_SHA="$(git rev-parse "refs/remotes/upstream/${UPSTREAM_DEFAULT_BRANCH}")"
           MANAGED_SHA="$(git rev-parse "refs/remotes/origin/${MANAGED_BRANCH}")"
           LOCK_SHA="$(node --input-type=module -e 'import { readFile } from "node:fs/promises"; const lock = JSON.parse(await readFile("managed/upstream.lock.json", "utf8")); process.stdout.write(lock.upstreamSha)')"
-          SYNC_BRANCH="upstream-sync/${SOURCE_SHA}"
+          SYNC_BRANCH="upstream-sync/${SOURCE_SHA}-${MANAGED_SHA}"
           printf 'SOURCE_SHA=%s\nMANAGED_SHA=%s\nSYNC_BRANCH=%s\n' "${SOURCE_SHA}" "${MANAGED_SHA}" "${SYNC_BRANCH}" >> "${GITHUB_ENV}"
           printf 'source_sha=%s\nmanaged_sha=%s\nsync_branch=%s\n' "${SOURCE_SHA}" "${MANAGED_SHA}" "${SYNC_BRANCH}" >> "${GITHUB_OUTPUT}"
 
@@ -101,32 +102,43 @@ jobs:
 
           write_blocked_classification() {
             local observation_flag=()
+            local acknowledgement_flag=()
             if [[ -d "${OBSERVED_CORPUS_ROOT}/${SOURCE_SHA}" ]]; then
               observation_flag=(--observation-available)
+            fi
+            if [[ -f "${REVIEW_ACKNOWLEDGEMENT_ROOT}/${SOURCE_SHA}.json" ]]; then
+              acknowledgement_flag=(--review-acknowledgement "${REVIEW_ACKNOWLEDGEMENT_ROOT}/${SOURCE_SHA}.json")
             fi
             node scripts/upstream-sync/classify-upstream.mjs \
               --managed-sha "${MANAGED_SHA}" \
               --source-sha "${SOURCE_SHA}" \
               --lock-sha "${LOCK_SHA}" \
               "${observation_flag[@]}" \
+              "${acknowledgement_flag[@]}" \
               --output "${ARTIFACT_ROOT}/classification.json"
             printf '{"schemaVersion":1,"status":"BLOCKED","sourceSha":"%s","managedSha":"%s"}\n' "${SOURCE_SHA}" "${MANAGED_SHA}" > "${ARTIFACT_ROOT}/candidate-metadata.json"
             echo "sync_status=blocked" >> "${GITHUB_OUTPUT}"
           }
 
           verify_upstream_delta
+          REVIEW_ACKNOWLEDGEMENT_FLAG=()
+          if [[ -f "${REVIEW_ACKNOWLEDGEMENT_ROOT}/${SOURCE_SHA}.json" ]]; then
+            REVIEW_ACKNOWLEDGEMENT_FLAG=(--review-acknowledgement "${REVIEW_ACKNOWLEDGEMENT_ROOT}/${SOURCE_SHA}.json")
+          fi
           if [[ -d "${OBSERVED_CORPUS_ROOT}/${SOURCE_SHA}" ]]; then
             node scripts/upstream-sync/classify-upstream.mjs \
               --managed-sha "${MANAGED_SHA}" \
               --source-sha "${SOURCE_SHA}" \
               --lock-sha "${LOCK_SHA}" \
               --observation-available \
+              "${REVIEW_ACKNOWLEDGEMENT_FLAG[@]}" \
               --output "${ARTIFACT_ROOT}/classification.json"
           else
             node scripts/upstream-sync/classify-upstream.mjs \
               --managed-sha "${MANAGED_SHA}" \
               --source-sha "${SOURCE_SHA}" \
               --lock-sha "${LOCK_SHA}" \
+              "${REVIEW_ACKNOWLEDGEMENT_FLAG[@]}" \
               --output "${ARTIFACT_ROOT}/classification.json"
           fi
 
@@ -165,6 +177,7 @@ jobs:
             --lock-sha "${LOCK_SHA}" \
             --merge-sha "${MERGE_COMMIT_SHA}" \
             --observation-available \
+            "${REVIEW_ACKNOWLEDGEMENT_FLAG[@]}" \
             --output "managed/tests/upstream/${SOURCE_SHA}/classification.json"
           npm run verify:upstream-corpus
 
@@ -297,7 +310,7 @@ jobs:
           done
           [[ "${META_STATUS}" == "READY" || "${META_STATUS}" == "NO_CHANGE" ]] || { echo "candidate metadata is not publishable" >&2; exit 1; }
           if [[ "${META_STATUS}" == "READY" ]]; then
-            [[ "${META_BRANCH}" =~ ^upstream-sync/[0-9a-f]{40}$ ]] || { echo "candidate branch metadata is invalid" >&2; exit 1; }
+            [[ "${META_BRANCH}" =~ ^upstream-sync/[0-9a-f]{40}-[0-9a-f]{40}$ ]] || { echo "candidate branch metadata is invalid" >&2; exit 1; }
           fi
           git remote add upstream "${UPSTREAM_URL}"
           UPSTREAM_DEFAULT_BRANCH="$(git ls-remote --symref "${UPSTREAM_URL}" HEAD | awk '$1 == "ref:" && $2 ~ /^refs\/heads\// {sub(/^refs\/heads\//, "", $2); print $2; exit}')"
@@ -308,7 +321,8 @@ jobs:
           [[ "$(git rev-parse "refs/remotes/origin/${MANAGED_BRANCH}")" == "${META_MANAGED_SHA}" ]] || { echo "managed advanced after candidate checks; refusing publication" >&2; exit 1; }
           SOURCE_SHA="${META_SOURCE_SHA}"
           MANAGED_SHA="${META_MANAGED_SHA}"
-          SYNC_BRANCH="${META_BRANCH:-upstream-sync/${SOURCE_SHA}}"
+          SYNC_BRANCH="${META_BRANCH:-upstream-sync/${SOURCE_SHA}-${MANAGED_SHA}}"
+          node scripts/upstream-sync/verify-repository-rules.mjs --repository "${GITHUB_REPOSITORY}"
 
           if [[ "${META_STATUS}" == "NO_CHANGE" ]]; then
             MIRROR_SHA="$(git rev-parse "refs/remotes/origin/${MIRROR_BRANCH}")"
@@ -343,8 +357,8 @@ jobs:
                 --allow-untracked-prefix "sync-artifact/"; then
               PUBLISHED_TIP="${EXISTING_TIP}"
             else
-              RECOVERY_BRANCH="${META_BRANCH}-${MANAGED_SHA}"
-              [[ "${RECOVERY_BRANCH}" =~ ^upstream-sync/[0-9a-f]{40}-[0-9a-f]{40}$ ]] || { echo "candidate recovery branch metadata is invalid" >&2; exit 1; }
+              RECOVERY_BRANCH="${META_BRANCH}-${META_COMMIT_SHA}"
+              [[ "${RECOVERY_BRANCH}" =~ ^upstream-sync/[0-9a-f]{40}-[0-9a-f]{40}-[0-9a-f]{40}$ ]] || { echo "candidate recovery branch metadata is invalid" >&2; exit 1; }
               RECOVERY_TIP="$(git -c "http.extraheader=AUTHORIZATION: bearer ${PUBLISH_TOKEN}" ls-remote origin "refs/heads/${RECOVERY_BRANCH}" | awk '{print $1; exit}')"
               if [[ -n "${RECOVERY_TIP}" ]]; then
                 git -c "http.extraheader=AUTHORIZATION: bearer ${PUBLISH_TOKEN}" fetch origin "${RECOVERY_BRANCH}"
@@ -387,7 +401,7 @@ jobs:
           The candidate job ran with contents-read permission, no persisted checkout token,
           and no publisher credentials. The publisher imported an exact bundle and verified
           the merge parents, generated commit tree, lock/corpus/receipt paths, current managed
-          base, and fast-forward-only mirror before opening this PR.
+          base, repository ruleset preflight, and fast-forward-only mirror before opening this PR.
 
           Classification: \$(jq -c '.categories' sync-artifact/classification.json)
           Blocked reasons: \$(jq -c '.blockedReasons' sync-artifact/classification.json)
@@ -399,6 +413,7 @@ jobs:
           - \`npm run build\`
           - Apache-2.0 license policy
           - upstream-sync workflow contract tests
+          - GitHub ruleset preflight for managed required checks and immutable upstream-sync refs
 
           No automatic merge, release, deploy, force push, rebase, or workflow self-modification is permitted.
           EOF

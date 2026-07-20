@@ -8,6 +8,7 @@ import { promisify } from "node:util"
 import test from "node:test"
 
 import { verifyCandidateCommit } from "./verify-candidate-commit.mjs"
+import { sha256 } from "./prepare-corpus.mjs"
 
 const execFileAsync = promisify(execFile)
 const runGit = async (root, ...args) => (await execFileAsync("git", ["-C", root, ...args])).stdout.trim()
@@ -22,17 +23,31 @@ async function writeCorpus(root, sourceSha, mergeSha, managedSha, diffSha256) {
   const directory = path.join(root, "managed", "tests", "upstream", sourceSha)
   await mkdir(directory, { recursive: true })
   const json = (value) => `${JSON.stringify(value, null, 2)}\n`
+  const ndjson = (value) => `${JSON.stringify(value)}\n`
+  const restRoute = { protocol: "REST", id: "rest.fixture", method: "GET", path: "/v1/fixture", source: "api.txt", runtimeCondition: "ALWAYS", affinity: "NONE", lifecycle: "READ", mutating: false, implicitHead: true, expected: { statuses: [200], contentTypes: ["application/json"], headers: ["content-type"], urlFields: [] } }
+  const webSocketRoute = { protocol: "WEBSOCKET", id: "ws.fixture", path: "/fixture", source: "api.txt", runtimeCondition: "ALWAYS", affinity: "NONE", lifecycle: "WEBSOCKET", mutating: false, upgradeClass: "LOGS", expectedCloseCodes: [1000] }
+  const restRecord = { schemaVersion: 1, id: "record.rest.fixture", routeId: "rest.fixture", scenario: "fixture", request: { method: "GET", path: "/v1/fixture", bodyKind: "EMPTY" }, response: { status: 200, contentType: "application/json", headers: { "content-type": "application/json" }, bodyKind: "JSON", bodySha256: "1".repeat(64), urlFields: {} } }
+  const webSocketRecord = { schemaVersion: 1, id: "record.ws.fixture", routeId: "ws.fixture", scenario: "fixture", requestPath: "/fixture", opened: true, messageKind: "OPEN_NO_MESSAGE", closeCode: 1000 }
+  const restText = ndjson(restRecord)
+  const webSocketText = ndjson(webSocketRecord)
+  const routeMatrixText = json({ schemaVersion: 1, upstreamSha: sourceSha, runtimeProfile: { nodeEnv: "development", logStorageEnabled: true }, routes: [restRoute, webSocketRoute] })
+  const sessionIdVerdictText = json({ schemaVersion: 1, upstreamSha: sourceSha, mode: "CLIENT_SUPPLIED", callerSessionId: "11111111-2222-4333-8444-555555555555", createReturnedCallerId: true, freshConnectionListRecoveredActiveId: true, freshConnectionGetRecoveredActiveId: true, releaseReturnedActiveId: true, createJournalBinding: "CLIENT_ID_DIRECT" })
   const files = {
-    "manifest.json": json({ schemaVersion: 1, upstreamSha: sourceSha, sources: [], artifacts: [] }),
-    "observed-receipt.json": json({ schemaVersion: 1, upstreamSha: sourceSha, routeMatrixSha256: "0".repeat(64), sessionIdVerdictSha256: "0".repeat(64) }),
-    "rest.ndjson": "rest\n",
-    "route-matrix.json": json({ schemaVersion: 1, upstreamSha: sourceSha, routes: [] }),
-    "session-id-verdict.json": json({ schemaVersion: 1, upstreamSha: sourceSha, mode: "CLIENT_SUPPLIED" }),
-    "websocket.ndjson": "websocket\n",
+    "rest.ndjson": restText,
+    "route-matrix.json": routeMatrixText,
+    "session-id-verdict.json": sessionIdVerdictText,
+    "websocket.ndjson": webSocketText,
     "runtime-identity.json": json({ schemaVersion: 1, upstreamSha: sourceSha, runtimeVersion: "fixture", browserVersion: "fixture", workerImageDigest: `sha256:${"1".repeat(64)}` }),
   }
-  for (const [name, text] of Object.entries(files)) await writeFile(path.join(directory, name), text)
+  files["manifest.json"] = json({ schemaVersion: 1, upstreamSha: sourceSha, sessionIdMode: "CLIENT_SUPPLIED", sourceInventorySha256: "2".repeat(64), sources: [{ path: "api.txt", sha256: sha256("upstream\n") }], artifacts: [
+    { path: "rest.ndjson", sha256: sha256(restText), records: 1 },
+    { path: "websocket.ndjson", sha256: sha256(webSocketText), records: 1 },
+    { path: "route-matrix.json", sha256: sha256(routeMatrixText), records: 2 },
+    { path: "session-id-verdict.json", sha256: sha256(sessionIdVerdictText), records: 1 },
+  ], restRouteCount: 1, webSocketRouteCount: 1 })
+  files["observed-receipt.json"] = json({ schemaVersion: 1, upstreamSha: sourceSha, routeMatrixSha256: sha256(routeMatrixText), sessionIdVerdictSha256: sha256(sessionIdVerdictText), rest: [{ id: restRecord.id, routeId: restRecord.routeId, request: { method: restRecord.request.method, path: restRecord.request.path }, response: { status: restRecord.response.status, contentType: restRecord.response.contentType, headers: restRecord.response.headers, bodySha256: restRecord.response.bodySha256, urlFields: restRecord.response.urlFields } }], webSocket: [{ id: webSocketRecord.id, routeId: webSocketRecord.routeId, requestPath: webSocketRecord.requestPath, opened: true, messageKind: webSocketRecord.messageKind, closeCode: webSocketRecord.closeCode }] })
   const artifacts = Object.entries(files).map(([name, text]) => ({ path: name, sha256: createHash("sha256").update(text).digest("hex") }))
+  for (const [name, text] of Object.entries(files)) await writeFile(path.join(directory, name), text)
   await writeFile(path.join(directory, "observation-provenance.json"), json({
     schemaVersion: 1,
     upstreamSha: sourceSha,
@@ -53,8 +68,9 @@ async function writeCorpus(root, sourceSha, mergeSha, managedSha, diffSha256) {
     requiresObservation: true,
     observationAvailable: true,
     changedPaths: ["api.txt"],
-    categories: ["API"],
+    categories: [],
     diffSha256,
+    reviewAcknowledgement: null,
     blocked: false,
     blockedReasons: [],
   }
@@ -79,9 +95,12 @@ async function createFixture() {
   const mergeSha = await runGit(root, "rev-parse", "HEAD")
   const diffBytes = Buffer.from((await execFileAsync("git", ["-C", root, "diff", "--binary", "--no-ext-diff", `${managedSha}...${sourceSha}`])).stdout, "utf8")
   const diffSha256 = createHash("sha256").update(diffBytes).digest("hex")
-  await writeFile(path.join(root, "managed", "upstream.lock.json"), JSON.stringify({ schemaVersion: 1, lockStage: "CORPUS_LOCKED", upstreamSha: sourceSha }) + "\n")
-  await writeFile(path.join(root, "managed", "shared", "src", "upstream-observed-receipt.ts"), `const RECEIPT_SHA256_BY_UPSTREAM_SHA = new Map([["${sourceSha}", "${"0".repeat(64)}"]])\n`)
   await writeCorpus(root, sourceSha, mergeSha, managedSha, diffSha256)
+  const manifestText = await readFile(path.join(root, "managed", "tests", "upstream", sourceSha, "manifest.json"), "utf8")
+  const sessionText = await readFile(path.join(root, "managed", "tests", "upstream", sourceSha, "session-id-verdict.json"), "utf8")
+  await writeFile(path.join(root, "managed", "upstream.lock.json"), JSON.stringify({ schemaVersion: 1, lockStage: "CORPUS_LOCKED", upstreamSha: sourceSha, protocolCorpusSha256: sha256(manifestText), sessionIdVerdictSha256: sha256(sessionText) }) + "\n")
+  const receiptText = await readFile(path.join(root, "managed", "tests", "upstream", sourceSha, "observed-receipt.json"), "utf8")
+  await writeFile(path.join(root, "managed", "shared", "src", "upstream-observed-receipt.ts"), `const RECEIPT_SHA256_BY_UPSTREAM_SHA = new Map([["${sourceSha}", "${sha256(receiptText)}"]])\n`)
   const generatedSha = await commit(root, "ci(managed): record observed upstream corpus")
   const treeSha = await runGit(root, "rev-parse", `${generatedSha}^{tree}`)
   return { root, managedSha, sourceSha, mergeSha, generatedSha, treeSha }
@@ -120,6 +139,23 @@ test("publication fixture rejects a generated commit that self-modifies workflow
       treeSha: badTree,
     }),
     /candidate generated path allowlist mismatch/,
+  )
+})
+
+test("publication fixture rejects a candidate that replaces allowed evidence with junk bytes", async (t) => {
+  const fixture = await createFixture()
+  t.after(() => rm(fixture.root, { recursive: true, force: true }))
+  await runGit(fixture.root, "switch", "--detach", fixture.mergeSha)
+  await runGit(fixture.root, "restore", "--source", fixture.generatedSha, "--", "managed")
+  const corpusDirectory = path.join(fixture.root, "managed", "tests", "upstream", fixture.sourceSha)
+  for (const fileName of ["manifest.json", "observed-receipt.json", "rest.ndjson", "route-matrix.json", "session-id-verdict.json", "websocket.ndjson", "runtime-identity.json", "observation-provenance.json"]) {
+    await writeFile(path.join(corpusDirectory, fileName), "not evidence\n")
+  }
+  const badSha = await commit(fixture.root, "bad evidence bytes")
+  const badTree = await runGit(fixture.root, "rev-parse", `${badSha}^{tree}`)
+  await assert.rejects(
+    verifyCandidateCommit({ repositoryRoot: fixture.root, commitSha: badSha, mergeCommitSha: fixture.mergeSha, managedSha: fixture.managedSha, sourceSha: fixture.sourceSha, treeSha: badTree }),
+    /observed|manifest|JSON|provenance|schema/i,
   )
 })
 
