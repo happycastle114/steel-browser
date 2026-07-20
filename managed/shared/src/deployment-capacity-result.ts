@@ -1,5 +1,6 @@
 import { z } from "zod"
 
+import type { DeepReadonly } from "./deep-readonly.js"
 import { CAPACITY_GATE_OUTCOME } from "./deployment-vocabulary.js"
 
 export const CAPACITY_GATE_RESULT = {
@@ -24,4 +25,4 @@ export const CapacityGateResultSchema = z.discriminatedUnion("outcome", [
   z.object({ outcome: z.literal(CAPACITY_GATE_OUTCOME.BLOCKED_MEASUREMENT) }).strict(),
 ])
 
-export type CapacityGateResult = Readonly<z.infer<typeof CapacityGateResultSchema>>
+export type CapacityGateResult = DeepReadonly<z.infer<typeof CapacityGateResultSchema>>

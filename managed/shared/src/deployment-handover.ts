@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+import { withDeepReadonlyOutput, type DeepReadonly } from "./deep-readonly.js"
+import { MANAGED_DEPLOYMENT_CONFIG } from "./deployment-topology.js"
 import {
   DEPLOYMENT_CAPACITY_STATUS,
   MANAGED_HANDOVER_STATE,
@@ -10,10 +12,52 @@ import {
   ManagedHandoverStateSchema,
 } from "./deployment-vocabulary-schemas.js"
 
-type HandoverRuntime = Readonly<{
-  readonly activeProjectRunning: boolean
-  readonly standbyProjectRunning: boolean
+const RunningProjectRuntimeProofSchema = z
+  .object({
+    projectRunning: z.literal(true),
+    containerCount: z.literal(MANAGED_DEPLOYMENT_CONFIG.activeContainerCount),
+    listenerCount: z.literal(MANAGED_DEPLOYMENT_CONFIG.activeListenerCount),
+    connectionCount: z.number().int().safe().nonnegative(),
+  })
+  .strict()
+
+const StoppedProjectRuntimeProofSchema = z
+  .object({
+    projectRunning: z.literal(false),
+    containerCount: z.literal(0),
+    listenerCount: z.literal(0),
+    connectionCount: z.literal(0),
+  })
+  .strict()
+
+const HandoverProjectRuntimeProofBaseSchema = z.discriminatedUnion("projectRunning", [
+  RunningProjectRuntimeProofSchema,
+  StoppedProjectRuntimeProofSchema,
+])
+export const HandoverProjectRuntimeProofSchema = withDeepReadonlyOutput(
+  HandoverProjectRuntimeProofBaseSchema,
+)
+
+export type HandoverProjectRuntimeProof = z.infer<typeof HandoverProjectRuntimeProofSchema>
+
+type HandoverRuntime = DeepReadonly<{
+  readonly activeProjectRuntime: HandoverProjectRuntimeProof
+  readonly standbyProjectRuntime: HandoverProjectRuntimeProof
 }>
+
+const RUNNING_PROJECT_RUNTIME_PROOF = {
+  projectRunning: true,
+  containerCount: MANAGED_DEPLOYMENT_CONFIG.activeContainerCount,
+  listenerCount: MANAGED_DEPLOYMENT_CONFIG.activeListenerCount,
+  connectionCount: 0,
+} as const satisfies HandoverProjectRuntimeProof
+
+const STOPPED_PROJECT_RUNTIME_PROOF = {
+  projectRunning: false,
+  containerCount: 0,
+  listenerCount: 0,
+  connectionCount: 0,
+} as const satisfies HandoverProjectRuntimeProof
 
 export const MANAGED_HANDOVER_SEQUENCE = [
   MANAGED_HANDOVER_STATE.ACTIVE_DRAIN_SAFE,
@@ -30,44 +74,44 @@ export const MANAGED_HANDOVER_SEQUENCE = [
 
 export const HANDOVER_RUNTIME_BY_STATE = {
   [MANAGED_HANDOVER_STATE.ACTIVE_DRAIN_SAFE]: {
-    activeProjectRunning: true,
-    standbyProjectRunning: false,
+    activeProjectRuntime: RUNNING_PROJECT_RUNTIME_PROOF,
+    standbyProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
   },
   [MANAGED_HANDOVER_STATE.EDGE_MAINTENANCE]: {
-    activeProjectRunning: true,
-    standbyProjectRunning: false,
+    activeProjectRuntime: RUNNING_PROJECT_RUNTIME_PROOF,
+    standbyProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
   },
   [MANAGED_HANDOVER_STATE.ACTIVE_STOPPED]: {
-    activeProjectRunning: false,
-    standbyProjectRunning: false,
+    activeProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
+    standbyProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
   },
   [MANAGED_HANDOVER_STATE.DOMAIN_NONE]: {
-    activeProjectRunning: false,
-    standbyProjectRunning: false,
+    activeProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
+    standbyProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
   },
   [MANAGED_HANDOVER_STATE.STANDBY_CONFIG_BOUND]: {
-    activeProjectRunning: false,
-    standbyProjectRunning: false,
+    activeProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
+    standbyProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
   },
   [MANAGED_HANDOVER_STATE.STANDBY_STARTED]: {
-    activeProjectRunning: false,
-    standbyProjectRunning: true,
+    activeProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
+    standbyProjectRuntime: RUNNING_PROJECT_RUNTIME_PROOF,
   },
   [MANAGED_HANDOVER_STATE.STANDBY_RUNTIME_VERIFIED]: {
-    activeProjectRunning: false,
-    standbyProjectRunning: true,
+    activeProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
+    standbyProjectRuntime: RUNNING_PROJECT_RUNTIME_PROOF,
   },
   [MANAGED_HANDOVER_STATE.DOMAIN_STANDBY]: {
-    activeProjectRunning: false,
-    standbyProjectRunning: true,
+    activeProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
+    standbyProjectRuntime: RUNNING_PROJECT_RUNTIME_PROOF,
   },
   [MANAGED_HANDOVER_STATE.STANDBY_SERVING]: {
-    activeProjectRunning: false,
-    standbyProjectRunning: true,
+    activeProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
+    standbyProjectRuntime: RUNNING_PROJECT_RUNTIME_PROOF,
   },
   [MANAGED_HANDOVER_STATE.EDGE_COOLIFY_PROXY]: {
-    activeProjectRunning: false,
-    standbyProjectRunning: true,
+    activeProjectRuntime: STOPPED_PROJECT_RUNTIME_PROOF,
+    standbyProjectRuntime: RUNNING_PROJECT_RUNTIME_PROOF,
   },
 } as const satisfies Readonly<Record<ManagedHandoverState, HandoverRuntime>>
 
@@ -84,12 +128,12 @@ const NEXT_HANDOVER_STATE = {
   [MANAGED_HANDOVER_STATE.EDGE_COOLIFY_PROXY]: null,
 } as const satisfies Readonly<Record<ManagedHandoverState, ManagedHandoverState | null>>
 
-export const HandoverTransitionSchema = z
+const HandoverTransitionBaseSchema = z
   .object({
     from: ManagedHandoverStateSchema,
     to: ManagedHandoverStateSchema,
-    activeProjectRunning: z.boolean(),
-    standbyProjectRunning: z.boolean(),
+    activeProjectRuntime: HandoverProjectRuntimeProofSchema,
+    standbyProjectRuntime: HandoverProjectRuntimeProofSchema,
     capacityStatus: DeploymentCapacityStatusSchema,
   })
   .strict()
@@ -100,17 +144,21 @@ export const HandoverTransitionSchema = z
       context.addIssue({ code: z.ZodIssueCode.custom, message: "handover transition is not adjacent" })
     }
     if (
-      transition.activeProjectRunning !== expectedRuntime.activeProjectRunning ||
-      transition.standbyProjectRunning !== expectedRuntime.standbyProjectRunning
+      transition.activeProjectRuntime.projectRunning !== expectedRuntime.activeProjectRuntime.projectRunning ||
+      transition.standbyProjectRuntime.projectRunning !== expectedRuntime.standbyProjectRuntime.projectRunning
     ) {
       context.addIssue({ code: z.ZodIssueCode.custom, message: "handover runtime does not match target state" })
     }
-    if (transition.activeProjectRunning && transition.standbyProjectRunning) {
+    if (
+      transition.activeProjectRuntime.projectRunning &&
+      transition.standbyProjectRuntime.projectRunning
+    ) {
       context.addIssue({ code: z.ZodIssueCode.custom, message: "managed project runtime overlap is forbidden" })
     }
     if (transition.capacityStatus !== DEPLOYMENT_CAPACITY_STATUS.VERIFIED) {
       context.addIssue({ code: z.ZodIssueCode.custom, message: "cutover capacity must be verified" })
     }
   })
+export const HandoverTransitionSchema = withDeepReadonlyOutput(HandoverTransitionBaseSchema)
 
-export type HandoverTransition = Readonly<z.infer<typeof HandoverTransitionSchema>>
+export type HandoverTransition = z.infer<typeof HandoverTransitionSchema>

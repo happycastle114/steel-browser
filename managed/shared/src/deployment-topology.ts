@@ -1,5 +1,6 @@
 import { z } from "zod"
 
+import { withDeepReadonlyOutput } from "./deep-readonly.js"
 import {
   COOLIFY_COMPOSE_DEPLOYMENT_MODE,
   COOLIFY_CUTOVER_MODE,
@@ -37,7 +38,7 @@ export const MANAGED_DEPLOYMENT_CONFIG = {
   capacitySampleCount: 300,
   capacityWindowSeconds: 300,
   capacitySampleIntervalSeconds: 1,
-  handoverOverlapMs: 5_000,
+  sessionPressureOverlapMs: 5_000,
   workerPressureLoopSeconds: 10,
 } as const
 
@@ -54,7 +55,7 @@ const ActiveManagedProjectSchema = z
     managerCount: z.literal(MANAGED_DEPLOYMENT_CONFIG.activeManagerCount),
     workerCount: z.literal(MANAGED_DEPLOYMENT_CONFIG.activeWorkerCount),
     containerCount: z.literal(MANAGED_DEPLOYMENT_CONFIG.activeContainerCount),
-    listenerCount: RuntimeCountSchema,
+    listenerCount: z.literal(MANAGED_DEPLOYMENT_CONFIG.activeListenerCount),
     connectionCount: RuntimeCountSchema,
     automaticRestartEnabled: z.boolean(),
   })
@@ -86,13 +87,14 @@ const StoppedFailedManagedProjectSchema = z
   })
   .strict()
 
-export const ManagedProjectRuntimeSchema = z.discriminatedUnion("runtimeState", [
+const ManagedProjectRuntimeBaseSchema = z.discriminatedUnion("runtimeState", [
   ActiveManagedProjectSchema,
   ColdStandbyManagedProjectSchema,
   StoppedFailedManagedProjectSchema,
 ])
+export const ManagedProjectRuntimeSchema = withDeepReadonlyOutput(ManagedProjectRuntimeBaseSchema)
 
-export const ManagerSecretIsolationSchema = z
+const ManagerSecretIsolationBaseSchema = z
   .object({
     sourcePath: z.literal(MANAGED_DEPLOYMENT_CONFIG.managerSecretSourcePath),
     targetPath: z.literal(MANAGED_DEPLOYMENT_CONFIG.managerSecretTargetPath),
@@ -102,8 +104,9 @@ export const ManagerSecretIsolationSchema = z
     serviceEnvironmentFiles: z.tuple([]),
   })
   .strict()
+export const ManagerSecretIsolationSchema = withDeepReadonlyOutput(ManagerSecretIsolationBaseSchema)
 
-export const ManagedDeploymentSourceConfigSchema = z
+const ManagedDeploymentSourceConfigBaseSchema = z
   .object({
     maxConcurrentManagedProjects: z.literal(MANAGED_DEPLOYMENT_CONFIG.maxConcurrentManagedProjects),
     activeWorkerCount: z.literal(MANAGED_DEPLOYMENT_CONFIG.activeWorkerCount),
@@ -120,8 +123,11 @@ export const ManagedDeploymentSourceConfigSchema = z
     capacityStatus: DeploymentCapacityStatusSchema,
   })
   .strict()
+export const ManagedDeploymentSourceConfigSchema = withDeepReadonlyOutput(
+  ManagedDeploymentSourceConfigBaseSchema,
+)
 
-export const ManagedDeploymentTopologySchema = z
+const ManagedDeploymentTopologyBaseSchema = z
   .object({
     config: ManagedDeploymentSourceConfigSchema,
     projects: z.tuple([ManagedProjectRuntimeSchema, ManagedProjectRuntimeSchema]),
@@ -145,7 +151,8 @@ export const ManagedDeploymentTopologySchema = z
       context.addIssue({ code: z.ZodIssueCode.custom, message: "managed project slots must be distinct" })
     }
   })
+export const ManagedDeploymentTopologySchema = withDeepReadonlyOutput(ManagedDeploymentTopologyBaseSchema)
 
-export type ManagedProjectRuntime = Readonly<z.infer<typeof ManagedProjectRuntimeSchema>>
-export type ManagedDeploymentSourceConfig = Readonly<z.infer<typeof ManagedDeploymentSourceConfigSchema>>
-export type ManagedDeploymentTopology = Readonly<z.infer<typeof ManagedDeploymentTopologySchema>>
+export type ManagedProjectRuntime = z.infer<typeof ManagedProjectRuntimeSchema>
+export type ManagedDeploymentSourceConfig = z.infer<typeof ManagedDeploymentSourceConfigSchema>
+export type ManagedDeploymentTopology = z.infer<typeof ManagedDeploymentTopologySchema>

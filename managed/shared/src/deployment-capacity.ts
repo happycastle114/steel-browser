@@ -1,86 +1,20 @@
-import { z } from "zod"
-
 import { CAPACITY_GATE_RESULT, type CapacityGateResult } from "./deployment-capacity-result.js"
+import {
+  CpuCapacityInputSchema,
+  DiskCapacityInputSchema,
+  InodeCapacityInputSchema,
+  MemoryCapacityInputSchema,
+  type CpuCapacityInput,
+  type MemoryCapacityInput,
+} from "./deployment-capacity-schemas.js"
 import { MANAGED_DEPLOYMENT_CONFIG } from "./deployment-topology.js"
+import {
+  CAPACITY_PHASE,
+  DISK_CAPACITY_STAGE,
+  INODE_CAPACITY_STAGE,
+} from "./deployment-vocabulary.js"
 
 const MIB = 1_048_576
-
-export const CAPACITY_PHASE = {
-  DISPOSABLE_CANARY: "DISPOSABLE_CANARY",
-  PRODUCTION_SERIAL: "PRODUCTION_SERIAL",
-} as const
-export const DISK_CAPACITY_STAGE = {
-  BEFORE_PULLS: "BEFORE_PULLS",
-  AFTER_START: "AFTER_START",
-} as const
-export const INODE_CAPACITY_STAGE = {
-  BEFORE_PULLS: "BEFORE_PULLS",
-  AFTER_START: "AFTER_START",
-} as const
-
-const NonNegativeMeasurementSchema = z.number().finite().nonnegative()
-const PositiveByteCountSchema = z.number().int().safe().positive()
-const NonNegativeByteCountSchema = z.number().int().safe().nonnegative()
-const NonNegativeCountSchema = z.number().int().safe().nonnegative()
-
-const MemoryCapacityInputSchema = z
-  .object({
-    phase: z.nativeEnum(CAPACITY_PHASE),
-    hostTotalMemoryMiB: NonNegativeMeasurementSchema,
-    hostNonSteelP95MiB: NonNegativeMeasurementSchema,
-    legacySteelP95MiB: NonNegativeMeasurementSchema,
-    managerLimitBytes: PositiveByteCountSchema,
-    workerLimitBytes: PositiveByteCountSchema,
-    usableSamples: NonNegativeCountSchema,
-    sampleWindowSeconds: NonNegativeMeasurementSchema,
-    sampleIntervalSeconds: NonNegativeMeasurementSchema,
-  })
-  .strict()
-
-const ThrottlingObservationSchema = z
-  .object({ nrThrottled: NonNegativeCountSchema, nrPeriods: z.number().int().safe().positive() })
-  .strict()
-const CpuCapacityInputSchema = z
-  .object({
-    phase: z.nativeEnum(CAPACITY_PHASE),
-    hostLogicalCpuCount: z.number().finite().positive(),
-    hostNonSteelCpuP95Cores: NonNegativeMeasurementSchema,
-    legacySteelCpuP95Cores: NonNegativeMeasurementSchema,
-    managedCpuP95Cores: NonNegativeMeasurementSchema,
-    loadOneP95: NonNegativeMeasurementSchema,
-    usableSamples: NonNegativeCountSchema,
-    sampleWindowSeconds: NonNegativeMeasurementSchema,
-    sampleIntervalSeconds: NonNegativeMeasurementSchema,
-    throttling: z.tuple([
-      ThrottlingObservationSchema,
-      ThrottlingObservationSchema,
-      ThrottlingObservationSchema,
-    ]),
-  })
-  .strict()
-
-const DiskCapacityInputSchema = z
-  .object({
-    stage: z.nativeEnum(DISK_CAPACITY_STAGE),
-    freeDiskBytes: NonNegativeByteCountSchema,
-    filesystemBytes: PositiveByteCountSchema,
-    managerImageSizeBytes: NonNegativeByteCountSchema,
-    workerImageSizeBytes: NonNegativeByteCountSchema,
-    legacyRollbackLayerBytes: NonNegativeByteCountSchema,
-    signedReceiptBundleBytes: NonNegativeByteCountSchema,
-  })
-  .strict()
-
-const InodeCapacityInputSchema = z
-  .object({
-    stage: z.nativeEnum(INODE_CAPACITY_STAGE),
-    freeInodes: NonNegativeCountSchema,
-    totalInodes: z.number().int().safe().positive(),
-    managerImageInodes: NonNegativeCountSchema,
-    workerImageInodes: NonNegativeCountSchema,
-    legacyRollbackInodes: NonNegativeCountSchema,
-  })
-  .strict()
 
 export function requiredManagedMemoryMiB(input: Readonly<{
   readonly managerLimitBytes: number
@@ -92,7 +26,7 @@ export function requiredManagedMemoryMiB(input: Readonly<{
   )
 }
 
-function memoryBudgetMiB(input: z.infer<typeof MemoryCapacityInputSchema>): number {
+function memoryBudgetMiB(input: MemoryCapacityInput): number {
   switch (input.phase) {
     case CAPACITY_PHASE.DISPOSABLE_CANARY:
       return (
@@ -104,7 +38,7 @@ function memoryBudgetMiB(input: z.infer<typeof MemoryCapacityInputSchema>): numb
     case CAPACITY_PHASE.PRODUCTION_SERIAL:
       return input.hostTotalMemoryMiB - input.hostNonSteelP95MiB - MANAGED_DEPLOYMENT_CONFIG.memoryReserveMiB
     default:
-      return assertNever(input.phase)
+      return assertNever(input)
   }
 }
 
@@ -120,7 +54,7 @@ export function evaluateMemoryCapacity(input: unknown): CapacityGateResult {
   return CAPACITY_GATE_RESULT.VERIFIED
 }
 
-function cpuBudgetCores(input: z.infer<typeof CpuCapacityInputSchema>): number {
+function cpuBudgetCores(input: CpuCapacityInput): number {
   switch (input.phase) {
     case CAPACITY_PHASE.DISPOSABLE_CANARY:
       return (
@@ -132,7 +66,7 @@ function cpuBudgetCores(input: z.infer<typeof CpuCapacityInputSchema>): number {
     case CAPACITY_PHASE.PRODUCTION_SERIAL:
       return input.hostLogicalCpuCount - input.hostNonSteelCpuP95Cores - MANAGED_DEPLOYMENT_CONFIG.cpuReserveCores
     default:
-      return assertNever(input.phase)
+      return assertNever(input)
   }
 }
 
@@ -179,7 +113,7 @@ export function evaluateDiskCapacity(input: unknown): CapacityGateResult {
       )
       break
     default:
-      return assertNever(parsed.data.stage)
+      return assertNever(parsed.data)
   }
   return parsed.data.freeDiskBytes >= requiredFreeBytes
     ? CAPACITY_GATE_RESULT.VERIFIED
@@ -206,7 +140,7 @@ export function evaluateInodeCapacity(input: unknown): CapacityGateResult {
       )
       break
     default:
-      return assertNever(parsed.data.stage)
+      return assertNever(parsed.data)
   }
   return parsed.data.freeInodes >= requiredFreeInodes
     ? CAPACITY_GATE_RESULT.VERIFIED

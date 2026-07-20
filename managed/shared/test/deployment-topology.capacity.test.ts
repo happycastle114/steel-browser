@@ -36,15 +36,22 @@ describe("deployment-topology exact capacity boundaries", () => {
   })
 
   it.each([
-    [CAPACITY_PHASE.DISPOSABLE_CANARY, 2_523, 100],
-    [CAPACITY_PHASE.PRODUCTION_SERIAL, 2_423, 100],
-  ])("accepts memory equality and rejects one MiB below for %s", (phase, hostTotalMemoryMiB, legacySteelP95MiB) => {
+    {
+      label: CAPACITY_PHASE.DISPOSABLE_CANARY,
+      phaseInput: { phase: CAPACITY_PHASE.DISPOSABLE_CANARY, legacySteelP95MiB: 100 },
+      hostTotalMemoryMiB: 2_523,
+    },
+    {
+      label: CAPACITY_PHASE.PRODUCTION_SERIAL,
+      phaseInput: { phase: CAPACITY_PHASE.PRODUCTION_SERIAL },
+      hostTotalMemoryMiB: 2_423,
+    },
+  ] as const)("accepts memory equality and rejects one MiB below for $label", ({ phaseInput, hostTotalMemoryMiB }) => {
     // Given: required memory exactly equals the phase-specific 80 percent host allowance.
     const exact = {
-      phase,
+      ...phaseInput,
       hostTotalMemoryMiB,
       hostNonSteelP95MiB: 0,
-      legacySteelP95MiB,
       managerLimitBytes: 100 * MIB,
       workerLimitBytes: 100 * MIB,
       usableSamples: 300,
@@ -68,15 +75,22 @@ describe("deployment-topology exact capacity boundaries", () => {
   })
 
   it.each([
-    [CAPACITY_PHASE.DISPOSABLE_CANARY, 4, 0.5, 1.6],
-    [CAPACITY_PHASE.PRODUCTION_SERIAL, 4, 0.5, 2],
-  ])("enforces CPU p95, load, and throttle equality for %s", (phase, hostLogicalCpuCount, legacySteelCpuP95Cores, managedCpuP95Cores) => {
+    {
+      label: CAPACITY_PHASE.DISPOSABLE_CANARY,
+      phaseInput: { phase: CAPACITY_PHASE.DISPOSABLE_CANARY, legacySteelCpuP95Cores: 0.5 },
+      managedCpuP95Cores: 1.6,
+    },
+    {
+      label: CAPACITY_PHASE.PRODUCTION_SERIAL,
+      phaseInput: { phase: CAPACITY_PHASE.PRODUCTION_SERIAL },
+      managedCpuP95Cores: 2,
+    },
+  ] as const)("enforces CPU p95, load, and throttle equality for $label", ({ phaseInput, managedCpuP95Cores }) => {
     // Given: all three CPU predicates exactly meet their phase-specific limits.
     const exact = {
-      phase,
-      hostLogicalCpuCount,
+      ...phaseInput,
+      hostLogicalCpuCount: 4,
       hostNonSteelCpuP95Cores: 1,
-      legacySteelCpuP95Cores,
       managedCpuP95Cores,
       loadOneP95: 3.2,
       usableSamples: 300,
@@ -113,13 +127,16 @@ describe("deployment-topology exact capacity boundaries", () => {
     const before = {
       stage: DISK_CAPACITY_STAGE.BEFORE_PULLS,
       freeDiskBytes: 5 * GIB + 2 * (100 + 2 * 200) + 300 + 400,
-      filesystemBytes: 30 * GIB,
       managerImageSizeBytes: 100,
       workerImageSizeBytes: 200,
       legacyRollbackLayerBytes: 300,
       signedReceiptBundleBytes: 400,
     }
-    const after = { ...before, stage: DISK_CAPACITY_STAGE.AFTER_START, freeDiskBytes: 6 * GIB }
+    const after = {
+      stage: DISK_CAPACITY_STAGE.AFTER_START,
+      freeDiskBytes: 6 * GIB,
+      filesystemBytes: 30 * GIB,
+    }
 
     // When: equality and one-byte-under values are evaluated for both stages.
     const outcomes = [
@@ -143,12 +160,15 @@ describe("deployment-topology exact capacity boundaries", () => {
     const before = {
       stage: INODE_CAPACITY_STAGE.BEFORE_PULLS,
       freeInodes: 100_000 + 2 * (100 + 2 * 200) + 300,
-      totalInodes: 2_000_000,
       managerImageInodes: 100,
       workerImageInodes: 200,
       legacyRollbackInodes: 300,
     }
-    const after = { ...before, stage: INODE_CAPACITY_STAGE.AFTER_START, freeInodes: 200_000 }
+    const after = {
+      stage: INODE_CAPACITY_STAGE.AFTER_START,
+      freeInodes: 200_000,
+      totalInodes: 2_000_000,
+    }
 
     // When: equality and one-inode-under values are evaluated for both stages.
     const outcomes = [
@@ -226,7 +246,7 @@ describe("deployment-topology exact capacity boundaries", () => {
       config.activeWorkerCount,
       config.capacitySampleCount,
       config.capacityWindowSeconds,
-      config.handoverOverlapMs,
+      config.sessionPressureOverlapMs,
     ]
 
     // Then: the approved constants are exposed once through the config API.

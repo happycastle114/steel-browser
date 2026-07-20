@@ -1,5 +1,6 @@
 import { z } from "zod"
 
+import type { DeepReadonly } from "./deep-readonly.js"
 import {
   CAPACITY_GATE_OUTCOME,
   COOLIFY_DEPLOYMENT_STATUS,
@@ -41,5 +42,5 @@ export const CutoverGateSchema = z
   })
   .strict()
 
-export type CutoverGate = Readonly<z.infer<typeof CutoverGateSchema>>
-export type DeploymentGateResult = Readonly<z.infer<typeof DeploymentGateResultSchema>>
+export type CutoverGate = DeepReadonly<z.infer<typeof CutoverGateSchema>>
+export type DeploymentGateResult = DeepReadonly<z.infer<typeof DeploymentGateResultSchema>>

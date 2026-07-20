@@ -36,6 +36,19 @@ export const DEPLOYMENT_GATE_OUTCOME = {
   BLOCKED_ROUTE_OWNERSHIP: "BLOCKED_ROUTE_OWNERSHIP",
 } as const
 
+export const CAPACITY_PHASE = {
+  DISPOSABLE_CANARY: "DISPOSABLE_CANARY",
+  PRODUCTION_SERIAL: "PRODUCTION_SERIAL",
+} as const
+export const DISK_CAPACITY_STAGE = {
+  BEFORE_PULLS: "BEFORE_PULLS",
+  AFTER_START: "AFTER_START",
+} as const
+export const INODE_CAPACITY_STAGE = {
+  BEFORE_PULLS: "BEFORE_PULLS",
+  AFTER_START: "AFTER_START",
+} as const
+
 export const DISCOVERY_MODE = { STATIC_CONFIG: "STATIC_CONFIG" } as const
 export const COOLIFY_CUTOVER_MODE = { SERIAL_MAINTENANCE: "SERIAL_MAINTENANCE" } as const
 export const COOLIFY_OPERATOR_SURFACE = {
@@ -143,6 +156,9 @@ export type LegacyRuntimeState = (typeof LEGACY_RUNTIME_STATE)[keyof typeof LEGA
 export type DeploymentCapacityStatus = (typeof DEPLOYMENT_CAPACITY_STATUS)[keyof typeof DEPLOYMENT_CAPACITY_STATUS]
 export type CapacityGateOutcome = (typeof CAPACITY_GATE_OUTCOME)[keyof typeof CAPACITY_GATE_OUTCOME]
 export type DeploymentGateOutcome = (typeof DEPLOYMENT_GATE_OUTCOME)[keyof typeof DEPLOYMENT_GATE_OUTCOME]
+export type CapacityPhase = (typeof CAPACITY_PHASE)[keyof typeof CAPACITY_PHASE]
+export type DiskCapacityStage = (typeof DISK_CAPACITY_STAGE)[keyof typeof DISK_CAPACITY_STAGE]
+export type InodeCapacityStage = (typeof INODE_CAPACITY_STAGE)[keyof typeof INODE_CAPACITY_STAGE]
 export type DiscoveryMode = (typeof DISCOVERY_MODE)[keyof typeof DISCOVERY_MODE]
 export type CoolifyCutoverMode = (typeof COOLIFY_CUTOVER_MODE)[keyof typeof COOLIFY_CUTOVER_MODE]
 export type CoolifyOperatorSurface = (typeof COOLIFY_OPERATOR_SURFACE)[keyof typeof COOLIFY_OPERATOR_SURFACE]
@@ -191,6 +207,16 @@ export const OVERLAY_ENUM_VOCABULARY = {
   ManagedHandoverState: enumMembers(MANAGED_HANDOVER_STATE),
 } as const satisfies Readonly<Record<string, readonly string[]>>
 
+export const CAPACITY_ENUM_VOCABULARY = {
+  CapacityPhase: enumMembers(CAPACITY_PHASE),
+  DiskCapacityStage: enumMembers(DISK_CAPACITY_STAGE),
+  InodeCapacityStage: enumMembers(INODE_CAPACITY_STAGE),
+} as const satisfies Readonly<Record<string, readonly string[]>>
+
 export const CLOSED_STATE_MEMBERS = Object.freeze(Array.from(
-  new Set([...Object.values(DISCOVERY_MODE), ...Object.values(OVERLAY_ENUM_VOCABULARY).flat()]),
+  new Set([
+    ...Object.values(DISCOVERY_MODE),
+    ...Object.values(OVERLAY_ENUM_VOCABULARY).flat(),
+    ...Object.values(CAPACITY_ENUM_VOCABULARY).flat(),
+  ]),
 ).sort())

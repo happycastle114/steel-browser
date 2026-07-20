@@ -212,8 +212,7 @@ describe("deployment-topology invalid fixtures", () => {
     const unknown = HandoverTransitionSchema.safeParse({
       from: MANAGED_HANDOVER_STATE.DOMAIN_NONE,
       to: "UNKNOWN_TRANSITION",
-      activeProjectRunning: false,
-      standbyProjectRunning: false,
+      ...HANDOVER_RUNTIME_BY_STATE[MANAGED_HANDOVER_STATE.DOMAIN_NONE],
       capacityStatus: DEPLOYMENT_CAPACITY_STATUS.VERIFIED,
     })
 
@@ -230,8 +229,16 @@ describe("deployment-topology invalid fixtures", () => {
       capacityStatus: DEPLOYMENT_CAPACITY_STATUS.VERIFIED,
     }
     const inputs = [
-      { ...base, activeProjectRunning: true, standbyProjectRunning: true },
-      { ...base, activeProjectRunning: true, standbyProjectRunning: false },
+      {
+        ...base,
+        activeProjectRuntime: HANDOVER_RUNTIME_BY_STATE[MANAGED_HANDOVER_STATE.ACTIVE_DRAIN_SAFE].activeProjectRuntime,
+        standbyProjectRuntime: HANDOVER_RUNTIME_BY_STATE[MANAGED_HANDOVER_STATE.STANDBY_STARTED].standbyProjectRuntime,
+      },
+      {
+        ...base,
+        activeProjectRuntime: HANDOVER_RUNTIME_BY_STATE[MANAGED_HANDOVER_STATE.ACTIVE_DRAIN_SAFE].activeProjectRuntime,
+        standbyProjectRuntime: HANDOVER_RUNTIME_BY_STATE[MANAGED_HANDOVER_STATE.STANDBY_CONFIG_BOUND].standbyProjectRuntime,
+      },
     ]
 
     // When: both unsafe runtime observations cross the transition boundary.

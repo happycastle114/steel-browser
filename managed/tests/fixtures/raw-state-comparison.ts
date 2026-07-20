@@ -1,3 +1,3 @@
-declare const runtimeState: string
+declare const stage: string
 
-export const forbiddenRawComparison = runtimeState === "ACTIVE"
+export const forbiddenRawComparison = stage === "BEFORE_PULLS"

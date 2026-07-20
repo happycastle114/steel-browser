@@ -1,11 +1,12 @@
 import { z } from "zod"
 
+import { withDeepReadonlyOutput } from "./deep-readonly.js"
 import { CAPACITY_GATE_RESULT, type CapacityGateResult } from "./deployment-capacity-result.js"
 import { MANAGED_DEPLOYMENT_CONFIG } from "./deployment-topology.js"
 
 const ByteCountSchema = z.number().int().safe().nonnegative()
 
-export const ShmTmpfsCapacityInputSchema = z
+const ShmTmpfsCapacityInputBaseSchema = z
   .object({
     manager: z
       .object({
@@ -52,8 +53,9 @@ export const ShmTmpfsCapacityInputSchema = z
     warmIdleOomCount: z.number().int().safe().nonnegative(),
   })
   .strict()
+export const ShmTmpfsCapacityInputSchema = withDeepReadonlyOutput(ShmTmpfsCapacityInputBaseSchema)
 
-export type ShmTmpfsCapacityInput = Readonly<z.infer<typeof ShmTmpfsCapacityInputSchema>>
+export type ShmTmpfsCapacityInput = z.infer<typeof ShmTmpfsCapacityInputSchema>
 
 export function requiredManagedEphemeralBytes(input: ShmTmpfsCapacityInput): number {
   return (
@@ -117,7 +119,7 @@ export function evaluateShmTmpfsCapacity(input: unknown): CapacityGateResult {
   return CAPACITY_GATE_RESULT.VERIFIED
 }
 
-export const PressureCapacityInputSchema = z
+const PressureCapacityInputBaseSchema = z
   .object({
     baselineUsableSamples: z.number().int().safe().nonnegative(),
     pressureUsableSamples: z.number().int().safe().nonnegative(),
@@ -138,8 +140,9 @@ export const PressureCapacityInputSchema = z
     inodeThresholdsVerified: z.boolean(),
   })
   .strict()
+export const PressureCapacityInputSchema = withDeepReadonlyOutput(PressureCapacityInputBaseSchema)
 
-export type PressureCapacityInput = Readonly<z.infer<typeof PressureCapacityInputSchema>>
+export type PressureCapacityInput = z.infer<typeof PressureCapacityInputSchema>
 
 export function evaluatePressureCapacity(input: unknown): CapacityGateResult {
   const parsed = PressureCapacityInputSchema.safeParse(input)
@@ -157,7 +160,7 @@ export function evaluatePressureCapacity(input: unknown): CapacityGateResult {
     (interval) => interval > MANAGED_DEPLOYMENT_CONFIG.workerPressureLoopSeconds,
   )
   if (
-    pressure.sessionOverlapMs < MANAGED_DEPLOYMENT_CONFIG.handoverOverlapMs ||
+    pressure.sessionOverlapMs < MANAGED_DEPLOYMENT_CONFIG.sessionPressureOverlapMs ||
     workerLoopMissed ||
     pressure.oomCount !== 0 ||
     pressure.oomKillCount !== 0 ||

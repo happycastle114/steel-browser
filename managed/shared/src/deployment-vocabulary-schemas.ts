@@ -1,6 +1,7 @@
 import { z } from "zod"
 
 import {
+  CAPACITY_PHASE,
   CAPACITY_GATE_OUTCOME,
   COMPOSITE_ROUTE_PHASE,
   COOLIFY_COMPOSE_DEPLOYMENT_MODE,
@@ -14,9 +15,11 @@ import {
   COOLIFY_SECRET_ISOLATION_MODE,
   DEPLOYMENT_CAPACITY_STATUS,
   DEPLOYMENT_GATE_OUTCOME,
+  DISK_CAPACITY_STAGE,
   DISCOVERY_MODE,
   EDGE_ROUTE_MODE,
   FINGERPRINT_PROOF_LEVEL,
+  INODE_CAPACITY_STAGE,
   LEGACY_QUIESCENCE_MODE,
   LEGACY_RUNTIME_STATE,
   MANAGED_HANDOVER_STATE,
@@ -31,6 +34,9 @@ export const LegacyRuntimeStateSchema = z.nativeEnum(LEGACY_RUNTIME_STATE)
 export const DeploymentCapacityStatusSchema = z.nativeEnum(DEPLOYMENT_CAPACITY_STATUS)
 export const CapacityGateOutcomeSchema = z.nativeEnum(CAPACITY_GATE_OUTCOME)
 export const DeploymentGateOutcomeSchema = z.nativeEnum(DEPLOYMENT_GATE_OUTCOME)
+export const CapacityPhaseSchema = z.nativeEnum(CAPACITY_PHASE)
+export const DiskCapacityStageSchema = z.nativeEnum(DISK_CAPACITY_STAGE)
+export const InodeCapacityStageSchema = z.nativeEnum(INODE_CAPACITY_STAGE)
 export const DiscoveryModeSchema = z.nativeEnum(DISCOVERY_MODE)
 export const CoolifyCutoverModeSchema = z.nativeEnum(COOLIFY_CUTOVER_MODE)
 export const CoolifyOperatorSurfaceSchema = z.nativeEnum(COOLIFY_OPERATOR_SURFACE)

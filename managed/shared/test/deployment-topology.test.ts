@@ -94,6 +94,11 @@ describe("deployment-topology canonical happy paths", () => {
 
     // Then: the full handover is accepted with no simultaneous runtime.
     expect(results.every((result) => result.success)).toBe(true)
-    expect(transitions.every((transition) => !(transition.activeProjectRunning && transition.standbyProjectRunning))).toBe(true)
+    expect(
+      transitions.every(
+        (transition) =>
+          !(transition.activeProjectRuntime.projectRunning && transition.standbyProjectRuntime.projectRunning),
+      ),
+    ).toBe(true)
   })
 })
