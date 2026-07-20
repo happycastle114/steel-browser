@@ -1,3 +1,5 @@
+import { LISTENER_ENUM_VOCABULARY } from "./deployment-listener-vocabulary.js"
+
 export const MANAGED_PROJECT_RUNTIME_STATE = {
   ACTIVE: "ACTIVE",
   COLD_STANDBY: "COLD_STANDBY",
@@ -218,5 +220,6 @@ export const CLOSED_STATE_MEMBERS = Object.freeze(Array.from(
     ...Object.values(DISCOVERY_MODE),
     ...Object.values(OVERLAY_ENUM_VOCABULARY).flat(),
     ...Object.values(CAPACITY_ENUM_VOCABULARY).flat(),
+    ...Object.values(LISTENER_ENUM_VOCABULARY).flat(),
   ]),
 ).sort())

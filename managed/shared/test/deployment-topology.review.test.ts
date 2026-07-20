@@ -28,6 +28,7 @@ const RUNNING_RUNTIME_PROOF = {
   projectRunning: true,
   containerCount: MANAGED_DEPLOYMENT_CONFIG.activeContainerCount,
   listenerCount: MANAGED_DEPLOYMENT_CONFIG.activeListenerCount,
+  listeners: MANAGED_DEPLOYMENT_CONFIG.activeListeners,
   connectionCount: 0,
 } as const
 
@@ -35,11 +36,12 @@ const STOPPED_RUNTIME_PROOF = {
   projectRunning: false,
   containerCount: 0,
   listenerCount: 0,
+  listeners: [],
   connectionCount: 0,
 } as const
 
 describe("deployment topology review regressions", () => {
-  it("rejects any active listener count other than the canonical four", () => {
+  it("rejects any active listener count other than the canonical inventory length", () => {
     // Given: a stable topology whose active project is missing one listener.
     const input = {
       ...validTopology(),

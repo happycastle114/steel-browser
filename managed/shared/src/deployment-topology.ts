@@ -2,6 +2,11 @@ import { z } from "zod"
 
 import { withDeepReadonlyOutput } from "./deep-readonly.js"
 import {
+  MANAGED_ACTIVE_LISTENER_INVENTORY,
+  ManagedActiveListenerInventorySchema,
+  StoppedManagedListenerInventorySchema,
+} from "./deployment-listener.js"
+import {
   COOLIFY_COMPOSE_DEPLOYMENT_MODE,
   COOLIFY_CUTOVER_MODE,
   COOLIFY_PRODUCTION_OWNER,
@@ -18,7 +23,8 @@ export const MANAGED_DEPLOYMENT_CONFIG = {
   activeManagerCount: 1,
   activeWorkerCount: 2,
   activeContainerCount: 3,
-  activeListenerCount: 4,
+  activeListeners: MANAGED_ACTIVE_LISTENER_INVENTORY,
+  activeListenerCount: MANAGED_ACTIVE_LISTENER_INVENTORY.length,
   staticWorkerEndpoints: [
     "worker-00=http://worker-00:3000",
     "worker-01=http://worker-01:3000",
@@ -56,6 +62,7 @@ const ActiveManagedProjectSchema = z
     workerCount: z.literal(MANAGED_DEPLOYMENT_CONFIG.activeWorkerCount),
     containerCount: z.literal(MANAGED_DEPLOYMENT_CONFIG.activeContainerCount),
     listenerCount: z.literal(MANAGED_DEPLOYMENT_CONFIG.activeListenerCount),
+    listeners: ManagedActiveListenerInventorySchema,
     connectionCount: RuntimeCountSchema,
     automaticRestartEnabled: z.boolean(),
   })
@@ -69,6 +76,7 @@ const ColdStandbyManagedProjectSchema = z
     workerCount: z.literal(0),
     containerCount: z.literal(0),
     listenerCount: z.literal(0),
+    listeners: StoppedManagedListenerInventorySchema,
     connectionCount: z.literal(0),
     automaticRestartEnabled: z.literal(false),
   })
@@ -82,6 +90,7 @@ const StoppedFailedManagedProjectSchema = z
     workerCount: z.literal(0),
     containerCount: z.literal(0),
     listenerCount: z.literal(0),
+    listeners: StoppedManagedListenerInventorySchema,
     connectionCount: z.literal(0),
     automaticRestartEnabled: z.literal(false),
   })

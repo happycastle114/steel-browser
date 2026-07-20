@@ -47,6 +47,7 @@ export function activeProject(slot = COOLIFY_PRODUCTION_OWNER.MANAGED_BLUE) {
     workerCount: MANAGED_DEPLOYMENT_CONFIG.activeWorkerCount,
     containerCount: MANAGED_DEPLOYMENT_CONFIG.activeContainerCount,
     listenerCount: MANAGED_DEPLOYMENT_CONFIG.activeListenerCount,
+    listeners: MANAGED_DEPLOYMENT_CONFIG.activeListeners,
     connectionCount: 0,
     automaticRestartEnabled: true,
   }
@@ -60,6 +61,7 @@ export function coldProject(slot = COOLIFY_PRODUCTION_OWNER.MANAGED_GREEN) {
     workerCount: 0,
     containerCount: 0,
     listenerCount: 0,
+    listeners: [],
     connectionCount: 0,
     automaticRestartEnabled: false,
   }

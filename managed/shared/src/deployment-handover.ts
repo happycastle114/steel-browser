@@ -1,6 +1,12 @@
 import { z } from "zod"
 
 import { withDeepReadonlyOutput, type DeepReadonly } from "./deep-readonly.js"
+import {
+  MANAGED_ACTIVE_LISTENER_INVENTORY,
+  STOPPED_MANAGED_LISTENER_INVENTORY,
+  ManagedActiveListenerInventorySchema,
+  StoppedManagedListenerInventorySchema,
+} from "./deployment-listener.js"
 import { MANAGED_DEPLOYMENT_CONFIG } from "./deployment-topology.js"
 import {
   DEPLOYMENT_CAPACITY_STATUS,
@@ -17,6 +23,7 @@ const RunningProjectRuntimeProofSchema = z
     projectRunning: z.literal(true),
     containerCount: z.literal(MANAGED_DEPLOYMENT_CONFIG.activeContainerCount),
     listenerCount: z.literal(MANAGED_DEPLOYMENT_CONFIG.activeListenerCount),
+    listeners: ManagedActiveListenerInventorySchema,
     connectionCount: z.number().int().safe().nonnegative(),
   })
   .strict()
@@ -26,6 +33,7 @@ const StoppedProjectRuntimeProofSchema = z
     projectRunning: z.literal(false),
     containerCount: z.literal(0),
     listenerCount: z.literal(0),
+    listeners: StoppedManagedListenerInventorySchema,
     connectionCount: z.literal(0),
   })
   .strict()
@@ -49,6 +57,7 @@ const RUNNING_PROJECT_RUNTIME_PROOF = {
   projectRunning: true,
   containerCount: MANAGED_DEPLOYMENT_CONFIG.activeContainerCount,
   listenerCount: MANAGED_DEPLOYMENT_CONFIG.activeListenerCount,
+  listeners: MANAGED_ACTIVE_LISTENER_INVENTORY,
   connectionCount: 0,
 } as const satisfies HandoverProjectRuntimeProof
 
@@ -56,6 +65,7 @@ const STOPPED_PROJECT_RUNTIME_PROOF = {
   projectRunning: false,
   containerCount: 0,
   listenerCount: 0,
+  listeners: STOPPED_MANAGED_LISTENER_INVENTORY,
   connectionCount: 0,
 } as const satisfies HandoverProjectRuntimeProof
 
@@ -128,6 +138,18 @@ const NEXT_HANDOVER_STATE = {
   [MANAGED_HANDOVER_STATE.EDGE_COOLIFY_PROXY]: null,
 } as const satisfies Readonly<Record<ManagedHandoverState, ManagedHandoverState | null>>
 
+function matchesExpectedRuntime(
+  observed: HandoverProjectRuntimeProof,
+  expected: HandoverProjectRuntimeProof,
+): boolean {
+  return (
+    observed.projectRunning === expected.projectRunning &&
+    observed.containerCount === expected.containerCount &&
+    observed.listenerCount === expected.listenerCount &&
+    observed.connectionCount === expected.connectionCount
+  )
+}
+
 const HandoverTransitionBaseSchema = z
   .object({
     from: ManagedHandoverStateSchema,
@@ -144,8 +166,8 @@ const HandoverTransitionBaseSchema = z
       context.addIssue({ code: z.ZodIssueCode.custom, message: "handover transition is not adjacent" })
     }
     if (
-      transition.activeProjectRuntime.projectRunning !== expectedRuntime.activeProjectRuntime.projectRunning ||
-      transition.standbyProjectRuntime.projectRunning !== expectedRuntime.standbyProjectRuntime.projectRunning
+      !matchesExpectedRuntime(transition.activeProjectRuntime, expectedRuntime.activeProjectRuntime) ||
+      !matchesExpectedRuntime(transition.standbyProjectRuntime, expectedRuntime.standbyProjectRuntime)
     ) {
       context.addIssue({ code: z.ZodIssueCode.custom, message: "handover runtime does not match target state" })
     }

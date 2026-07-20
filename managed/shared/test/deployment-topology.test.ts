@@ -51,6 +51,7 @@ describe("deployment-topology canonical happy paths", () => {
       runtimeState: MANAGED_PROJECT_RUNTIME_STATE.COLD_STANDBY,
       containerCount: 0,
       listenerCount: 0,
+      listeners: [],
       connectionCount: 0,
       automaticRestartEnabled: false,
     })
