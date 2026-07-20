@@ -172,8 +172,22 @@ async function main() {
     runtimeArgs.push(value)
     index += 1
   }
+  const runtimeArgsJson = readArgument("--runtime-args-json")
+  if (runtimeArgsJson !== undefined) {
+    if (runtimeArgs.length > 0) throw new Error("use either repeated --runtime-arg flags or --runtime-args-json")
+    let parsedArgs
+    try {
+      parsedArgs = JSON.parse(runtimeArgsJson)
+    } catch {
+      throw new Error("--runtime-args-json must be valid JSON")
+    }
+    if (!Array.isArray(parsedArgs) || parsedArgs.some((argument) => typeof argument !== "string")) {
+      throw new Error("--runtime-args-json must contain an array of strings")
+    }
+    runtimeArgs.push(...parsedArgs)
+  }
   if (upstreamSha === undefined || outputDirectory === undefined || runtimeExecutable === undefined) {
-    throw new Error("usage: capture-observation.mjs --upstream-sha <sha> --output-directory <path> --runtime-executable <path> [--runtime-arg <arg> ...]")
+    throw new Error("usage: capture-observation.mjs --upstream-sha <sha> --output-directory <path> --runtime-executable <path> [--runtime-arg <arg> ... | --runtime-args-json <json>]")
   }
   const result = await captureObservation({ repositoryRoot, upstreamSha, outputDirectory, runtimeExecutable, runtimeArgs })
   console.log(`UPSTREAM_OBSERVATION_CAPTURED ${JSON.stringify(result.provenance)}`)

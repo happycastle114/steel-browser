@@ -44,6 +44,19 @@ function requireRuleset(rulesets, predicate, detail) {
   return match
 }
 
+export async function loadRepositoryRulesets(repository, execute = execFileAsync) {
+  const listResult = await execute("gh", ["api", `repos/${repository}/rulesets`, "--paginate", "--slurp"], { env: { ...process.env, GH_PAGER: "cat" }, maxBuffer: 8 * 1024 * 1024 })
+  const listed = flattenRulesets(JSON.parse(listResult.stdout))
+  if (listed.length === 0) throw new Error("GitHub returned no repository rulesets")
+  const details = []
+  for (const ruleset of listed) {
+    if (!Number.isInteger(ruleset.id) && typeof ruleset.id !== "string") throw new Error("GitHub ruleset list entry has no stable id")
+    const detailResult = await execute("gh", ["api", `repos/${repository}/rulesets/${ruleset.id}`], { env: { ...process.env, GH_PAGER: "cat" }, maxBuffer: 8 * 1024 * 1024 })
+    details.push(JSON.parse(detailResult.stdout))
+  }
+  return details
+}
+
 export function verifyRepositoryRules(rulesetsInput) {
   const rulesets = flattenRulesets(rulesetsInput)
   requireRuleset(rulesets, (ruleset) => hasRef(ruleset, RULESET_CONTRACT.MANAGED_REF) && hasRule(ruleset, RULESET_CONTRACT.DELETION) && hasRule(ruleset, RULESET_CONTRACT.NON_FAST_FORWARD) && hasRule(ruleset, RULESET_CONTRACT.PULL_REQUEST) && hasManagedRequiredCheck(ruleset), "managed branch ruleset must enforce deletion, non-fast-forward, pull request review, and the managed gate check")
@@ -56,8 +69,8 @@ async function main() {
   const repositoryIndex = args.indexOf("--repository")
   const repository = repositoryIndex === -1 ? undefined : args[repositoryIndex + 1]
   if (repository === undefined || repository.trim() === "") throw new Error("usage: verify-repository-rules.mjs --repository <owner/repository>")
-  const { stdout } = await execFileAsync("gh", ["api", `repos/${repository}/rulesets`, "--paginate", "--slurp"], { env: { ...process.env, GH_PAGER: "cat" }, maxBuffer: 8 * 1024 * 1024 })
-  console.log(`UPSTREAM_SYNC_REPOSITORY_RULES_VERIFIED ${JSON.stringify(verifyRepositoryRules(JSON.parse(stdout)))}`)
+  const details = await loadRepositoryRulesets(repository)
+  console.log(`UPSTREAM_SYNC_REPOSITORY_RULES_VERIFIED ${JSON.stringify(verifyRepositoryRules(details))}`)
 }
 
 if (process.argv[1] !== undefined && path.basename(process.argv[1]) === path.basename(fileURLToPath(import.meta.url))) {

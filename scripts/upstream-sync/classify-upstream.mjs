@@ -53,6 +53,24 @@ function assertSha(value, name) {
   if (!SHA_PATTERN.test(value)) throw new Error(`${name} must be a 40-character lowercase commit SHA`)
 }
 
+function assertSafeEvidencePath(value) {
+  if (typeof value !== "string" || value.trim() === "" || path.posix.isAbsolute(value) || value.includes("\\") || value.split("/").includes("..")) {
+    throw new Error("review acknowledgement evidence path is unsafe")
+  }
+}
+
+export function reviewSubjectSha256({ sourceSha, diffSha256, evidencePath, evidenceSha256, categories, reviewedReasons }) {
+  const subject = {
+    sourceSha,
+    diffSha256,
+    evidencePath,
+    evidenceSha256,
+    categories: [...categories].sort(),
+    reviewedReasons: [...reviewedReasons].sort(),
+  }
+  return createHash("sha256").update(JSON.stringify(subject)).digest("hex")
+}
+
 export function classifyChangedPaths(paths, diffText = "") {
   const categories = new Set()
   for (const changedPath of paths) {
@@ -66,17 +84,21 @@ export function classifyChangedPaths(paths, diffText = "") {
   return [...categories].sort()
 }
 
-export function validateReviewAcknowledgement(value, { sourceSha, managedSha, diffSha256, categories }) {
+export function validateReviewAcknowledgement(value, { sourceSha, diffSha256, categories, evidenceBytes }) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("review acknowledgement must be an object")
-  const expectedKeys = ["schemaVersion", "sourceSha", "managedSha", "diffSha256", "evidenceSha256", "categories", "reviewedReasons", "reviewer", "reviewedAt", "decision"]
+  const expectedKeys = ["schemaVersion", "sourceSha", "reviewSubjectSha256", "diffSha256", "evidencePath", "evidenceSha256", "categories", "reviewedReasons", "reviewer", "reviewedAt", "decision"]
   if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify([...expectedKeys].sort())) throw new Error("review acknowledgement schema keys are not exact")
   assertSha(value.sourceSha, "review acknowledgement source SHA")
-  assertSha(value.managedSha, "review acknowledgement managed SHA")
-  if (value.schemaVersion !== 1 || value.sourceSha !== sourceSha || value.managedSha !== managedSha || value.diffSha256 !== diffSha256 || !/^[0-9a-f]{64}$/u.test(value.evidenceSha256) || value.decision !== "ACKNOWLEDGED") throw new Error("review acknowledgement topology binding is invalid")
+  assertSafeEvidencePath(value.evidencePath)
+  if (value.schemaVersion !== 1 || value.sourceSha !== sourceSha || value.diffSha256 !== diffSha256 || !/^[0-9a-f]{64}$/u.test(value.evidenceSha256) || value.decision !== "ACKNOWLEDGED") throw new Error("review acknowledgement topology binding is invalid")
   if (!Array.isArray(value.categories) || JSON.stringify([...value.categories].sort()) !== JSON.stringify([...categories].sort())) throw new Error("review acknowledgement categories drift")
   const expectedReasons = categories.filter((category) => REVIEW_REQUIRED_CATEGORIES.includes(category)).map((category) => REVIEW_REASON_BY_CATEGORY[category]).sort()
   if (!Array.isArray(value.reviewedReasons) || JSON.stringify([...value.reviewedReasons].sort()) !== JSON.stringify(expectedReasons)) throw new Error("review acknowledgement reasons drift")
   if (typeof value.reviewer !== "string" || value.reviewer.trim() === "" || typeof value.reviewedAt !== "string" || Number.isNaN(Date.parse(value.reviewedAt))) throw new Error("review acknowledgement reviewer or timestamp is invalid")
+  if (evidenceBytes === undefined) throw new Error("review acknowledgement evidence bytes are required")
+  const actualEvidenceSha256 = createHash("sha256").update(evidenceBytes).digest("hex")
+  if (actualEvidenceSha256 !== value.evidenceSha256) throw new Error("review acknowledgement evidence hash drift")
+  if (reviewSubjectSha256(value) !== value.reviewSubjectSha256) throw new Error("review acknowledgement subject hash drift")
   return value
 }
 
@@ -84,7 +106,7 @@ async function gitOutput(repositoryRoot, args, encoding = "utf8") {
   return (await execFileAsync("git", args, { cwd: repositoryRoot, encoding })).stdout
 }
 
-export async function classifyUpstream({ repositoryRoot, managedSha, sourceSha, lockSha, mergeSha, observationAvailable = false, reviewAcknowledgementPath }) {
+export async function classifyUpstream({ repositoryRoot, managedSha, sourceSha, lockSha, mergeSha, observationAvailable = false, reviewAcknowledgementPath, evidenceRoot }) {
   assertSha(managedSha, "managed SHA")
   assertSha(sourceSha, "source SHA")
   assertSha(lockSha, "lock SHA")
@@ -104,7 +126,10 @@ export async function classifyUpstream({ repositoryRoot, managedSha, sourceSha, 
   let reviewAcknowledgement = null
   if (reviewAcknowledgementPath !== undefined) {
     try {
-      reviewAcknowledgement = validateReviewAcknowledgement(JSON.parse(await readFile(reviewAcknowledgementPath, "utf8")), { sourceSha, managedSha, diffSha256: createHash("sha256").update(diffBytes).digest("hex"), categories })
+      const candidate = JSON.parse(await readFile(reviewAcknowledgementPath, "utf8"))
+      assertSafeEvidencePath(candidate.evidencePath)
+      const evidenceBytes = await readFile(path.resolve(evidenceRoot ?? repositoryRoot, candidate.evidencePath))
+      reviewAcknowledgement = validateReviewAcknowledgement(candidate, { sourceSha, diffSha256: createHash("sha256").update(diffBytes).digest("hex"), categories, evidenceBytes })
       for (const reason of REVIEW_REQUIRED_CATEGORIES.map((category) => REVIEW_REASON_BY_CATEGORY[category])) {
         const index = blockedReasons.indexOf(reason)
         if (index !== -1) blockedReasons.splice(index, 1)
@@ -143,11 +168,12 @@ async function main() {
   const mergeSha = readArgument("--merge-sha")
   const observationAvailable = args.includes("--observation-available")
   const reviewAcknowledgementPath = readArgument("--review-acknowledgement")
+  const evidenceRoot = readArgument("--evidence-root")
   const outputPath = readArgument("--output")
   if (managedSha === undefined || sourceSha === undefined || lockSha === undefined || outputPath === undefined) {
     throw new Error("usage: classify-upstream.mjs --managed-sha <sha> --source-sha <sha> --lock-sha <sha> [--merge-sha <sha>] --output <path>")
   }
-  const result = await classifyUpstream({ repositoryRoot, managedSha, sourceSha, lockSha, mergeSha, observationAvailable, reviewAcknowledgementPath })
+  const result = await classifyUpstream({ repositoryRoot, managedSha, sourceSha, lockSha, mergeSha, observationAvailable, reviewAcknowledgementPath, evidenceRoot })
   await writeFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, "utf8")
   console.log(`UPSTREAM_CLASSIFICATION ${JSON.stringify(result)}`)
 }

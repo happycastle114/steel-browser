@@ -7,12 +7,19 @@ import { promisify } from "node:util"
 import { createHash } from "node:crypto"
 import { CORPUS_FILES, FINAL_ARTIFACT_FILES, LOCK_STAGE, sha256, validateEvidenceManifest, validateObservedCorpus } from "./prepare-corpus.mjs"
 import { CHANGE_CATEGORY, classifyChangedPaths, validateReviewAcknowledgement } from "./classify-upstream.mjs"
+import { assertScopeManifestCoversPaths } from "./corpus-evidence.mjs"
 
 const execFileAsync = promisify(execFile)
 const SHA_PATTERN = /^[0-9a-f]{40}$/u
 
 function assertSha(value, name) {
   if (!SHA_PATTERN.test(value)) throw new Error(`${name} must be a 40-character lowercase SHA`)
+}
+
+function assertEvidencePath(value) {
+  if (typeof value !== "string" || value.trim() === "" || path.posix.isAbsolute(value) || value.includes("\\") || value.split("/").includes("..")) {
+    throw new Error("candidate review evidence path is unsafe")
+  }
 }
 
 async function git(repositoryRoot, args, options = {}) {
@@ -37,6 +44,7 @@ async function verifyEvidenceBindings(repositoryRoot, commitSha, corpusRoot, man
       throw new Error(`${kind} evidence artifact hash drift: ${artifact.path}`)
     }
   }
+  return manifest
 }
 
 async function verifyCommittedCorpus(repositoryRoot, commitSha, sourceSha, lockStage) {
@@ -127,6 +135,7 @@ export async function verifyCandidateCommit({ repositoryRoot, commitSha, mergeCo
   for (const filePath of expected) await assertRegularBlob(root, commitSha, filePath)
 
   const { corpusRoot, texts } = await verifyCommittedCorpus(root, commitSha, sourceSha, lockStage)
+  let scopeManifest = null
   if (lock.protocolCorpusSha256 !== sha256(Buffer.from(texts.get("manifest.json"), "utf8"))) throw new Error("candidate lock protocol corpus digest drift")
   if (lock.sessionIdVerdictSha256 !== sha256(Buffer.from(texts.get("session-id-verdict.json"), "utf8"))) throw new Error("candidate lock session verdict digest drift")
   if (lockStage === LOCK_STAGE.FINAL) {
@@ -134,7 +143,7 @@ export async function verifyCandidateCommit({ repositoryRoot, commitSha, mergeCo
     if (lock.licenseManifestSha256 !== sha256(Buffer.from(texts.get("license-manifest.json"), "utf8"))) throw new Error("candidate lock license manifest digest drift")
     if (lock.scopeManifestSha256 !== sha256(Buffer.from(texts.get("scope-manifest.json"), "utf8"))) throw new Error("candidate lock scope manifest digest drift")
     await verifyEvidenceBindings(root, commitSha, corpusRoot, texts.get("license-manifest.json"), "LICENSE")
-    await verifyEvidenceBindings(root, commitSha, corpusRoot, texts.get("scope-manifest.json"), "SCOPE")
+    scopeManifest = await verifyEvidenceBindings(root, commitSha, corpusRoot, texts.get("scope-manifest.json"), "SCOPE")
   }
   const receiptDigest = sha256(Buffer.from(texts.get("observed-receipt.json"), "utf8"))
   const receiptSource = await show(root, commitSha, "managed/shared/src/upstream-observed-receipt.ts")
@@ -151,6 +160,7 @@ export async function verifyCandidateCommit({ repositoryRoot, commitSha, mergeCo
   if (classification.diffSha256 !== diffSha256) throw new Error("candidate classification diff digest drift")
   const changedPaths = (await git(root, ["diff", "--name-only", "--find-renames", `${managedSha}...${sourceSha}`])).split("\n").map((entry) => entry.trim()).filter(Boolean).sort()
   if (JSON.stringify(classification.changedPaths) !== JSON.stringify(changedPaths)) throw new Error("candidate classification changed paths drift")
+  if (scopeManifest !== null) assertScopeManifestCoversPaths(scopeManifest, changedPaths)
   const expectedCategories = classifyChangedPaths(changedPaths, sourceDiff.toString("utf8"))
   if (JSON.stringify(classification.categories) !== JSON.stringify(expectedCategories)) throw new Error("candidate classification categories drift")
   const reviewCategories = expectedCategories.filter((category) => [CHANGE_CATEGORY.BROWSER, CHANGE_CATEGORY.DEPENDENCY, CHANGE_CATEGORY.LICENSE, CHANGE_CATEGORY.MIGRATION].includes(category))
@@ -163,8 +173,13 @@ export async function verifyCandidateCommit({ repositoryRoot, commitSha, mergeCo
     } catch {
       throw new Error("candidate review acknowledgement is missing")
     }
-    validateReviewAcknowledgement(canonicalAcknowledgement, { sourceSha, managedSha, diffSha256, categories: expectedCategories })
-    validateReviewAcknowledgement(classificationAcknowledgement, { sourceSha, managedSha, diffSha256, categories: expectedCategories })
+    assertEvidencePath(canonicalAcknowledgement.evidencePath)
+    if (classificationAcknowledgement === null) throw new Error("candidate classification acknowledgement is missing")
+    assertEvidencePath(classificationAcknowledgement.evidencePath)
+    const canonicalEvidence = await show(root, commitSha, canonicalAcknowledgement.evidencePath)
+    const classificationEvidence = await show(root, commitSha, classificationAcknowledgement.evidencePath)
+    validateReviewAcknowledgement(canonicalAcknowledgement, { sourceSha, diffSha256, categories: expectedCategories, evidenceBytes: Buffer.from(canonicalEvidence, "utf8") })
+    validateReviewAcknowledgement(classificationAcknowledgement, { sourceSha, diffSha256, categories: expectedCategories, evidenceBytes: Buffer.from(classificationEvidence, "utf8") })
     if (JSON.stringify(canonicalAcknowledgement) !== JSON.stringify(classificationAcknowledgement)) throw new Error("candidate classification acknowledgement does not match canonical review evidence")
   } else if (classificationAcknowledgement !== null) {
     throw new Error("candidate classification contains an acknowledgement for an unreviewed change")

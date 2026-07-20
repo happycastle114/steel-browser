@@ -15,8 +15,8 @@ exact allowlist. A stale primary candidate ref is never overwritten: it recovers
 candidate-commit-qualified ref and that ref is verified by the same production checker.
 
 The candidate is never auto-merged, rebased, force-pushed, released, or deployed. The workflow
-fails before PR creation on merge conflicts, upstream edits to fork-owned paths, missing runtime
-observation, pinned corpus/source drift, managed/root test or build failures, or
+fails before PR creation on merge conflicts, upstream edits to fork-owned paths, missing reviewed
+Steel runtime capture, pinned corpus/source drift, managed/root test or build failures, or
 dependency/license/browser/migration classification requiring human review. The managed pull
 request gate repeats the checks on the actual PR merge ref before the publisher returns success.
 
@@ -28,7 +28,8 @@ node --test scripts/upstream-sync/*.test.mjs
 node scripts/upstream-sync/verify-license.mjs
 ```
 
-`capture-observation.mjs` is the only supported way to create an observation directory. It executes
+`capture-observation.mjs` is the only supported way to create an observation directory. The candidate
+checks out the exact upstream source before invoking it, and it executes
 an explicitly supplied Steel runtime capture command and requires these regular files: `manifest.json`,
 `observed-receipt.json`, `rest.ndjson`, `route-matrix.json`, `session-id-verdict.json`,
 `websocket.ndjson`, `runtime-identity.json`, and `observation-provenance.json`. The runtime identity
@@ -42,23 +43,25 @@ digest in `managed/shared/src/upstream-observed-receipt.ts`. A `FINAL` lock addi
 bytes (there is no caller-supplied digest sidecar). A missing observation produces a blocked run
 instead of a false-green PR.
 
-Capture invocation (the operator must provide a reviewed Steel runtime capture executable; this
-repository deliberately does not ship a fake runtime wrapper):
+Capture invocation (the workflow requires `STEEL_REVIEWED_CAPTURE_EXECUTABLE` and executes this
+command; this repository deliberately does not ship a fake runtime wrapper):
 
 ```sh
 node scripts/upstream-sync/capture-observation.mjs \
   --repository-root . \
   --upstream-sha <40-character-sha> \
-  --output-directory managed/tests/upstream-observations/<40-character-sha> \
+  --output-directory "$RUNNER_TEMP/steel-upstream-sync/captured/<40-character-sha>" \
   --runtime-executable "$STEEL_REVIEWED_CAPTURE_EXECUTABLE" \
-  --runtime-arg <runtime-argument>
+  --runtime-args-json "${STEEL_REVIEWED_CAPTURE_ARGS_JSON:-[]}"
 ```
 
 `classify-upstream.mjs` writes a machine-readable API/browser/dependency/license/migration/scope
 classification with the exact source diff digest and merge SHA. Dependency, browser, license, and
 migration changes remain blocked until a canonical
-`managed/tests/upstream-acknowledgements/<source-sha>.json` binds source, managed, diff, evidence,
-categories, reviewer, timestamp, and decision. The sync workflow never invents runtime receipts or
-review approvals. Before publication it also reads the live GitHub rulesets and fails closed unless
-the managed branch requires the managed gate check and `upstream-sync/**` refs are deletion and
-non-fast-forward protected.
+`managed/tests/upstream-acknowledgements/<source-sha>.json` binds a stable source/diff review
+subject, an `evidencePath` whose bytes are re-hashed during validation, categories, reviewer,
+timestamp, and decision. It never binds the managed tip that contains the acknowledgement itself.
+The sync workflow never invents runtime receipts or review approvals. Before publication it lists
+live GitHub rulesets, fetches each detail endpoint, and fails closed unless the managed branch
+requires the managed gate check and `upstream-sync/**` refs are deletion, non-fast-forward, and
+update protected.

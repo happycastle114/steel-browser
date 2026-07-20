@@ -65,3 +65,14 @@ export function validateEvidenceManifest(text, upstreamSha, kind) {
   if (kind === "LICENSE" && !value.artifacts.some((artifact) => artifact.path === "LICENSE")) throw new Error("LICENSE evidence must pin the LICENSE file")
   return value
 }
+
+function scopePathMatches(allowedPath, changedPath) {
+  const normalized = allowedPath.endsWith("/**") ? allowedPath.slice(0, -3) : allowedPath.replace(/\/$/u, "")
+  return changedPath === normalized || changedPath.startsWith(`${normalized}/`)
+}
+
+export function assertScopeManifestCoversPaths(manifest, changedPaths) {
+  if (!Array.isArray(manifest.allowedPaths) || !Array.isArray(changedPaths)) throw new Error("scope manifest path coverage inputs are invalid")
+  const uncovered = changedPaths.filter((changedPath) => !manifest.allowedPaths.some((allowedPath) => scopePathMatches(allowedPath, changedPath)))
+  if (uncovered.length > 0) throw new Error(`scope manifest does not cover changed paths: ${uncovered.join(", ")}`)
+}
