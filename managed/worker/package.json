@@ -13,18 +13,21 @@
     "pretest": "npm run build -w @steel-browser/api",
     "test": "vitest run --no-file-parallelism",
     "pretest:integration": "npm run build -w @steel-browser/api",
-    "test:integration": "vitest run --no-file-parallelism test/server.integration.test.ts test/worker.e2e.test.ts",
+    "test:integration": "vitest run --no-file-parallelism test/server.integration.test.ts test/runtime.socket.test.ts",
     "test:unit": "vitest run --no-file-parallelism test/config.test.ts test/shutdown.test.ts",
     "pretypecheck": "npm run build -w @steel-browser/api",
     "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.test.json"
   },
   "dependencies": {
+    "@fastify/cors": "10.1.0",
+    "@fastify/sensible": "6.0.3",
     "@steel-browser/api": "0.5.2",
     "fastify": "5.8.5",
     "zod": "3.25.76"
   },
   "devDependencies": {
     "@types/node": "22.14.1",
+    "fastify-plugin": "5.0.1",
     "typescript": "5.9.2",
     "vitest": "3.2.4"
   }

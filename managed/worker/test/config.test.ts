@@ -17,7 +17,7 @@ describe("parseWorkerConfig", () => {
     expect(config).toEqual({ workerId: "worker-01" })
   })
 
-  it.each([undefined, "", "worker-1", "worker-32", "manager-00"])(
+  it.each([undefined, "", "worker-1", "worker-02", "worker-32", "manager-00"])(
     "rejects an invalid worker identity %s",
     (workerId) => {
       // Given
