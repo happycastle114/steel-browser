@@ -4,9 +4,8 @@ import {
   EXPECTED_CORPUS_COMMIT,
   EXPECTED_MANAGED_BASE_COMMIT,
   OVERLAY_ERROR_CODE,
-  OVERLAY_LINEAGE_FIXTURE,
 } from "./managed-overlay-catalog.js"
-import { overlayFailure, type OverlayErrorCode } from "./managed-overlay-errors.js"
+import { overlayFailure } from "./managed-overlay-errors.js"
 
 export type OverlayLineageFacts = Readonly<{
   readonly head: string
@@ -19,7 +18,6 @@ export type OverlayLineageFacts = Readonly<{
 
 export type OverlayLineageExpectation = Readonly<{
   readonly corpusCommit?: string
-  readonly baseCommit?: string
 }>
 
 function runGit(repositoryRoot: string, args: readonly string[]): string {
@@ -72,22 +70,5 @@ export function assertExactOverlayLineage(
       return overlayFailure(OVERLAY_ERROR_CODE.BASE_ANCESTRY_DRIFT, "frozen managed base is not an ancestor of HEAD")
     default:
       return
-  }
-}
-
-export function lineageErrorCodeForFixture(
-  mutation: (typeof OVERLAY_LINEAGE_FIXTURE)[keyof typeof OVERLAY_LINEAGE_FIXTURE],
-): OverlayErrorCode {
-  switch (mutation) {
-    case OVERLAY_LINEAGE_FIXTURE.DIRTY_UNSTAGED:
-      return OVERLAY_ERROR_CODE.DIRTY_WORKTREE
-    case OVERLAY_LINEAGE_FIXTURE.DIRTY_INDEX:
-      return OVERLAY_ERROR_CODE.DIRTY_INDEX
-    case OVERLAY_LINEAGE_FIXTURE.INTERMEDIATE_HEAD:
-      return OVERLAY_ERROR_CODE.INVALID_DIRECT_PARENT
-    case OVERLAY_LINEAGE_FIXTURE.MERGE_HEAD:
-      return OVERLAY_ERROR_CODE.INVALID_PARENT_COUNT
-    default:
-      return overlayFailure(OVERLAY_ERROR_CODE.VERIFICATION_MISMATCH, `unsupported lineage fixture: ${mutation}`)
   }
 }

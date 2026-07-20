@@ -6,11 +6,7 @@ import {
   OVERLAY_LINEAGE_FIXTURE,
   FIXTURE_EVALUATION_STATUS,
 } from "./managed-overlay-catalog.js"
-import {
-  assertExactOverlayLineage,
-  lineageErrorCodeForFixture,
-  type OverlayLineageFacts,
-} from "./managed-overlay-lineage.js"
+import { assertExactOverlayLineage, type OverlayLineageFacts } from "./managed-overlay-lineage.js"
 import { ManagedOverlayVerificationError, type OverlayErrorCode } from "./managed-overlay-errors.js"
 import {
   OverlayDescriptorSchema,
@@ -103,10 +99,6 @@ export function evaluateOverlayFixture(
     }
     throw error
   }
-}
-
-export function expectedLineageFixtureCode(fixture: LineageFixture): OverlayErrorCode {
-  return lineageErrorCodeForFixture(fixture.mutation)
 }
 
 function assertNever(value: never): never {
