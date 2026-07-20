@@ -3,11 +3,25 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "import": "./build/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --noEmit --project tsconfig.json"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.test.json"
+  },
+  "dependencies": {
+    "undici": "7.28.0",
+    "zod": "3.25.76"
   },
   "devDependencies": {
-    "typescript": "5.9.2"
+    "@types/node": "22.14.1",
+    "fastify": "5.8.5",
+    "typescript": "5.9.2",
+    "vitest": "3.2.4"
   }
 }
