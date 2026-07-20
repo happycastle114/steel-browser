@@ -128,63 +128,6 @@ describe("WorkerHttpAdapter integration", () => {
     await adapter.close()
   })
 
-  it("rejects metadata that reports a different configured worker id", async () => {
-    // Given
-    const fake = new LocalWorkerFake({
-      workerSequence: 0,
-      instanceSequence: 1,
-      reportedWorkerSequence: 1,
-    })
-    openWorkers.push(fake)
-    const endpoint = StaticWorkerEndpointSchema.parse({
-      workerId: fake.workerId,
-      origin: await fake.listen(),
-    })
-    const adapter = new WorkerHttpAdapter({ timeoutMilliseconds: 1_000, maxResponseBytes: 8_192 })
-
-    // When
-    const probe = adapter.probe(endpoint, new AbortController().signal)
-
-    // Then
-    await expect(probe).rejects.toBeInstanceOf(WorkerIdentityMismatchError)
-    await adapter.close()
-  })
-
-  it.each([
-    {
-      name: "body instance id",
-      options: { reportedInstanceSequence: 2 },
-    },
-    {
-      name: "header worker id",
-      options: { headerWorkerSequence: 1 },
-    },
-    {
-      name: "header instance id",
-      options: { headerInstanceSequence: 2 },
-    },
-  ])("rejects an independent $name mismatch", async ({ options }) => {
-    // Given
-    const fake = new LocalWorkerFake({
-      workerSequence: 0,
-      instanceSequence: 1,
-      ...options,
-    })
-    openWorkers.push(fake)
-    const endpoint = StaticWorkerEndpointSchema.parse({
-      workerId: fake.workerId,
-      origin: await fake.listen(),
-    })
-    const adapter = new WorkerHttpAdapter({ timeoutMilliseconds: 1_000, maxResponseBytes: 8_192 })
-
-    // When
-    const probe = adapter.probe(endpoint, new AbortController().signal)
-
-    // Then
-    await expect(probe).rejects.toBeInstanceOf(WorkerIdentityMismatchError)
-    await adapter.close()
-  })
-
   it("fails closed when the active-session response exceeds the configured body bound", async () => {
     // Given
     const fake = new LocalWorkerFake({

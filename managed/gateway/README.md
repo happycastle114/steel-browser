@@ -16,6 +16,12 @@ The current adapter matches the committed worker wrapper foundation:
 - Every normal HTTP response carries the worker/instance identity headers. Before and after each raw
   session operation, the adapter also re-reads metadata and rejects a changed worker generation.
 
+Discovery is overlay-bound to `STATIC_CONFIG` with exactly `worker-00=http://worker-00:3000` and
+`worker-01=http://worker-01:3000`. The provider factory rejects DNS/selector input, duplicate
+origins, public origins, and non-exact service ports before reconciliation. Bounded client calls
+require both private identity headers; metadata binds the body to the configured worker ID and
+boot-unique instance UUID, while list/create/release calls remain bound to that same pair.
+
 The worker foundation does not yet expose the private create journal/active-create enumeration
 required for crash-safe keyed replay, and raw Node WebSocket upgrades do not yet carry the identity
 headers. Those are explicit Task22 supervisor/shared-contract dependencies. The adapter boundary is

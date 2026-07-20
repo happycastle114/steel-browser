@@ -3,12 +3,14 @@ import { Agent, request } from "undici"
 import { z } from "zod"
 import {
   WorkerAdapterError,
+  WorkerIdentityMismatchError,
   WorkerHttpStatusError,
   WorkerProtocolError,
   WorkerTransportError,
 } from "../domain/errors.js"
-import type { WorkerId } from "../domain/ids.js"
+import type { InstanceId, WorkerId } from "../domain/ids.js"
 import { WorkerTransportReason } from "../domain/states.js"
+import { WorkerHeader } from "./worker-http-contract.js"
 
 const CONTENT_TYPE = { JSON: "application/json" } as const
 
@@ -23,11 +25,18 @@ export type BoundedJsonClientOptions = z.infer<typeof BoundedJsonClientOptionsSc
 
 type JsonRequest<T, I> = {
   readonly workerId: WorkerId
+  readonly identity: WorkerIdentityExpectation
   readonly url: URL
   readonly method: "GET" | "POST"
   readonly schema: z.ZodType<T, z.ZodTypeDef, I>
   readonly signal: AbortSignal
   readonly body?: string
+  readonly validateErrorResponse?: (body: unknown, headers: BoundedJsonResponse<T>["headers"]) => void
+}
+
+export type WorkerIdentityExpectation = {
+  readonly workerId: WorkerId
+  readonly instanceId?: InstanceId
 }
 
 export type BoundedJsonResponse<T> = {
@@ -68,8 +77,10 @@ export class BoundedJsonClient {
               headers: { "content-type": CONTENT_TYPE.JSON },
               body: input.body,
             })
+      this.requireIdentity(response.headers, input.identity)
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        await response.body.dump({ limit: this.options.maxResponseBytes, signal: combinedSignal })
+        const bytes = await response.body.bytes()
+        input.validateErrorResponse?.(this.decodeBody(bytes, input.workerId), response.headers)
         throw new WorkerHttpStatusError(input.workerId, response.statusCode)
       }
       return {
@@ -87,6 +98,13 @@ export class BoundedJsonClient {
     }
   }
 
+  private requireIdentity(
+    headers: Readonly<Record<string, string | readonly string[] | undefined>>,
+    expected: WorkerIdentityExpectation,
+  ): void {
+    assertWorkerIdentityHeaders(headers, expected)
+  }
+
   public async close(): Promise<void> {
     await this.dispatcher.close()
   }
@@ -96,17 +114,7 @@ export class BoundedJsonClient {
     schema: z.ZodType<T, z.ZodTypeDef, I>,
     workerId: WorkerId,
   ): T {
-    let decoded: unknown
-    try {
-      decoded = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes))
-    } catch (error) {
-      if (error instanceof SyntaxError || error instanceof TypeError) {
-        throw new WorkerProtocolError(workerId, "worker response was not valid UTF-8 JSON", {
-          cause: error,
-        })
-      }
-      throw error
-    }
+    const decoded = this.decodeBody(bytes, workerId)
     const parsed = schema.safeParse(decoded)
     if (!parsed.success) {
       throw new WorkerProtocolError(workerId, "worker response schema mismatched", {
@@ -115,4 +123,36 @@ export class BoundedJsonClient {
     }
     return parsed.data
   }
+
+  private decodeBody(bytes: Uint8Array, workerId: WorkerId): unknown {
+    try {
+      return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes))
+    } catch (error) {
+      if (error instanceof SyntaxError || error instanceof TypeError) {
+        throw new WorkerProtocolError(workerId, "worker response was not valid UTF-8 JSON", {
+          cause: error,
+        })
+      }
+      throw error
+    }
+  }
+}
+
+export function assertWorkerIdentityHeaders(
+  headers: Readonly<Record<string, string | readonly string[] | undefined>>,
+  expected: WorkerIdentityExpectation,
+): void {
+  const workerId = singleHeader(headers[WorkerHeader.WORKER_ID])
+  const instanceId = singleHeader(headers[WorkerHeader.INSTANCE_ID])
+  if (workerId === undefined || instanceId === undefined) {
+    throw new WorkerProtocolError(expected.workerId, "worker response instance header missing")
+  }
+  if (expected.instanceId === undefined) return
+  if (workerId !== expected.workerId || instanceId !== expected.instanceId) {
+    throw new WorkerIdentityMismatchError(expected.workerId, expected.instanceId)
+  }
+}
+
+function singleHeader(value: string | readonly string[] | undefined): string | undefined {
+  return typeof value === "string" ? value : undefined
 }
