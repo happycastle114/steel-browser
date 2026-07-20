@@ -1,14 +1,11 @@
 import { isIP } from "node:net"
 import { z } from "zod"
+import { MANAGED_STATIC_WORKER_ENDPOINTS } from "@happycastle/steel-managed-shared"
 import { WorkerIdSchema } from "../domain/ids.js"
 
-export const STATIC_WORKER_COUNT = 2
+export const STATIC_WORKER_COUNT = MANAGED_STATIC_WORKER_ENDPOINTS.length
 const supportedSchemes = new Set(["http:"])
 const rootOriginPattern = /^[a-z][a-z0-9+.-]*:\/\/[^\/?#]+\/?$/iu
-export const STATIC_WORKER_ENDPOINTS = Object.freeze([
-  Object.freeze({ workerId: "worker-00", origin: "http://worker-00:3000" }),
-  Object.freeze({ workerId: "worker-01", origin: "http://worker-01:3000" }),
-] as const)
 
 function isPrivateIpv4(hostname: string): boolean {
   const octets = hostname.split(".").map(Number)
@@ -58,11 +55,24 @@ export const WorkerOriginSchema = z
   .brand("WorkerOrigin")
 export type WorkerOrigin = z.infer<typeof WorkerOriginSchema>
 
+function parseCanonicalStaticEndpoint(value: string): StaticWorkerEndpoint {
+  const separator = value.indexOf("=")
+  if (separator < 1) throw new Error("canonical static worker endpoint is malformed")
+  return StaticWorkerEndpointSchema.parse({
+    workerId: value.slice(0, separator),
+    origin: value.slice(separator + 1),
+  })
+}
+
 export const StaticWorkerEndpointSchema = z.object({
   workerId: WorkerIdSchema,
   origin: WorkerOriginSchema,
 }).strict().readonly()
 export type StaticWorkerEndpoint = z.infer<typeof StaticWorkerEndpointSchema>
+
+export const STATIC_WORKER_ENDPOINTS = Object.freeze(
+  MANAGED_STATIC_WORKER_ENDPOINTS.map(parseCanonicalStaticEndpoint),
+)
 
 export const StaticWorkerEndpointsSchema = z
   .tuple([StaticWorkerEndpointSchema, StaticWorkerEndpointSchema])

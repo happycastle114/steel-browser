@@ -13,6 +13,9 @@ import {
 } from "../src/index.js"
 import { instanceId, upstreamSessionId } from "./test-support.js"
 
+const HTTP_METHOD = { POST: "POST" } as const
+const CREATE_SESSION_PATH = "/v1/sessions"
+
 type LocalWorkerFakeOptions = {
   readonly workerSequence: number
   readonly instanceSequence: number
@@ -37,6 +40,7 @@ type LocalWorkerFakeOptions = {
   readonly gatedCreateSequence?: number
   readonly createResponseGate?: Promise<void>
   readonly onGatedCreate?: () => void
+  readonly onCreateResponse?: () => void
 }
 
 export async function localWorkerProvider(
@@ -79,6 +83,7 @@ export class LocalWorkerFake {
   private readonly gatedCreateSequence: number | undefined
   private readonly createResponseGate: Promise<void> | undefined
   private readonly onGatedCreate: (() => void) | undefined
+  private readonly onCreateResponse: (() => void) | undefined
   private createSequence = 0
   private releaseSequence = 0
 
@@ -120,6 +125,7 @@ export class LocalWorkerFake {
     this.gatedCreateSequence = options.gatedCreateSequence
     this.createResponseGate = options.createResponseGate
     this.onGatedCreate = options.onGatedCreate
+    this.onCreateResponse = options.onCreateResponse
     this.server = Fastify({ logger: false })
     this.registerRoutes()
   }
@@ -175,6 +181,11 @@ export class LocalWorkerFake {
         )
       }
       return payload
+    })
+    this.server.addHook("onResponse", async (request) => {
+      if (request.method === HTTP_METHOD.POST && request.url === CREATE_SESSION_PATH) {
+        this.onCreateResponse?.()
+      }
     })
     this.server.get("/v1/managed-worker/meta", async (_request, reply) => {
       this.onMetadata?.()
