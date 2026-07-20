@@ -3,11 +3,32 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
   "scripts": {
+    "prebuild": "npm run build -w @steel-browser/api",
     "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --noEmit --project tsconfig.json"
+    "start": "node build/cli.js",
+    "pretest": "npm run build -w @steel-browser/api",
+    "test": "vitest run --no-file-parallelism",
+    "pretest:integration": "npm run build -w @steel-browser/api",
+    "test:integration": "vitest run --no-file-parallelism test/server.integration.test.ts test/runtime.socket.test.ts",
+    "test:unit": "vitest run --no-file-parallelism test/config.test.ts test/shutdown.test.ts",
+    "pretypecheck": "npm run build -w @steel-browser/api",
+    "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.test.json"
+  },
+  "dependencies": {
+    "@fastify/cors": "10.1.0",
+    "@fastify/sensible": "6.0.3",
+    "@steel-browser/api": "0.5.2",
+    "fastify": "5.8.5",
+    "zod": "3.25.76"
   },
   "devDependencies": {
-    "typescript": "5.9.2"
+    "@types/node": "22.14.1",
+    "fastify-plugin": "5.0.1",
+    "typescript": "5.9.2",
+    "vitest": "3.2.4"
   }
 }
