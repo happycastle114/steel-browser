@@ -50,6 +50,26 @@ test("publishes the protected managed-branch check contract", async () => {
   assert.doesNotMatch(verifyStep.run, /^\s*npm run verify:managed-overlay\s*$/mu)
 })
 
+test("runs managed workspace tests serially on bounded CI runners", async () => {
+  const bytes = await readFile(
+    new URL("../../../package.json", import.meta.url),
+    "utf8",
+  )
+  const rootPackage = JSON.parse(bytes)
+
+  assert.deepEqual(rootPackage.scripts["test:managed"].split(" && "), [
+    "npm run test -w @happycastle/steel-managed-shared",
+    "npm run test -w @happycastle/steel-managed-worker",
+    "npm run test -w @happycastle/steel-managed-gateway",
+    "npm run test -w @happycastle/steel-managed-operations-client",
+    "npm run test -w @happycastle/steel-managed-ai-client",
+    "npm run test -w @happycastle/steel-managed-console",
+    "npm run test -w @happycastle/steel-managed-manager",
+    "npm run test:production-audit",
+    "npm run test:production-audit-mutations",
+  ])
+})
+
 test("hydrates only DuckDB after script-free installs on exact toolchains", async () => {
   for (const workflowPath of workflowPaths) {
     const bytes = await readFile(new URL(`../../../${workflowPath}`, import.meta.url), "utf8")

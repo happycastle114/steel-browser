@@ -28,7 +28,7 @@
     "test:production-audit-mutations": "node managed/security/test/mutation-gate.mjs",
     "test:coolify-secret-fixture": "tsx managed/shared/src/coolify-secret-fixture-cli.ts",
     "pretest:managed": "npm run build:managed-dependencies",
-    "test:managed": "npm run test -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-worker -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-operations-client -w @happycastle/steel-managed-ai-client -w @happycastle/steel-managed-console -w @happycastle/steel-managed-manager && npm run test:production-audit && npm run test:production-audit-mutations",
+    "test:managed": "npm run test -w @happycastle/steel-managed-shared && npm run test -w @happycastle/steel-managed-worker && npm run test -w @happycastle/steel-managed-gateway && npm run test -w @happycastle/steel-managed-operations-client && npm run test -w @happycastle/steel-managed-ai-client && npm run test -w @happycastle/steel-managed-console && npm run test -w @happycastle/steel-managed-manager && npm run test:production-audit && npm run test:production-audit-mutations",
     "test:managed-release": "node --test managed/release/test/*.test.mjs",
     "pretypecheck:managed": "npm run build:managed-dependencies",
     "typecheck:managed": "npm run typecheck -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-operations-client -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-ai-client -w @happycastle/steel-managed-console -w @happycastle/steel-managed-worker -w @happycastle/steel-managed-manager",
