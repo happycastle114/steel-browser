@@ -92,13 +92,19 @@ function findGate(tokens) {
 
 function gateIsNeutralized(line) {
   const tokens = tokenizeShell(line)
-  const gate = findGate(tokens)
-  if (gate === undefined) return false
-  const end = gate.index + gate.length
-  const next = tokens[end]
-  const operator = next?.value === ")" || next?.value === "}" ? tokens[end + 1] : next
-  if (operator?.value !== "||" && operator?.value !== "&&") return false
-  return commandOutcome(tokens.slice(tokens.indexOf(operator) + 1)) !== GATE_OUTCOME.NONZERO
+  for (let offset = 0; offset < tokens.length; offset += 1) {
+    const gate = findGate(tokens.slice(offset))
+    if (gate === undefined) return false
+    gate.index += offset
+    const end = gate.index + gate.length
+    const next = tokens[end]
+    const operator = next?.value === ")" || next?.value === "}" ? tokens[end + 1] : next
+    if (operator?.value === "||" || operator?.value === "&&") {
+      if (commandOutcome(tokens.slice(tokens.indexOf(operator) + 1)) !== GATE_OUTCOME.NONZERO) return true
+    }
+    offset = end
+  }
+  return false
 }
 
 function functionGateNames(candidate) {
@@ -122,7 +128,10 @@ function functionCallIsNeutralized(line, names) {
 }
 
 export function hasGateCommand(candidate, command) {
-  return candidate.split("\n").some((line) => tokenizeShell(line).some((token, index, tokens) => token.value === command[0] && command.every((word, offset) => tokens[index + offset]?.value === word)))
+  return candidate.split("\n").some((line) => tokenizeShell(line).some((token, index, tokens) => {
+    if (tokens[index - 1]?.type === "word") return false
+    return token.value === command[0] && command.every((word, offset) => tokens[index + offset]?.value === word)
+  }))
 }
 
 export function verifyFailClosedGates(candidate) {

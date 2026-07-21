@@ -77,6 +77,7 @@ test("workflow verifier rejects tokenized gate neutralizers across shell forms",
     "npm run test && echo ignored",
     "(npm run test) || :",
     "(npm run test) && echo ignored",
+    "npm run test; npm run build || :",
     "run_gate() { npm run test; }; run_gate || :",
     "run_gate() {\n  npm run test\n}\nrun_gate && echo ignored",
   ]
@@ -87,6 +88,14 @@ test("workflow verifier rejects tokenized gate neutralizers across shell forms",
       neutralizer,
     )
   }
+})
+
+test("workflow verifier does not count gate text inside another command", async () => {
+  const { workflow, candidateScript } = await inputs()
+  assert.throws(
+    () => verifyWorkflowText(workflow, { candidateScript: candidateScript.replace("npm run test\n", "echo npm run test\n") }),
+    /candidate gate is missing from the candidate script: npm run test/,
+  )
 })
 
 test("workflow verifier preserves explicit fail-closed shell branches", async () => {
