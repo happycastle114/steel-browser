@@ -2,7 +2,7 @@ name: Managed pull request gates
 
 on:
   pull_request:
-    branches: [managed]
+    branches: [production]
 
 permissions:
   contents: read

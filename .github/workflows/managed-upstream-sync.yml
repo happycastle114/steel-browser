@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: managed
+          ref: production
       - name: Merge the current upstream main into an isolated branch
         id: merge
         run: |
@@ -48,7 +48,7 @@ jobs:
           echo "changed=true" >> "${GITHUB_OUTPUT}"
           echo "conflict=false" >> "${GITHUB_OUTPUT}"
           echo "upstream_sha=${upstream_sha}" >> "${GITHUB_OUTPUT}"
-      - name: Open a conflict issue instead of mutating the managed branch
+      - name: Open a conflict issue instead of mutating the production branch
         if: steps.merge.outputs.conflict == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -60,7 +60,7 @@ jobs:
           if [ -z "${existing}" ]; then
             gh issue create \
               --title "${title}" \
-              --body "The scheduled merge of steel-dev/steel-browser@${UPSTREAM_SHA} into managed conflicted. Resolve it on an isolated branch, then refresh the pinned corpus and worker image lock before release."
+              --body "The scheduled merge of steel-dev/steel-browser@${UPSTREAM_SHA} into production conflicted. Resolve it on an isolated branch, then refresh the pinned corpus and worker image lock before release."
           fi
       - uses: actions/setup-node@v4
         if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
@@ -120,10 +120,10 @@ jobs:
         run: |
           set -euo pipefail
           title="chore(upstream): sync steel-dev ${UPSTREAM_SHA:0:12}"
-          body="$(printf 'Upstream source: steel-dev/steel-browser@%s\n\nManaged compatibility gates: %s.\n\nThis PR never updates the protected managed branch directly. If the corpus or runtime lock fails, refresh the observed protocol corpus, pinned upstream image digest, browser readback, and release evidence in this PR before merge.' "${UPSTREAM_SHA}" "${VERIFY_OUTCOME}")"
-          existing="$(gh pr list --head "${BRANCH}" --base managed --state open --json number --jq '.[0].number // empty')"
+          body="$(printf 'Upstream source: steel-dev/steel-browser@%s\n\nManaged compatibility gates: %s.\n\nThis PR never updates the production branch directly. If the corpus or runtime lock fails, refresh the observed protocol corpus, pinned upstream image digest, browser readback, and release evidence in this PR before merge.' "${UPSTREAM_SHA}" "${VERIFY_OUTCOME}")"
+          existing="$(gh pr list --head "${BRANCH}" --base production --state open --json number --jq '.[0].number // empty')"
           if [ -z "${existing}" ]; then
-            gh pr create --base managed --head "${BRANCH}" --title "${title}" --body "${body}"
+            gh pr create --base production --head "${BRANCH}" --title "${title}" --body "${body}"
           else
             gh pr edit "${existing}" --title "${title}" --body "${body}"
           fi

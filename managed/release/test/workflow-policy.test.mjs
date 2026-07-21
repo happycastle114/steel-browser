@@ -34,7 +34,7 @@ test("builds shared contracts before clean-runner API drift checks", async () =>
   )
 })
 
-test("publishes the protected managed-branch check contract", async () => {
+test("publishes the canonical production-branch check contract", async () => {
   const bytes = await readFile(
     new URL("../../../.github/workflows/managed-pr-gates.yml", import.meta.url),
     "utf8",
@@ -42,7 +42,7 @@ test("publishes the protected managed-branch check contract", async () => {
   const workflow = yaml.parse(bytes)
 
   assert.equal(workflow.name, "Managed pull request gates")
-  assert.deepEqual(workflow.on.pull_request.branches, ["managed"])
+  assert.deepEqual(workflow.on.pull_request.branches, ["production"])
   assert.equal(workflow.jobs.gates.name, "gates")
   const verifyStep = workflow.jobs.gates.steps.find(
     ({ name }) => name === "Verify managed product and release boundaries",

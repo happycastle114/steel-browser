@@ -2,7 +2,7 @@ name: Managed Steel release
 
 on:
   push:
-    branches: [managed]
+    branches: [production]
     paths:
       - ".github/workflows/managed-release.yml"
       - "managed/**"

@@ -13,7 +13,7 @@ release Compose policy.
 
 ## Coolify applications
 
-Create two Git-based Docker Compose applications from the fork's protected `managed` branch:
+Create two Git-based Docker Compose applications from the fork's canonical `production` branch:
 
 | Application | Compose location | Initial state |
 | --- | --- | --- |
@@ -150,7 +150,7 @@ Useful authenticated surfaces are:
 
 `.github/workflows/managed-upstream-sync.yml` runs weekly. It merges the current
 `steel-dev/steel-browser` `main` into an isolated automation branch and opens a PR against
-`managed`; it never writes directly to the protected branch. Compatibility failures remain visible
+`production`; it never writes directly to the release branch. Compatibility failures remain visible
 on the PR. A source change is not releasable until the observed protocol corpus, upstream image
 digest, Chromium readback, and managed release evidence are refreshed and all gates pass.
 

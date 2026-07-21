@@ -7,10 +7,11 @@ derivatives have separate branch responsibilities.
 
 - `main` is a fast-forward-only mirror of upstream `main`. It accepts no fork-owned derivative
   commit, force push, rebase, or deletion.
-- `managed` starts at the commit recorded in `managed/upstream.lock.json` and is the default branch
-  for fork-owned work. After the initial bootstrap commit, all changes arrive through reviewed pull
-  requests with code-owner approval. Direct push, force push, and deletion are prohibited.
-- `upstream-sync/<upstreamSha>` branches start from `managed`, merge the exact new upstream commit,
+- `managed` retains the original protected integration history; it is not the release branch.
+- `production` starts from that history and is the canonical release and upstream-sync branch
+  for fork-owned work. After the initial bootstrap commit, changes arrive through CI-verified pull
+  requests. The repository operator does not use direct push, force push, or deletion on this branch.
+- `upstream-sync/<upstreamSha>` branches start from `production`, merge the exact new upstream commit,
   update the single upstream lock and corpus, and open one reviewed pull request. Conflicts are
   resolved by a human-reviewed commit; automation never rebases, force-pushes, auto-merges, releases,
   or deploys an upstream update.
