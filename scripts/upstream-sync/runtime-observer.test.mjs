@@ -34,6 +34,18 @@ test("live REST actuals cannot redefine reviewed status expectations", async (t)
   await assert.rejects(probeRest(`http://127.0.0.1:${address.port}`, route, "11111111-2222-4333-8444-555555555555"), (error) => error?.code === "RUNTIME_CAPTURE_BLOCKED" && /status drift/u.test(error.message))
 })
 
+test("live REST capture aborts an unreviewed oversized response", async (t) => {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "application/json; charset=utf-8", "transfer-encoding": "chunked" })
+    response.end(`"${"x".repeat(1024 * 1024)}"`)
+  })
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
+  t.after(() => new Promise((resolve) => server.close(resolve)))
+  const address = server.address()
+  const route = structuredClone(plan.routes.find((candidate) => candidate.id === "rest.health"))
+  await assert.rejects(probeRest(`http://127.0.0.1:${address.port}`, route, "11111111-2222-4333-8444-555555555555"), (error) => error?.code === "RUNTIME_CAPTURE_BLOCKED" && /response body exceeded/u.test(error.message))
+})
+
 test("runtime corpus preserves reviewed expectations instead of deriving them from actual records", () => {
   const matrixRoute = structuredClone(plan.routes.find((candidate) => candidate.id === "rest.health"))
   const record = { schemaVersion: 1, id: "record.rest.health", routeId: "rest.health", scenario: "fixture", request: { method: "GET", path: "/v1/health", bodyKind: "EMPTY" }, response: { status: 500, contentType: "application/json; charset=utf-8", headers: { "content-type": "application/json; charset=utf-8" }, bodyKind: "JSON", bodySha256: "a".repeat(64), urlFields: {} } }

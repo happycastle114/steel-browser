@@ -5,6 +5,7 @@ import { promisify } from "node:util"
 import { HTTP_METHOD } from "./runtime-route-source.mjs"
 
 const execFileAsync = promisify(execFile)
+const MAX_RESPONSE_BODY_BYTES = 1024 * 1024
 const BODY_KIND = Object.freeze({ BINARY: "BINARY", EMPTY: "EMPTY", HTML: "HTML", JSON: "JSON", MULTIPART: "MULTIPART", SSE: "SSE", TEXT: "TEXT", YAML: "YAML" })
 const MESSAGE_KIND = Object.freeze({ BROWSER_GET_VERSION: "BROWSER_GET_VERSION", OPEN_NO_MESSAGE: "OPEN_NO_MESSAGE", TAB_LIST: "TAB_LIST" })
 const JSON_SCENARIO_BODY = Object.freeze({
@@ -44,11 +45,23 @@ function responseBodyKind(contentType, body) {
 
 async function boundedResponseBody(response) {
   if (response.body === null) return Buffer.alloc(0)
-  if (!response.headers.get("content-type")?.includes("text/event-stream")) return Buffer.from(await response.arrayBuffer())
   const reader = response.body.getReader()
-  const result = await Promise.race([reader.read(), new Promise((resolve) => setTimeout(() => resolve({ value: new Uint8Array() }), 750))])
-  await reader.cancel()
-  return Buffer.from(result.value ?? new Uint8Array())
+  const isEventStream = response.headers.get("content-type")?.includes("text/event-stream") === true
+  const chunks = []
+  let byteLength = 0
+  try {
+    while (true) {
+      const result = isEventStream ? await Promise.race([reader.read(), new Promise((resolve) => setTimeout(() => resolve({ done: true }), 750))]) : await reader.read()
+      if (result.done) break
+      byteLength += result.value.byteLength
+      if (byteLength > MAX_RESPONSE_BODY_BYTES) blocked(`runtime response body exceeded ${MAX_RESPONSE_BODY_BYTES} bytes`)
+      chunks.push(result.value)
+      if (isEventStream) break
+    }
+  } finally {
+    await reader.cancel().catch(() => {})
+  }
+  return Buffer.concat(chunks, byteLength)
 }
 
 function jsonPointer(value, pointer) {
