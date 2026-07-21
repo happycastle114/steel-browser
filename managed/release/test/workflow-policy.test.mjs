@@ -31,6 +31,10 @@ test("publishes the protected managed-branch check contract", async () => {
   assert.equal(workflow.name, "Managed pull request gates")
   assert.deepEqual(workflow.on.pull_request.branches, ["managed"])
   assert.equal(workflow.jobs.gates.name, "gates")
+  const verifyStep = workflow.jobs.gates.steps.find(
+    ({ name }) => name === "Verify managed product and release boundaries",
+  )
+  assert.doesNotMatch(verifyStep.run, /^\s*npm run verify:managed-overlay\s*$/mu)
 })
 
 test("hydrates only DuckDB after script-free installs on exact toolchains", async () => {

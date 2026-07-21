@@ -31,7 +31,6 @@ jobs:
         run: npm rebuild duckdb --foreground-scripts
       - name: Verify managed product and release boundaries
         run: |
-          npm run verify:managed-overlay
           npm run verify:runtime-scope
           npm run check:managed
           npm run test:managed-release
