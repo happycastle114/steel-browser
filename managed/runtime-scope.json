@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "kind": "STEEL_MANAGED_RUNTIME_SCOPE",
+  "overlayPlanSha256": "59741c139f72593a88d192081fdbabbae05bebf5704d8c4e7ebda03eaa6627ed",
+  "capacityStatus": "UNVERIFIED_UNTIL_TASK_41",
+  "proofLevel": "CONFIG_BOUND",
+  "discoveryMode": "STATIC_CONFIG",
+  "workerPools": [
+    {
+      "slot": "MANAGED_BLUE",
+      "poolId": "managed-blue",
+      "scopedWorkerIds": ["managed-blue/worker-00", "managed-blue/worker-01"],
+      "staticWorkerEndpoints": [
+        "worker-00=http://worker-00:3000",
+        "worker-01=http://worker-01:3000"
+      ]
+    },
+    {
+      "slot": "MANAGED_GREEN",
+      "poolId": "managed-green",
+      "scopedWorkerIds": ["managed-green/worker-00", "managed-green/worker-01"],
+      "staticWorkerEndpoints": [
+        "worker-00=http://worker-00:3000",
+        "worker-01=http://worker-01:3000"
+      ]
+    }
+  ],
+  "sourceContracts": {
+    "overlayDescriptor": {
+      "path": "managed/overlay/descriptor.json",
+      "sha256": "95eb472ee707350df905d1078a28bd33d315c69e1577210c16744a3f57f842ff"
+    },
+    "upstreamLock": {
+      "path": "managed/upstream.lock.json",
+      "sha256": "f9e4fc9dac14ff3d5944d936d19c03767b44d6f1757b4ba9b5cf6b8abc79654a"
+    },
+    "protocolCorpus": {
+      "path": "managed/tests/upstream/c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2/manifest.json",
+      "sha256": "894a353443fddb123650f1e5056bcfa9a089100cd5b1838668711ad0d258a919"
+    },
+    "sessionIdVerdict": {
+      "path": "managed/tests/upstream/c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2/session-id-verdict.json",
+      "sha256": "2f5d5fae8ee00725beee4dce6962be79652c167d3bbcbc38333c6d64054257c3"
+    },
+    "license": {
+      "path": "LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    "browserInput": {
+      "path": "Dockerfile",
+      "sha256": "5c28f226fd97dc5e0f34065d95012b779fdcf0e1f07f200798bb45f85eae91cd"
+    }
+  },
+  "excludedLiveClaims": [
+    "HOST_CAPACITY",
+    "LEGACY_IDENTITY",
+    "LIVE_SECRET_BINDING",
+    "RUNTIME_IMAGE_DIGESTS",
+    "RUNTIME_FINGERPRINT"
+  ]
+}
