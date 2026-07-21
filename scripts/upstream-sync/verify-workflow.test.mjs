@@ -67,3 +67,37 @@ test("workflow verifier rejects a gate neutralized with a successful fallback", 
   const { workflow, candidateScript } = await inputs()
   assert.throws(() => verifyWorkflowText(workflow, { candidateScript: candidateScript.replace("npm run test\n", "npm run test || true\n") }), /failure neutralizer/)
 })
+
+test("workflow verifier rejects tokenized gate neutralizers across shell forms", async () => {
+  const { workflow, candidateScript } = await inputs()
+  const neutralizers = [
+    "npm run test || :",
+    "npm run test || exit 0",
+    "npm run test || { echo ignored; }",
+    "npm run test && echo ignored",
+    "(npm run test) || :",
+    "(npm run test) && echo ignored",
+    "run_gate() { npm run test; }; run_gate || :",
+    "run_gate() {\n  npm run test\n}\nrun_gate && echo ignored",
+  ]
+  for (const neutralizer of neutralizers) {
+    assert.throws(
+      () => verifyWorkflowText(workflow, { candidateScript: candidateScript.replace("npm run test\n", `${neutralizer}\n`) }),
+      /failure neutralizer/,
+      neutralizer,
+    )
+  }
+})
+
+test("workflow verifier preserves explicit fail-closed shell branches", async () => {
+  const { workflow, candidateScript } = await inputs()
+  const failClosed = [
+    "npm run test || exit 1",
+    "npm run test || { echo failed >&2; exit 1; }",
+    "npm run test && false",
+    "(npm run test) || { echo failed >&2; exit 1; }",
+  ]
+  for (const branch of failClosed) {
+    assert.deepEqual(verifyWorkflowText(workflow, { candidateScript: candidateScript.replace("npm run test\n", `${branch}\n`) }), { status: "VERIFIED" }, branch)
+  }
+})

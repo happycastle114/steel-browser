@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { GATE_COMMANDS, hasGateCommand, verifyFailClosedGates } from "./verify-shell-gates.mjs"
 
 const ACTION_SHA_PATTERN = /^[0-9a-f]{40}$/u
 const SCRIPT_ROOT = path.resolve(process.cwd(), "scripts", "upstream-sync")
@@ -46,10 +47,13 @@ function verifyPermissions(workflow) {
 
 function verifyCandidateScript(candidate) {
   requireMatch(candidate, /^#!\/usr\/bin\/env bash\nset -euo pipefail/u, "candidate script must fail closed")
-  for (const gate of ["npm run check:managed", "npm run test", "npm run build", "node scripts/upstream-sync/verify-license.mjs", "git diff --check", "node scripts/upstream-sync/verify-candidate-commit.mjs", "git bundle create"]) {
+  for (const command of GATE_COMMANDS) {
+    if (!hasGateCommand(candidate, command)) throw new Error(`candidate gate is missing from the candidate script: ${command.join(" ")}`)
+  }
+  for (const gate of ["node scripts/upstream-sync/verify-candidate-commit.mjs", "git bundle create"]) {
     if (!new RegExp(`^${gate.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?:\\s|$)`, "mu").test(candidate)) throw new Error(`candidate gate is missing from the candidate script: ${gate}`)
   }
-  if (/(?:npm run (?:check:managed|test|build)|node scripts\/upstream-sync\/verify-license\.mjs|git diff --check)[^\n]*(?:\|\|\s*true|;\s*true|&&\s*true)/u.test(candidate)) throw new Error("candidate script contains a failure neutralizer")
+  verifyFailClosedGates(candidate)
   requireMatch(candidate, /STAGED_TREE_SHA="\$\(git write-tree\)"/u, "candidate must snapshot the staged generated tree")
   requireMatch(candidate, /COMMITTED_TREE_SHA="\$\(git rev-parse HEAD\^\{tree\}\)"[\s\S]*STAGED_TREE_SHA/u, "candidate must bind the committed tree to the staged generated tree")
   requireMatch(candidate, /if \[\[ -n "\$\(git status --porcelain=v1 --untracked-files=all\)" \]\]; then/u, "candidate clean-tree check is missing")
