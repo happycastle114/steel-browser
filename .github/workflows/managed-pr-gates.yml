@@ -1,0 +1,83 @@
+name: Managed pull request gates
+
+on:
+  pull_request:
+    branches:
+      - managed
+
+permissions: {}
+
+concurrency:
+  group: steel-managed-pr-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out reviewed managed pull request without credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.23.1
+          cache: npm
+
+      - name: Run managed pull request gates
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${PR_BASE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "pull request base SHA is not an exact commit" >&2
+            exit 1
+          fi
+          # reviewed-required-gates: begin
+          git fetch --no-tags origin "${PR_BASE_SHA}"
+          npm ci --ignore-scripts
+          node scripts/upstream-sync/verify-workflow.mjs
+          node --test scripts/upstream-sync/*.test.mjs
+          node scripts/upstream-sync/verify-package-scripts.mjs
+          node scripts/upstream-sync/run-reviewed-gate.mjs UPSTREAM_CORPUS
+          node scripts/upstream-sync/run-reviewed-gate.mjs MANAGED
+          node scripts/upstream-sync/run-reviewed-gate.mjs ROOT_TEST
+          node scripts/upstream-sync/run-reviewed-gate.mjs ROOT_BUILD
+          node scripts/upstream-sync/run-reviewed-gate.mjs RAW_STATE
+          node scripts/upstream-sync/verify-license.mjs
+          git diff --check "${PR_BASE_SHA}...HEAD"
+          # reviewed-required-gates: end
+
+      - name: Capture exact upstream runtime for bootstrap review
+        id: bootstrap_capture
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/upstream-sync/bootstrap-pr-capture.sh
+
+      - name: Upload immutable bootstrap runtime capture
+        id: bootstrap_upload
+        if: steps.bootstrap_capture.outputs.capture_required == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: steel-bootstrap-capture-${{ steps.bootstrap_capture.outputs.source_sha }}-${{ steps.bootstrap_capture.outputs.capture_binding_sha256 }}
+          path: ${{ runner.temp }}/steel-managed-pr-capture
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Surface immutable bootstrap capture coordinates
+        if: steps.bootstrap_capture.outputs.capture_required == 'true'
+        shell: bash
+        env:
+          ARTIFACT_NAME: ${{ steps.bootstrap_capture.outputs.artifact_name }}
+          ARTIFACT_ARCHIVE_DIGEST: ${{ steps.bootstrap_upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          printf -- '- Uploaded artifact: `%s`\n- Uploaded archive SHA-256: `%s`\n' "${ARTIFACT_NAME}" "${ARTIFACT_ARCHIVE_DIGEST}" >> "${GITHUB_STEP_SUMMARY}"
