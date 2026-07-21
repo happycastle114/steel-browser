@@ -51,6 +51,7 @@ export class PoolMutationCoordinator {
   private readonly idempotencyTtlMs: number;
   private readonly poolSchema: ReturnType<typeof poolSchemaForConfig>;
   private readonly records = new Map<string, ReplayRecord>();
+  private nextExpiryAtMs: number | undefined;
 
   public constructor(private readonly options: PoolMutationCoordinatorOptions) {
     this.idempotencyTtlMs = options.config.idempotencyTtlMs;
@@ -112,17 +113,30 @@ export class PoolMutationCoordinator {
 
   private markSettled(key: string, record: ReplayRecord): void {
     if (this.records.get(key) !== record) return;
+    const expiresAtMs = this.options.clock.now() + this.idempotencyTtlMs;
     this.records.set(key, {
       ...record,
-      expiresAtMs: this.options.clock.now() + this.idempotencyTtlMs,
+      expiresAtMs,
     });
+    if (this.nextExpiryAtMs === undefined || expiresAtMs < this.nextExpiryAtMs)
+      this.nextExpiryAtMs = expiresAtMs;
   }
 
   private pruneExpired(): void {
     const now = this.options.clock.now();
+    if (this.nextExpiryAtMs === undefined || this.nextExpiryAtMs > now) return;
+    let nextExpiryAtMs: number | undefined;
     for (const [key, record] of this.records) {
-      if (record.expiresAtMs !== undefined && record.expiresAtMs <= now)
+      if (record.expiresAtMs !== undefined && record.expiresAtMs <= now) {
         this.records.delete(key);
+        continue;
+      }
+      if (
+        record.expiresAtMs !== undefined &&
+        (nextExpiryAtMs === undefined || record.expiresAtMs < nextExpiryAtMs)
+      )
+        nextExpiryAtMs = record.expiresAtMs;
     }
+    this.nextExpiryAtMs = nextExpiryAtMs;
   }
 }

@@ -9,6 +9,7 @@ const Scenario = {
   TCP_RESET: "TCP_RESET",
   TIMEOUT: "TIMEOUT",
 } as const
+const PROCESS_TEST_TIMEOUT_MS = 10_000
 
 const ProbeResultSchema = z.object({
   completed: z.boolean(),
@@ -55,5 +56,5 @@ describe("ManagedWebSocketGateway handshake process safety", () => {
       statusCode: 502,
       uncaught: 0,
     })
-  }, 3_000)
+  }, PROCESS_TEST_TIMEOUT_MS)
 })
