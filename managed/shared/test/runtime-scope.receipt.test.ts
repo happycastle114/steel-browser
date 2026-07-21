@@ -69,6 +69,58 @@ function startedManagerReceipt() {
   }
 }
 
+function callerAuthoredRuntimeProofFixture() {
+  const hash = (character: string) => character.repeat(64)
+  const config = {
+    schemaVersion: 1,
+    kind: managed.FINGERPRINT_RECEIPT_KIND.CONFIG_WRITE,
+    proofLevel: managed.FINGERPRINT_PROOF_LEVEL.CONFIG_BOUND,
+    applicationId: "10000000-0000-4000-8000-000000000001",
+    slot: managed.COOLIFY_PRODUCTION_OWNER.MANAGED_BLUE,
+    poolId: managed.RUNTIME_SCOPE_POOL.BLUE,
+    createTokenKeyId: hash("a"),
+    configSha256: hash("b"),
+    fingerprintHmacSha256: hash("c"),
+    overlayPlanSha256: managed.EXPECTED_OVERLAY_PLAN_SHA256,
+    environment: {
+      uuid: "20000000-0000-4000-8000-000000000001",
+      key: managed.MANAGED_SECRET_ENVIRONMENT_KEY,
+      isPreview: false,
+      isLiteral: true,
+      isMultiline: false,
+      isShownOnce: true,
+      isRuntime: true,
+      isBuildtime: false,
+    },
+    signature: {
+      algorithm: managed.RECEIPT_SIGNATURE_ALGORITHM.HMAC_SHA256,
+      keyId: hash("d"),
+      hmacSha256: hash("e"),
+    },
+  }
+  const started = {
+    schemaVersion: 1,
+    kind: managed.FINGERPRINT_RECEIPT_KIND.STARTED_MANAGER,
+    applicationId: config.applicationId,
+    managerInstanceId: "30000000-0000-4000-8000-000000000001",
+    managerImageDigest: `sha256:${hash("f")}`,
+    observedAt: "2026-07-20T14:00:00.000Z",
+    createTokenKeyId: config.createTokenKeyId,
+    configSha256: config.configSha256,
+    fingerprintHmacSha256: config.fingerprintHmacSha256,
+    managerStatusSha256: hash("1"),
+    configEnvSha256: hash("2"),
+    processEnvironmentSha256: hash("3"),
+    fdInventorySha256: hash("4"),
+  }
+  return {
+    proofLevel: managed.FINGERPRINT_PROOF_LEVEL.RUNTIME_VERIFIED,
+    projectRuntimeState: managed.MANAGED_PROJECT_RUNTIME_STATE.ACTIVE,
+    configReceipt: config,
+    startedManagerReceipt: started,
+  }
+}
+
 describe("runtime-scope fingerprint receipt contract", () => {
   it("accepts two no-echo writes with one synthetic fingerprint", () => {
     // Given: signed per-application receipts with distinct config identities and one key fingerprint.
@@ -142,8 +194,8 @@ describe("runtime-scope fingerprint receipt contract", () => {
     expect(result.success).toBe(false)
   })
 
-  it("accepts runtime proof only for one correlated started manager", () => {
-    // Given: active state with config and manager receipts bound to the same application and fingerprint.
+  it("rejects caller-authored runtime proof even when receipts correlate", () => {
+    // Given: active state with caller-authored config and manager receipts bound to one application.
     const input = {
       proofLevel: managed.FINGERPRINT_PROOF_LEVEL.RUNTIME_VERIFIED,
       projectRuntimeState: managed.MANAGED_PROJECT_RUNTIME_STATE.ACTIVE,
@@ -154,8 +206,19 @@ describe("runtime-scope fingerprint receipt contract", () => {
     // When: the correlated claim crosses the proof schema.
     const result = managed.FingerprintProofSchema.safeParse(input)
 
-    // Then: the started manager upgrades the proof to RUNTIME_VERIFIED.
-    expect(result.success).toBe(true)
+    // Then: shape-valid caller data cannot manufacture privileged runtime proof.
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects the exact caller-authored runtime-proof fixture on every platform", () => {
+    // Given: the portable boundary receives the reported shape-valid fake runtime proof.
+    const input = callerAuthoredRuntimeProofFixture()
+
+    // When: untrusted JSON crosses the public fingerprint-proof schema.
+    const result = managed.FingerprintProofSchema.safeParse(input)
+
+    // Then: no platform can upgrade caller-authored claims to RUNTIME_VERIFIED.
+    expect(result.success).toBe(false)
   })
 
   it("derives equal non-secret fingerprints from equal synthetic keys", () => {

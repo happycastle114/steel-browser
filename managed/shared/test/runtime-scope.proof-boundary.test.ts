@@ -74,6 +74,23 @@ describe("runtime-scope portable proof boundary", () => {
     expect(result.success).toBe(false)
   })
 
+  it("rejects a synthetic execution receipt that claims live resources", () => {
+    // Given: a portable fixture relabeled with one created live resource.
+    const fixtureInput = {
+      ...managerInitFixture,
+      executionReceipt: {
+        ...managerInitFixture.executionReceipt,
+        liveResourcesCreated: 1,
+      },
+    }
+
+    // When: the nonzero-resource receipt crosses the portable schema.
+    const result = managed.ManagerInitContractFixtureSchema.safeParse(fixtureInput)
+
+    // Then: synthetic verification remains a zero-resource contract.
+    expect(result.success).toBe(false)
+  })
+
   it("defers caller-authored live relabels even when they claim Linux provenance", () => {
     // Given: a synthetic fixture whose labels alone claim live Linux proof.
     const fixtureInput = {

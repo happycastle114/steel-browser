@@ -76,24 +76,6 @@ export const NoEchoWriteReceiptSchema = withDeepReadonlyOutput(
   NoEchoWriteReceiptBaseSchema,
 )
 
-const StartedManagerReceiptSchema = z
-  .object({
-    schemaVersion: z.literal(1),
-    kind: z.literal(FINGERPRINT_RECEIPT_KIND.STARTED_MANAGER),
-    applicationId: UuidSchema,
-    managerInstanceId: UuidSchema,
-    managerImageDigest: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
-    observedAt: z.string().datetime({ offset: true }),
-    createTokenKeyId: Sha256Schema,
-    configSha256: Sha256Schema,
-    fingerprintHmacSha256: Sha256Schema,
-    managerStatusSha256: Sha256Schema,
-    configEnvSha256: Sha256Schema,
-    processEnvironmentSha256: Sha256Schema,
-    fdInventorySha256: Sha256Schema,
-  })
-  .strict()
-
 const ConfigBoundProofSchema = z
   .object({
     proofLevel: z.literal(FINGERPRINT_PROOF_LEVEL.CONFIG_BOUND),
@@ -102,45 +84,7 @@ const ConfigBoundProofSchema = z
   })
   .strict()
 
-const RuntimeVerifiedProofSchema = z
-  .object({
-    proofLevel: z.literal(FINGERPRINT_PROOF_LEVEL.RUNTIME_VERIFIED),
-    projectRuntimeState: z.literal(MANAGED_PROJECT_RUNTIME_STATE.ACTIVE),
-    configReceipt: NoEchoWriteReceiptBaseSchema,
-    startedManagerReceipt: StartedManagerReceiptSchema,
-  })
-  .strict()
-
-function assertNever(value: never): never {
-  return value
-}
-
-const FingerprintProofBaseSchema = z
-  .discriminatedUnion("proofLevel", [ConfigBoundProofSchema, RuntimeVerifiedProofSchema])
-  .superRefine((proof, context) => {
-    switch (proof.proofLevel) {
-      case FINGERPRINT_PROOF_LEVEL.CONFIG_BOUND:
-        return
-      case FINGERPRINT_PROOF_LEVEL.RUNTIME_VERIFIED: {
-        const config = proof.configReceipt
-        const runtime = proof.startedManagerReceipt
-        const matches =
-          config.applicationId === runtime.applicationId &&
-          config.createTokenKeyId === runtime.createTokenKeyId &&
-          config.configSha256 === runtime.configSha256 &&
-          config.fingerprintHmacSha256 === runtime.fingerprintHmacSha256
-        if (!matches) {
-          context.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "started manager receipt does not match the config receipt",
-          })
-        }
-        return
-      }
-      default:
-        return assertNever(proof)
-    }
-  })
+const FingerprintProofBaseSchema = ConfigBoundProofSchema
 
 export const FingerprintProofSchema = withDeepReadonlyOutput(FingerprintProofBaseSchema)
 
