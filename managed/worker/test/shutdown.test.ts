@@ -2,6 +2,7 @@ import fastify from "fastify"
 import { ShutdownReason } from "@steel-browser/api/cdp-plugin"
 import { describe, expect, it } from "vitest"
 import { WORKER_META_PATH, parseWorkerConfig } from "../src/config.js"
+import { MANAGED_WORKER_RUNTIME } from "../src/image-policy.js"
 import { createWorkerApplication } from "../src/server.js"
 import {
   SHUTDOWN_OUTCOME,
@@ -9,6 +10,10 @@ import {
   type ShutdownRegistration,
 } from "../src/shutdown.js"
 import { FakeSignalControl } from "./test-support.js"
+
+const SHUTDOWN_TEST_TIMEOUT_MS =
+  MANAGED_WORKER_RUNTIME.COLD_START_TIMEOUT_MS +
+  MANAGED_WORKER_RUNTIME.HEALTH_INTERVAL_SECONDS * 1_000
 
 describe("installGracefulShutdown", () => {
   it("closes the server once when both shutdown signals arrive", async () => {
@@ -78,14 +83,14 @@ describe("installGracefulShutdown", () => {
             ).statusCode,
           {
             interval: 100,
-            timeout: 15_000,
+            timeout: MANAGED_WORKER_RUNTIME.COLD_START_TIMEOUT_MS,
           },
         )
         .toBe(200)
       await expect
         .poll(() => application.server.cdpService.getBrowserProcess(), {
           interval: 100,
-          timeout: 15_000,
+          timeout: MANAGED_WORKER_RUNTIME.COLD_START_TIMEOUT_MS,
         })
         .not.toBeNull()
 
@@ -103,10 +108,14 @@ describe("installGracefulShutdown", () => {
       try {
         await application.server.close()
       } finally {
-        if (application.server.cdpService.getBrowserProcess() !== null) {
-          await application.server.cdpService.shutdown(ShutdownReason.SESSION_END)
+        const { cdpService } = application.server
+        if (
+          cdpService !== undefined &&
+          cdpService.getBrowserProcess() !== null
+        ) {
+          await cdpService.shutdown(ShutdownReason.SESSION_END)
         }
       }
     }
-  }, 30_000)
+  }, SHUTDOWN_TEST_TIMEOUT_MS)
 })

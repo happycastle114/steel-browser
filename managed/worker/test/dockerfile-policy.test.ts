@@ -37,6 +37,7 @@ describe("managed worker Dockerfile policy", () => {
     ["debugger exposure", "EXPOSE 3000", "EXPOSE 3000 9223"],
     ["extra exposure", "EXPOSE 3000", "EXPOSE 3000\nEXPOSE 8080"],
     ["missing health", "HEALTHCHECK --interval", "# HEALTHCHECK --interval"],
+    ["startup grace drift", "--start-period=90s", "--start-period=15s"],
     ["wrong entrypoint", "build/cli.js", "api/build/index.js"],
     ["socket mount", "WORKDIR /app", "WORKDIR /app\nVOLUME /var/run/docker.sock"],
     ["tmpfs drift", "dev.happycastle.steel.worker.tmpfs./run/steel=", "dev.happycastle.steel.worker.tmpfs./run/drift="],

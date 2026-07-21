@@ -129,7 +129,7 @@ export function verifyWorkerDockerfile(source: string): DockerfilePolicyReceipt 
   }
   requireLine(
     lines,
-    'HEALTHCHECK --interval=10s --timeout=3s --start-period=90s --retries=3 CMD ["node", "/app/managed/worker/build/healthcheck.js"]',
+    `HEALTHCHECK --interval=${MANAGED_WORKER_RUNTIME.HEALTH_INTERVAL_SECONDS}s --timeout=${MANAGED_WORKER_RUNTIME.HEALTH_PROBE_TIMEOUT_SECONDS}s --start-period=${MANAGED_WORKER_RUNTIME.HEALTH_START_PERIOD_SECONDS}s --retries=${MANAGED_WORKER_RUNTIME.HEALTH_RETRIES} CMD ["node", "/app/managed/worker/build/healthcheck.js"]`,
     "supervisor healthcheck",
   )
   requireLine(

@@ -13,6 +13,13 @@ const upstreamImageLockPath = fileURLToPath(
 )
 
 describe("managed worker immutable image policy", () => {
+  it("binds the browser cold-start timeout to the container health grace period", () => {
+    expect(MANAGED_WORKER_RUNTIME.COLD_START_TIMEOUT_MS).toBe(
+      MANAGED_WORKER_RUNTIME.HEALTH_START_PERIOD_SECONDS * 1_000,
+    )
+    expect(MANAGED_WORKER_RUNTIME.HEALTH_START_PERIOD_SECONDS).toBe(90)
+  })
+
   it("accepts the canonical pinned non-root read-only runtime contract", () => {
     // Given
     const policy = MANAGED_WORKER_IMAGE_POLICY
