@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "scriptPath": "scripts/upstream-sync/bootstrap-pr-capture.sh",
+  "sha256": "9ba82ed14dc3c90d1c2b457bce4be562f794e0874753bd485ee8decd6cc09ae9"
+}

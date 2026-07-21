@@ -52,7 +52,7 @@ describe("repository ruleset manifests", () => {
           type: REPOSITORY_RULE.REQUIRED_STATUS_CHECKS,
           parameters: {
             strict_required_status_checks_policy: true,
-            required_status_checks: [{ context: "Managed pull request gates / gates" }],
+            required_status_checks: [{ context: "Managed pull request gates / gates", integration_id: null }],
           },
         },
       ],
@@ -61,7 +61,7 @@ describe("repository ruleset manifests", () => {
       type: "required_status_checks",
       parameters: {
         strict_required_status_checks_policy: true,
-        required_status_checks: [{ context: "Managed pull request gates / gates" }],
+        required_status_checks: [{ context: "Managed pull request gates / gates", integration_id: null }],
       },
     })
   })

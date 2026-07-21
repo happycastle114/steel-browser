@@ -1,216 +1,111 @@
-export const GATE_COMMANDS = [
-  ["npm", "run", "check:managed"],
-  ["npm", "run", "test"],
-  ["npm", "run", "build"],
-  ["node", "scripts/upstream-sync/verify-license.mjs"],
-  ["git", "diff", "--check"],
-]
-
-const SHELL_OPERATORS = new Set([";", "&&", "||", "&", "|", "(", ")", "{", "}"])
-const COMMAND_KEYWORDS = new Set(["if", "while", "until", "then", "else", "do", "!"])
-const GATE_OUTCOME = Object.freeze({
-  ZERO: Symbol("zero"),
-  NONZERO: Symbol("nonzero"),
-  UNKNOWN: Symbol("unknown"),
+export const REVIEWED_GATE_MARKER = Object.freeze({
+  BEGIN: "# reviewed-required-gates: begin",
+  END: "# reviewed-required-gates: end",
 })
 
-function tokenizeShell(line) {
-  const tokens = []
-  let word = ""
-  let quote = ""
-  let comment = false
-  const flush = () => {
-    if (word !== "") tokens.push({ type: "word", value: word }), (word = "")
-  }
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index]
-    const next = line[index + 1]
-    if (comment) {
-      if (character === "\n") comment = false
-      continue
-    }
-    if (quote === "'") {
-      if (character === "'") quote = ""
-      else word += character
-      continue
-    }
-    if (quote === '"') {
-      if (character === '"') quote = ""
-      else if (character === "\\" && next !== undefined) word += next, (index += 1)
-      else word += character
-      continue
-    }
-    if (character === "#" && word === "") {
-      comment = true
-      continue
-    }
-    if (character === "'" || character === '"') {
-      quote = character
-      continue
-    }
-    if (character === "\\" && next !== undefined) {
-      word += next
-      index += 1
-      continue
-    }
-    if (/\s/u.test(character)) {
-      flush()
-      continue
-    }
-    const operator = character + (next === "&" || next === "|" ? next : "")
-    if (SHELL_OPERATORS.has(operator)) {
-      flush()
-      tokens.push({ type: "operator", value: operator })
-      if (operator.length === 2) index += 1
-      continue
-    }
-    word += character
-  }
-  flush()
-  return tokens
+export const GATE_COMMANDS = Object.freeze([
+  "run_untrusted node --test scripts/upstream-sync/*.test.mjs",
+  "run_trusted node scripts/upstream-sync/verify-package-scripts.mjs",
+  "run_untrusted node scripts/upstream-sync/run-reviewed-gate.mjs UPSTREAM_CORPUS",
+  "run_untrusted node scripts/upstream-sync/run-reviewed-gate.mjs MANAGED",
+  "run_untrusted node scripts/upstream-sync/run-reviewed-gate.mjs ROOT_TEST",
+  "run_untrusted node scripts/upstream-sync/run-reviewed-gate.mjs ROOT_BUILD",
+  "run_untrusted node scripts/upstream-sync/run-reviewed-gate.mjs RAW_STATE",
+  "run_untrusted node scripts/upstream-sync/verify-license.mjs",
+  'git diff --check "${MANAGED_SHA}...HEAD"',
+  "git diff --quiet",
+  "git diff --cached --quiet",
+  'run_trusted node "${CAPTURE_BINDING_VERIFIER}" --repository-root "${PWD}" --commit-sha "${CANDIDATE_COMMIT_SHA}" --source-sha "${SOURCE_SHA}" --binding "${CAPTURE_BINDING}"',
+  'run_trusted node scripts/upstream-sync/verify-candidate-commit.mjs --commit-sha "${CANDIDATE_COMMIT_SHA}" --merge-commit-sha "${MERGE_COMMIT_SHA}" --managed-sha "${MANAGED_SHA}" --source-sha "${SOURCE_SHA}" --tree-sha "${CANDIDATE_TREE_SHA}"',
+])
+
+export const RUN_UNTRUSTED_DEFINITION = Object.freeze([
+  "run_untrusted() {",
+  '  docker run --rm --network none --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid,nodev,noexec "${UNTRUSTED_GATE_IMAGE}" "$@"',
+  "}",
+].join("\n"))
+
+export const BUILD_UNTRUSTED_IMAGE_DEFINITION = Object.freeze([
+  "build_untrusted_gate_image() {",
+  '  docker build --pull=false --iidfile "${UNTRUSTED_GATE_IMAGE_DIGEST_FILE}" --file "${UNTRUSTED_WORKTREE}/scripts/upstream-sync/candidate-gates.Dockerfile" "${UNTRUSTED_WORKTREE}"',
+  "}",
+].join("\n"))
+
+export const RUN_TRUSTED_DEFINITION = Object.freeze([
+  "run_trusted() {",
+  '  env -i "CI=true" "HOME=${RUNNER_TEMP}/trusted-home" "PATH=${PATH}" "TMPDIR=${RUNNER_TEMP}" "$@"',
+  "}",
+].join("\n"))
+
+function trimmedLines(value) {
+  return value.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean)
 }
 
-function commandOutcome(tokens) {
-  while (tokens.at(-1)?.value === ";") tokens = tokens.slice(0, -1)
-  const values = tokens.filter((token) => token.type === "word").map((token) => token.value)
-  if (values.length === 0) return GATE_OUTCOME.UNKNOWN
-  if (values[0] === "true" || values[0] === ":") return GATE_OUTCOME.ZERO
-  if (values[0] === "false") return GATE_OUTCOME.NONZERO
-  if (values[0] === "exit" || values[0] === "return") {
-    const status = values[1]
-    return status === "0" ? GATE_OUTCOME.ZERO : status !== undefined && /^[1-9][0-9]*$/u.test(status) ? GATE_OUTCOME.NONZERO : GATE_OUTCOME.UNKNOWN
+function extractReviewedGateBlock(candidate) {
+  const lines = candidate.split(/\r?\n/u)
+  const beginIndexes = lines.flatMap((line, index) => line === REVIEWED_GATE_MARKER.BEGIN ? [index] : [])
+  const endIndexes = lines.flatMap((line, index) => line === REVIEWED_GATE_MARKER.END ? [index] : [])
+  if (beginIndexes.length !== 1 || endIndexes.length !== 1 || beginIndexes[0] >= endIndexes[0]) {
+    throw new Error("candidate script contains a failure neutralizer: reviewed gate markers are not exact")
   }
-  if (tokens[0].value === "{" || tokens[0].value === "(") {
-    const close = tokens.at(-1)?.value
-    if ((tokens[0].value === "{" && close === "}") || (tokens[0].value === "(" && close === ")")) return commandOutcome(tokens.slice(1, -1))
-  }
-  const separators = tokens.reduce((indexes, token, index) => token.value === ";" ? [...indexes, index] : indexes, [])
-  if (separators.length > 0) return commandOutcome(tokens.slice(separators.at(-1) + 1))
-  return GATE_OUTCOME.UNKNOWN
+  return lines.slice(beginIndexes[0] + 1, endIndexes[0]).join("\n")
 }
 
-function findGate(tokens) {
-  for (let index = 0; index < tokens.length; index += 1) {
-    if (tokens[index - 1]?.type === "word") continue
-    for (const command of GATE_COMMANDS) {
-      if (command.every((word, offset) => tokens[index + offset]?.value === word)) return { index, length: command.length }
-    }
-  }
-  return undefined
-}
-
-function gatePositions(tokens) {
-  const positions = []
-  for (let index = 0; index < tokens.length; index += 1) {
-    if (tokens[index - 1]?.type === "word" && !COMMAND_KEYWORDS.has(tokens[index - 1].value)) continue
-    const gate = findGate(tokens.slice(index))
-    if (gate?.index === 0) positions.push({ index, length: gate.length })
-  }
-  return positions
-}
-
-function groupClosures(tokens) {
-  const stack = []
-  const closures = new Map()
-  for (let index = 0; index < tokens.length; index += 1) {
-    const value = tokens[index].value
-    if (value === "(" || value === "{") stack.push({ value, index })
-    if ((value === ")" || value === "}") && stack.at(-1)?.value === (value === ")" ? "(" : "{")) {
-      const opener = stack.pop()
-      closures.set(opener.index, index)
-    }
-  }
-  return closures
-}
-
-function segmentBefore(tokens, index) {
-  let start = index - 1
-  while (start >= 0 && !new Set([";", "&&", "||", "&", "|", "then", "else", "do", "(", "{"]).has(tokens[start].value)) start -= 1
-  return tokens.slice(start + 1, index)
-}
-
-function verifyTokenContexts(candidate) {
-  const tokens = tokenizeShell(candidate)
-  const closures = groupClosures(tokens)
-  for (const gate of gatePositions(tokens)) {
-    const segment = segmentBefore(tokens, gate.index)
-    if (segment.some((token) => token.value === "!" || token.value === "if" || token.value === "while" || token.value === "until")) throw new Error("candidate script contains a failure neutralizer")
-    const enclosing = [...closures.entries()].filter(([start, end]) => start < gate.index && gate.index < end).sort((left, right) => right[0] - left[0])[0]
-    if (enclosing === undefined) continue
-    const [, close] = enclosing
-    const operator = tokens[close + 1]?.value
-    if (operator === "&&" || operator === "&" || operator === "|") throw new Error("candidate script contains a failure neutralizer")
-    if (operator === "||" && commandOutcome(tokens.slice(close + 2)) !== GATE_OUTCOME.NONZERO) throw new Error("candidate script contains a failure neutralizer")
+function assertNoCommandShadow(candidate) {
+  if (/(?:^|[;\n])\s*(?:function\s+)?(?:docker|env|git|id|node|npm)\s*(?:\(\s*\))?\s*\{/mu.test(candidate) || /(?:^|[;\n])\s*alias\s+(?:docker|env|git|id|node|npm)=/mu.test(candidate) || /(?:^|[;\n])\s*(?:export\s+)?PATH\s*=/mu.test(candidate)) {
+    throw new Error("candidate script contains a failure neutralizer: required command shadow or PATH mutation")
   }
 }
 
-function gateIsNeutralized(line) {
-  const tokens = tokenizeShell(line)
-  for (let offset = 0; offset < tokens.length; offset += 1) {
-    const gate = findGate(tokens.slice(offset))
-    if (gate === undefined) return false
-    gate.index += offset
-    const end = gate.index + gate.length
-    const next = tokens[end]
-    const operator = next?.value === ")" || next?.value === "}" ? tokens[end + 1] : next
-    if (operator?.value === "&&" || operator?.value === "&" || operator?.value === "|") return true
-    if (operator?.value === "||") {
-      const branch = tokens.slice(tokens.indexOf(operator) + 1)
-      if ((branch[0]?.value === "{" || branch[0]?.value === "(") && branch.at(-1)?.value !== (branch[0].value === "{" ? "}" : ")")) return false
-      if (commandOutcome(branch) !== GATE_OUTCOME.NONZERO) return true
-    }
-    offset = end
+function assertExactUntrustedRunner(candidate, requiredCommands) {
+  if (!requiredCommands.some((command) => command.startsWith("run_untrusted "))) return
+  const definitions = [...candidate.matchAll(/^run_untrusted\(\) \{\n[\s\S]*?^\}$/gmu)].map((match) => match[0])
+  if (definitions.length !== 1 || definitions[0] !== RUN_UNTRUSTED_DEFINITION) {
+    throw new Error("candidate script contains a failure neutralizer: run_untrusted helper is not the exact reviewed definition")
   }
-  return false
+  if ([...candidate.matchAll(/^(?:function\s+)?run_untrusted(?:\s*\(\))?\s*\{/gmu)].length !== 1) {
+    throw new Error("candidate script contains a failure neutralizer: run_untrusted helper definition drift")
+  }
 }
 
-function functionGateNames(candidate) {
-  const names = new Set()
-  const definition = /(?:^|[;\n])\s*(?:function\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*(?:\(\s*\))?\s*\{([\s\S]*?)\}/gmu
-  for (const match of candidate.matchAll(definition)) {
-    if (findGate(tokenizeShell(match[2])) !== undefined) names.add(match[1])
+function assertExactTrustedRunner(candidate, requiredCommands) {
+  if (!requiredCommands.some((command) => command.startsWith("run_trusted "))) return
+  const definitions = [...candidate.matchAll(/^run_trusted\(\) \{\n[\s\S]*?^\}$/gmu)].map((match) => match[0])
+  if (definitions.length !== 1 || definitions[0] !== RUN_TRUSTED_DEFINITION) {
+    throw new Error("candidate script contains a failure neutralizer: run_trusted helper is not the exact reviewed definition")
   }
-  return names
+  if ([...candidate.matchAll(/^(?:function\s+)?run_trusted(?:\s*\(\))?\s*\{/gmu)].length !== 1) {
+    throw new Error("candidate script contains a failure neutralizer: run_trusted helper definition drift")
+  }
 }
 
-function functionCallIsNeutralized(line, names) {
-  const tokens = tokenizeShell(line)
-  for (let index = 0; index < tokens.length; index += 1) {
-    if (tokens[index - 1]?.type === "word" || !names.has(tokens[index].value)) continue
-    const operator = tokens[index + 1]
-    if (operator?.value !== "||" && operator?.value !== "&&") continue
-    return commandOutcome(tokens.slice(index + 2)) !== GATE_OUTCOME.NONZERO
+function assertExactGateImageBuilder(candidate, requiredCommands) {
+  if (!requiredCommands.some((command) => command.startsWith("run_untrusted "))) return
+  const definitions = [...candidate.matchAll(/^build_untrusted_gate_image\(\) \{\n[\s\S]*?^\}$/gmu)].map((match) => match[0])
+  if (definitions.length !== 1 || definitions[0] !== BUILD_UNTRUSTED_IMAGE_DEFINITION) {
+    throw new Error("candidate script contains a failure neutralizer: gate image builder is not the exact reviewed definition")
   }
-  return false
 }
 
 export function hasGateCommand(candidate, command) {
-  return candidate.split("\n").some((line) => tokenizeShell(line).some((token, index, tokens) => {
-    if (tokens[index - 1]?.type === "word" && !COMMAND_KEYWORDS.has(tokens[index - 1].value)) return false
-    return token.value === command[0] && command.every((word, offset) => tokens[index + offset]?.value === word)
-  }))
+  const prefix = Array.isArray(command) ? command.join(" ") : command
+  return trimmedLines(candidate).some((line) => line === prefix || line.startsWith(`${prefix} `))
 }
 
-export function verifyFailClosedGates(candidate) {
-  const normalized = candidate.replace(/\\\r?\n[ \t]*/gu, " ")
-  verifyTokenContexts(normalized)
-  const functionNames = functionGateNames(candidate)
-  if (functionNames.size > 0 || normalized.split("\n").some((line) => /(?:^|[;{])\s*(?:if|while|until)\b[^;\n]*(?:npm run (?:check:managed|test|build)|node scripts\/upstream-sync\/verify-license\.mjs|git diff --check)/u.test(line))) {
-    throw new Error("candidate script contains a failure neutralizer")
+export function verifyFailClosedGates(candidate, requiredCommands = GATE_COMMANDS) {
+  assertNoCommandShadow(candidate)
+  assertExactUntrustedRunner(candidate, requiredCommands)
+  assertExactTrustedRunner(candidate, requiredCommands)
+  assertExactGateImageBuilder(candidate, requiredCommands)
+  const reviewedBlock = extractReviewedGateBlock(candidate)
+  if (reviewedBlock !== requiredCommands.join("\n")) {
+    throw new Error("candidate script contains a failure neutralizer: required gates must be one exact reviewed standalone block")
   }
-  const lines = []
-  for (const rawLine of normalized.split("\n")) {
-    const line = rawLine.trim()
-    if (/^(?:\|\||&&|&|\|)\s*/u.test(line) && lines.length > 0) lines[lines.length - 1] += ` ${line}`
-    else lines.push(rawLine)
-  }
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index]
-    if (gateIsNeutralized(line) || functionCallIsNeutralized(line, functionNames)) throw new Error("candidate script contains a failure neutralizer")
-    if (/\|\|\s*\{/u.test(line) && !/\}/u.test(line)) {
-      let compound = line
-      while (index + 1 < lines.length && !/\}/u.test(compound)) compound += ` ; ${lines[++index]}`
-      if (gateIsNeutralized(compound)) throw new Error("candidate script contains a failure neutralizer")
+  const allLines = trimmedLines(candidate)
+  for (const command of requiredCommands) {
+    const occurrences = allLines.filter((line) => line === command)
+    if (occurrences.length !== 1) {
+      throw new Error(`candidate script contains a failure neutralizer: required gate occurrence drift: ${command}`)
     }
   }
 }

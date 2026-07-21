@@ -99,6 +99,7 @@ async function writeObservedProvenance(directory) {
     upstreamSha: NEW_SHA,
     gitHead: NEW_SHA,
     captureToolVersion: "fixture",
+    capturePlanSha256: "f".repeat(64),
     capturedAt: "2026-01-01T00:00:00.000Z",
     runtimeExecutable: "repository-owned-observation-runner-v1",
     runtimeArgs: [],

@@ -2,7 +2,7 @@ name: Reviewed upstream sync
 
 on:
   schedule:
-    - cron: "17 2 * * 1"
+    - cron: "17 17 * * 6"
   workflow_dispatch:
 
 permissions: {}
@@ -25,10 +25,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
-      sync_status: ${{ steps.candidate.outputs.sync_status }}
-      source_sha: ${{ steps.candidate.outputs.source_sha }}
-      managed_sha: ${{ steps.candidate.outputs.managed_sha }}
-      sync_branch: ${{ steps.candidate.outputs.sync_branch }}
+      sync_status: ${{ steps.generate.outputs.sync_status || steps.capture.outputs.sync_status }}
+      source_sha: ${{ steps.capture.outputs.source_sha }}
+      managed_sha: ${{ steps.capture.outputs.managed_sha }}
+      sync_branch: ${{ steps.capture.outputs.sync_branch }}
+      capture_status: ${{ steps.capture.outputs.capture_status }}
+      capture_binding_sha256: ${{ steps.capture.outputs.capture_binding_sha256 }}
     steps:
       - name: Check out protected managed baseline without credentials
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -43,24 +45,54 @@ jobs:
           node-version: 22.23.1
           cache: npm
 
+      - name: Install trusted managed verifier dependencies
+        run: npm ci --ignore-scripts
+
       - name: Verify sync automation contract
         run: |
           set -euo pipefail
           node scripts/upstream-sync/verify-workflow.mjs
           node --test scripts/upstream-sync/*.test.mjs
 
-      - name: Resolve and test an unprivileged candidate
-        id: candidate
+      - name: Resolve and capture an unprivileged exact runtime
+        id: capture
         shell: bash
-        env:
-          READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash scripts/upstream-sync/candidate.sh
+        run: bash scripts/upstream-sync/candidate.sh capture
+
+      - name: Upload immutable pre-gate runtime capture
+        if: steps.capture.outputs.capture_status == 'captured'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: steel-upstream-capture-${{ steps.capture.outputs.source_sha }}-${{ steps.capture.outputs.capture_binding_sha256 }}
+          path: ${{ runner.temp }}/steel-upstream-sync
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove mutable pre-upload capture copy
+        if: steps.capture.outputs.capture_status == 'captured'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "${RUNNER_TEMP:?}/steel-upstream-sync"
+
+      - name: Download immutable pre-gate runtime capture
+        if: steps.capture.outputs.capture_status == 'captured'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: steel-upstream-capture-${{ steps.capture.outputs.source_sha }}-${{ steps.capture.outputs.capture_binding_sha256 }}
+          path: ${{ runner.temp }}/steel-upstream-sync
+
+      - name: Generate and test an unprivileged candidate
+        if: steps.capture.outputs.capture_status == 'captured'
+        id: generate
+        shell: bash
+        run: bash scripts/upstream-sync/candidate.sh generate
 
       - name: Upload immutable candidate evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: steel-upstream-sync-${{ steps.candidate.outputs.source_sha || github.run_id }}
+          name: steel-upstream-sync-${{ steps.capture.outputs.source_sha || github.run_id }}
           path: ${{ runner.temp }}/steel-upstream-sync
           if-no-files-found: error
           retention-days: 14
@@ -93,10 +125,21 @@ jobs:
           name: steel-upstream-sync-${{ needs.candidate.outputs.source_sha || github.run_id }}
           path: sync-artifact
 
+      - name: Download immutable pre-gate runtime capture
+        if: needs.candidate.outputs.sync_status == 'ready'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: steel-upstream-capture-${{ needs.candidate.outputs.source_sha }}-${{ needs.candidate.outputs.capture_binding_sha256 }}
+          path: trusted-capture
+
+      - name: Install trusted verifier dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
       - name: Publish only the verified candidate bundle
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PUBLISH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_CAPTURE_BINDING_SHA256: ${{ needs.candidate.outputs.capture_binding_sha256 }}
         shell: bash
         run: bash scripts/upstream-sync/publisher.sh
 
@@ -122,16 +165,29 @@ jobs:
         run: |
           set -euo pipefail
           SOURCE_SHA="$(jq -r '.sourceSha' sync-artifact/candidate-metadata.json)"
+          CATEGORIES="$(jq -ce '.categories | if type == "array" then . else error("categories must be an array") end' sync-artifact/classification.json)"
+          BLOCKED_REASONS="$(jq -ce '.blockedReasons | if type == "array" then . else error("blockedReasons must be an array") end' sync-artifact/classification.json)"
+          UPSTREAM_COMMITS="$(jq -ce '.upstreamTraceability.commits | if type == "array" then . else error("upstream commits must be an array") end' sync-artifact/classification.json)"
+          RELEASE_NOTES="$(jq -ce '.upstreamTraceability.releaseNotes | if type == "object" then . else error("release note traceability must be an object") end' sync-artifact/classification.json)"
+          MIGRATION_NOTES="$(jq -ce '.upstreamTraceability.migrationNotes | if type == "object" then . else error("migration note traceability must be an object") end' sync-artifact/classification.json)"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BLOCKED_ARTIFACT_NAME="steel-upstream-sync-${SOURCE_SHA}"
           TITLE="upstream sync blocked: ${SOURCE_SHA}"
           BODY="$(cat <<EOF
           The reviewed upstream sync is blocked and did not create a candidate branch or PR.
 
           Source SHA: \`${SOURCE_SHA}\`
-          Classification: \$(jq -c '.categories' sync-artifact/classification.json)
-          Blocked reasons: \$(jq -c '.blockedReasons' sync-artifact/classification.json)
+          Categories: ${CATEGORIES}
+          Blocked reasons: ${BLOCKED_REASONS}
+          Upstream source-range commits: ${UPSTREAM_COMMITS}
+          Release-note evidence: ${RELEASE_NOTES}
+          Migration-note evidence: ${MIGRATION_NOTES}
+          Workflow run: ${RUN_URL}
+          Blocked evidence artifact: \`${BLOCKED_ARTIFACT_NAME}\`
+          Key artifact paths: \`classification.json\`, \`candidate-metadata.json\`
 
-          A human must execute the reviewed Steel runtime capture and complete the listed review
-          before rerunning sync. The workflow never copies an older observed receipt.
+          Inspect the bound runtime-capture evidence when present, then complete the listed review
+          or acknowledgement before rerunning sync. The workflow never copies an older receipt.
           EOF
           )"
           gh label create "status: blocked" --repo "${GITHUB_REPOSITORY}" --color "B60205" --description "Upstream sync requires human review" --force

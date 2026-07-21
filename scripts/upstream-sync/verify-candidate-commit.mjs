@@ -6,11 +6,12 @@ import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import { createHash } from "node:crypto"
 import { CORPUS_FILES, FINAL_ARTIFACT_FILES, LOCK_STAGE, sha256, validateEvidenceManifest, validateObservedCorpus } from "./prepare-corpus.mjs"
-import { CHANGE_CATEGORY, classifyChangedPaths, validateReviewAcknowledgement } from "./classify-upstream.mjs"
+import { CHANGE_CATEGORY, classifyChangedPaths, collectUpstreamTraceability, validateReviewAcknowledgement } from "./classify-upstream.mjs"
 import { assertScopeManifestCoversPaths } from "./corpus-evidence.mjs"
 
 const execFileAsync = promisify(execFile)
 const SHA_PATTERN = /^[0-9a-f]{40}$/u
+const TRUSTED_REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 
 function assertSha(value, name) {
   if (!SHA_PATTERN.test(value)) throw new Error(`${name} must be a 40-character lowercase SHA`)
@@ -61,6 +62,26 @@ async function verifyCommittedCorpus(repositoryRoot, commitSha, sourceSha, lockS
   }
 }
 
+export async function verifyAuthoritativeCandidateCorpus(repositoryRoot, commitSha) {
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "steel-authoritative-candidate-"))
+  const checkout = path.join(temporaryRoot, "candidate")
+  let worktreeAdded = false
+  try {
+    await execFileAsync("git", ["-C", repositoryRoot, "worktree", "add", "--detach", checkout, commitSha], { maxBuffer: 8 * 1024 * 1024 })
+    worktreeAdded = true
+    const executable = path.join(TRUSTED_REPOSITORY_ROOT, "node_modules", ".bin", "tsx")
+    const verifier = path.join(TRUSTED_REPOSITORY_ROOT, "managed", "shared", "src", "upstream-corpus-cli.ts")
+    const result = await execFileAsync(executable, [verifier, "verify"], { cwd: checkout, maxBuffer: 16 * 1024 * 1024 })
+    if (!result.stdout.includes("UPSTREAM_CORPUS_VERIFIED")) throw new Error("authoritative verifier produced no success receipt")
+  } catch (error) {
+    const detail = error instanceof Error && "stderr" in error && typeof error.stderr === "string" ? error.stderr.trim() : error instanceof Error ? error.message : "unknown failure"
+    throw new Error(`authoritative candidate corpus verification failed: ${detail}`)
+  } finally {
+    if (worktreeAdded) await execFileAsync("git", ["-C", repositoryRoot, "worktree", "remove", "--force", checkout])
+    await rm(temporaryRoot, { recursive: true, force: true })
+  }
+}
+
 function parseStatuses(output) {
   const tokens = output.split("\0").filter(Boolean)
   const statuses = []
@@ -97,7 +118,7 @@ function expectedGeneratedPaths(sourceSha, lockStage) {
 }
 
 /** Verify the exact candidate commit after all untrusted build/test gates. */
-export async function verifyCandidateCommit({ repositoryRoot, commitSha, mergeCommitSha, managedSha, sourceSha, treeSha, allowedUntrackedPaths = [] }) {
+export async function verifyCandidateCommit({ repositoryRoot, commitSha, mergeCommitSha, managedSha, sourceSha, treeSha, allowedUntrackedPaths = [], authoritativeVerifier = verifyAuthoritativeCandidateCorpus }) {
   for (const [value, name] of [[commitSha, "candidate commit SHA"], [mergeCommitSha, "merge commit SHA"], [managedSha, "managed SHA"], [sourceSha, "source SHA"], [treeSha, "candidate tree SHA"]]) assertSha(value, name)
   const root = path.resolve(repositoryRoot)
   const parents = (await git(root, ["rev-list", "--parents", "-n", "1", commitSha])).trim().split(/\s+/u)
@@ -135,6 +156,7 @@ export async function verifyCandidateCommit({ repositoryRoot, commitSha, mergeCo
   for (const filePath of expected) await assertRegularBlob(root, commitSha, filePath)
 
   const { corpusRoot, texts } = await verifyCommittedCorpus(root, commitSha, sourceSha, lockStage)
+  await authoritativeVerifier(root, commitSha)
   let scopeManifest = null
   if (lock.protocolCorpusSha256 !== sha256(Buffer.from(texts.get("manifest.json"), "utf8"))) throw new Error("candidate lock protocol corpus digest drift")
   if (lock.sessionIdVerdictSha256 !== sha256(Buffer.from(texts.get("session-id-verdict.json"), "utf8"))) throw new Error("candidate lock session verdict digest drift")
@@ -163,7 +185,9 @@ export async function verifyCandidateCommit({ repositoryRoot, commitSha, mergeCo
   if (scopeManifest !== null) assertScopeManifestCoversPaths(scopeManifest, changedPaths)
   const expectedCategories = classifyChangedPaths(changedPaths, sourceDiff.toString("utf8"))
   if (JSON.stringify(classification.categories) !== JSON.stringify(expectedCategories)) throw new Error("candidate classification categories drift")
-  const reviewCategories = expectedCategories.filter((category) => [CHANGE_CATEGORY.BROWSER, CHANGE_CATEGORY.DEPENDENCY, CHANGE_CATEGORY.LICENSE, CHANGE_CATEGORY.MIGRATION].includes(category))
+  const expectedTraceability = await collectUpstreamTraceability(root, classification.lockSha, sourceSha)
+  if (JSON.stringify(classification.upstreamTraceability) !== JSON.stringify(expectedTraceability)) throw new Error("candidate upstream source-range traceability drift")
+  const reviewCategories = expectedCategories.filter((category) => [CHANGE_CATEGORY.API, CHANGE_CATEGORY.BROWSER, CHANGE_CATEGORY.DEPENDENCY, CHANGE_CATEGORY.LICENSE, CHANGE_CATEGORY.MIGRATION].includes(category))
   const acknowledgementPath = `managed/tests/upstream-acknowledgements/${sourceSha}.json`
   const classificationAcknowledgement = classification.reviewAcknowledgement ?? null
   if (reviewCategories.length > 0) {

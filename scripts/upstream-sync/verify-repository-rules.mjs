@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process"
+import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
@@ -24,6 +25,33 @@ export const RULESET_CONTRACT = Object.freeze({
   REQUIRE_LAST_PUSH_APPROVAL: false,
 })
 
+export const REPOSITORY_RULES_ERROR = Object.freeze({
+  REQUIRED_STATUS_CHECK_CONTEXT_MISSING: "REQUIRED_STATUS_CHECK_CONTEXT_MISSING",
+})
+
+export class RepositoryRulesError extends Error {
+  constructor(code, message) {
+    super(message)
+    this.name = "RepositoryRulesError"
+    this.code = code
+  }
+}
+
+export function parseRequiredCheckContract(value) {
+  if (value === null || typeof value !== "object" || Array.isArray(value) || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(["context", "integrationId", "schemaVersion"].sort()) || value.schemaVersion !== 1 || value.context !== RULESET_CONTRACT.REQUIRED_CHECK) {
+    throw new Error("managed required check contract schema or context is invalid")
+  }
+  if (!Number.isInteger(value.integrationId) || value.integrationId <= 0) {
+    throw new RepositoryRulesError(REPOSITORY_RULES_ERROR.REQUIRED_STATUS_CHECK_CONTEXT_MISSING, "the exact GitHub Actions App integrationId must be captured from the first real managed pull request check before publication")
+  }
+  return value
+}
+
+export async function loadRequiredCheckContract(repositoryRoot = process.cwd()) {
+  const value = JSON.parse(await readFile(path.join(repositoryRoot, ".github", "managed-required-check.json"), "utf8"))
+  return parseRequiredCheckContract(value)
+}
+
 function flattenRulesets(value) {
   if (!Array.isArray(value)) throw new Error("GitHub rulesets response must be an array")
   return value.flatMap((entry) => Array.isArray(entry) ? entry : [entry]).filter((entry) => entry !== null && typeof entry === "object" && !Array.isArray(entry))
@@ -33,8 +61,9 @@ function hasRule(ruleset, type) {
   return Array.isArray(ruleset.rules) && ruleset.rules.some((rule) => rule?.type === type)
 }
 
-function hasRef(ruleset, ref) {
-  return Array.isArray(ruleset.conditions?.ref_name?.include) && ruleset.conditions.ref_name.include.includes(ref)
+function hasExactRef(ruleset, ref) {
+  const condition = ruleset.conditions?.ref_name
+  return Array.isArray(condition?.include) && condition.include.length === 1 && condition.include[0] === ref && Array.isArray(condition.exclude) && condition.exclude.length === 0
 }
 
 function hasNoBypassActors(ruleset) {
@@ -54,11 +83,16 @@ function hasManagedPullRequestPolicy(ruleset) {
     parameters.require_last_push_approval === RULESET_CONTRACT.REQUIRE_LAST_PUSH_APPROVAL
 }
 
-function hasManagedRequiredCheck(ruleset) {
+function hasManagedRequiredCheck(ruleset, requiredCheckIntegrationId) {
   const rule = ruleset.rules?.find((candidate) => candidate?.type === RULESET_CONTRACT.REQUIRED_STATUS_CHECKS)
   if (rule === undefined) return false
   if (rule.parameters?.strict_required_status_checks_policy !== true) return false
-  return Array.isArray(rule.parameters.required_status_checks) && rule.parameters.required_status_checks.some((check) => check?.context === RULESET_CONTRACT.REQUIRED_CHECK)
+  return Array.isArray(rule.parameters.required_status_checks) && rule.parameters.required_status_checks.some((check) => check?.context === RULESET_CONTRACT.REQUIRED_CHECK && check?.integration_id === requiredCheckIntegrationId)
+}
+
+function hasCandidateUpdatePolicy(ruleset) {
+  const rule = ruleset.rules?.find((candidate) => candidate?.type === RULESET_CONTRACT.UPDATE)
+  return rule?.parameters?.update_allows_fetch_and_merge === false
 }
 
 function requireRuleset(rulesets, predicate, detail) {
@@ -80,10 +114,12 @@ export async function loadRepositoryRulesets(repository, execute = execFileAsync
   return details
 }
 
-export function verifyRepositoryRules(rulesetsInput) {
+export function verifyRepositoryRules(rulesetsInput, { requiredCheckIntegrationId } = {}) {
   const rulesets = flattenRulesets(rulesetsInput)
-  requireRuleset(rulesets, (ruleset) => hasRef(ruleset, RULESET_CONTRACT.MANAGED_REF) && hasNoBypassActors(ruleset) && hasRule(ruleset, RULESET_CONTRACT.DELETION) && hasRule(ruleset, RULESET_CONTRACT.NON_FAST_FORWARD) && hasManagedPullRequestPolicy(ruleset) && hasManagedRequiredCheck(ruleset), "managed branch ruleset must enforce zero bypass actors, exact pull request review policy, deletion, non-fast-forward, and the managed gate check")
-  requireRuleset(rulesets, (ruleset) => hasRef(ruleset, RULESET_CONTRACT.CANDIDATE_REF) && hasNoBypassActors(ruleset) && hasRule(ruleset, RULESET_CONTRACT.DELETION) && hasRule(ruleset, RULESET_CONTRACT.NON_FAST_FORWARD) && hasRule(ruleset, RULESET_CONTRACT.UPDATE), "upstream-sync candidate refs must be protected against bypass actors, deletion, non-fast-forward updates, and unreviewed updates")
+  const managed = requireRuleset(rulesets, (ruleset) => hasExactRef(ruleset, RULESET_CONTRACT.MANAGED_REF) && hasNoBypassActors(ruleset) && hasRule(ruleset, RULESET_CONTRACT.DELETION) && hasRule(ruleset, RULESET_CONTRACT.NON_FAST_FORWARD) && hasManagedPullRequestPolicy(ruleset), "managed branch ruleset must enforce zero bypass actors, exact ref topology, exact pull request review policy, deletion, and non-fast-forward updates")
+  requireRuleset(rulesets, (ruleset) => hasExactRef(ruleset, RULESET_CONTRACT.CANDIDATE_REF) && hasNoBypassActors(ruleset) && hasRule(ruleset, RULESET_CONTRACT.DELETION) && hasRule(ruleset, RULESET_CONTRACT.NON_FAST_FORWARD) && hasCandidateUpdatePolicy(ruleset), "upstream-sync candidate refs must enforce exact ref topology, zero bypass actors, deletion, non-fast-forward updates, and update_allows_fetch_and_merge=false")
+  if (!Number.isInteger(requiredCheckIntegrationId) || requiredCheckIntegrationId <= 0) throw new Error("verified required check integrationId is required")
+  if (!hasManagedRequiredCheck(managed, requiredCheckIntegrationId)) throw new Error("managed branch ruleset must enforce the exact managed gate context and GitHub Actions App integration_id")
   return { status: "VERIFIED", managedCheck: RULESET_CONTRACT.REQUIRED_CHECK, candidateRef: RULESET_CONTRACT.CANDIDATE_REF }
 }
 
@@ -92,13 +128,14 @@ async function main() {
   const repositoryIndex = args.indexOf("--repository")
   const repository = repositoryIndex === -1 ? undefined : args[repositoryIndex + 1]
   if (repository === undefined || repository.trim() === "") throw new Error("usage: verify-repository-rules.mjs --repository <owner/repository>")
+  const requiredCheck = await loadRequiredCheckContract()
   const details = await loadRepositoryRulesets(repository)
-  console.log(`UPSTREAM_SYNC_REPOSITORY_RULES_VERIFIED ${JSON.stringify(verifyRepositoryRules(details))}`)
+  console.log(`UPSTREAM_SYNC_REPOSITORY_RULES_VERIFIED ${JSON.stringify(verifyRepositoryRules(details, { requiredCheckIntegrationId: requiredCheck.integrationId }))}`)
 }
 
 if (process.argv[1] !== undefined && path.basename(process.argv[1]) === path.basename(fileURLToPath(import.meta.url))) {
   main().catch((error) => {
-    console.error(error instanceof Error ? error.message : "unknown repository rules verification failure")
+    console.error(error instanceof RepositoryRulesError ? `${error.code}: ${error.message}` : error instanceof Error ? error.message : "unknown repository rules verification failure")
     process.exitCode = 1
   })
 }

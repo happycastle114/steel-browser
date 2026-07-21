@@ -33,7 +33,7 @@ function assertSafeRelativePath(value, artifact) {
 export async function assertProvenance(provenance, upstreamSha, artifactTexts, { repositoryRoot, strict }) {
   if (provenance === null || typeof provenance !== "object" || Array.isArray(provenance) || provenance.upstreamSha !== upstreamSha) throw new Error("observed observation provenance is not pinned to the requested upstream SHA")
   if (provenance.schemaVersion !== 1 || typeof provenance.gitHead !== "string" || !UPSTREAM_SHA_PATTERN.test(provenance.gitHead)) throw new Error("observation provenance gitHead is invalid")
-  assertExactKeys(provenance, ["schemaVersion", "upstreamSha", "gitHead", "captureToolVersion", "runtimeExecutable", "runtimeArgs", "capturedAt", "runtimeIdentitySha256", "artifacts"], "observation provenance")
+  assertExactKeys(provenance, ["schemaVersion", "upstreamSha", "gitHead", "captureToolVersion", "runtimeExecutable", "runtimeArgs", "capturePlanSha256", "capturedAt", "runtimeIdentitySha256", "artifacts"], "observation provenance")
   if (provenance.runtimeExecutable !== "repository-owned-observation-runner-v1" || typeof provenance.captureToolVersion !== "string" || !Array.isArray(provenance.runtimeArgs) || provenance.runtimeArgs.length !== 0 || typeof provenance.capturedAt !== "string" || Number.isNaN(Date.parse(provenance.capturedAt)) || !Array.isArray(provenance.artifacts)) throw new Error("observation provenance runtime contract is invalid")
   if (strict && repositoryRoot !== undefined) {
     let isGitRepository = true
@@ -51,6 +51,7 @@ export async function assertProvenance(provenance, upstreamSha, artifactTexts, {
     if (sha256(Buffer.from(artifactTexts.get(entry.path), "utf8")) !== entry.sha256) throw new Error(`observation provenance artifact hash drift: ${entry.path}`)
   }
   assertDigest(provenance.runtimeIdentitySha256, "observation provenance runtime identity hash")
+  assertDigest(provenance.capturePlanSha256, "observation provenance capture plan hash")
   if (sha256(Buffer.from(artifactTexts.get("runtime-identity.json"), "utf8")) !== provenance.runtimeIdentitySha256) throw new Error("observation provenance runtime identity hash drift")
 }
 

@@ -8,6 +8,7 @@ import { promisify } from "node:util"
 import test from "node:test"
 
 import { verifyCandidateCommit } from "./verify-candidate-commit.mjs"
+import { verifyExistingCandidate } from "./verify-existing-candidate.mjs"
 import { sha256 } from "./prepare-corpus.mjs"
 
 const execFileAsync = promisify(execFile)
@@ -53,6 +54,7 @@ async function writeCorpus(root, sourceSha, mergeSha, managedSha, diffSha256) {
     upstreamSha: sourceSha,
     gitHead: sourceSha,
     captureToolVersion: "fixture",
+    capturePlanSha256: "f".repeat(64),
     capturedAt: "2026-01-01T00:00:00.000Z",
     runtimeExecutable: "repository-owned-observation-runner-v1",
     runtimeArgs: [],
@@ -64,13 +66,21 @@ async function writeCorpus(root, sourceSha, mergeSha, managedSha, diffSha256) {
     sourceSha,
     managedSha,
     mergeSha,
-    lockSha: "a".repeat(40),
+    lockSha: managedSha,
     requiresObservation: true,
     observationAvailable: true,
     changedPaths: ["api.txt"],
     categories: [],
     diffSha256,
     reviewAcknowledgement: null,
+    upstreamTraceability: {
+      status: "FOUND",
+      baseSha: managedSha,
+      headSha: sourceSha,
+      commits: [{ sha: sourceSha, subject: "upstream source" }],
+      releaseNotes: { status: "NOT_FOUND", paths: [] },
+      migrationNotes: { status: "NOT_FOUND", paths: [] },
+    },
     blocked: false,
     blockedReasons: [],
   }
@@ -106,18 +116,10 @@ async function createFixture() {
   return { root, managedSha, sourceSha, mergeSha, generatedSha, treeSha }
 }
 
-test("publication fixture accepts only the exact merge plus generated commit topology", async (t) => {
+test("privileged publication verifier rejects a synthetic one REST and one WebSocket corpus", async (t) => {
   const fixture = await createFixture()
   t.after(() => rm(fixture.root, { recursive: true, force: true }))
-  const result = await verifyCandidateCommit({
-    repositoryRoot: fixture.root,
-    commitSha: fixture.generatedSha,
-    mergeCommitSha: fixture.mergeSha,
-    managedSha: fixture.managedSha,
-    sourceSha: fixture.sourceSha,
-    treeSha: fixture.treeSha,
-  })
-  assert.equal(result.status, "VERIFIED")
+  await assert.rejects(verifyCandidateCommit({ repositoryRoot: fixture.root, commitSha: fixture.generatedSha, mergeCommitSha: fixture.mergeSha, managedSha: fixture.managedSha, sourceSha: fixture.sourceSha, treeSha: fixture.treeSha }), /authoritative candidate corpus verification failed/)
 })
 
 test("publication fixture rejects a generated commit that self-modifies workflow policy", async (t) => {
@@ -137,6 +139,7 @@ test("publication fixture rejects a generated commit that self-modifies workflow
       managedSha: fixture.managedSha,
       sourceSha: fixture.sourceSha,
       treeSha: badTree,
+      authoritativeVerifier: async () => {},
     }),
     /candidate generated path allowlist mismatch/,
   )
@@ -154,7 +157,7 @@ test("publication fixture rejects a candidate that replaces allowed evidence wit
   const badSha = await commit(fixture.root, "bad evidence bytes")
   const badTree = await runGit(fixture.root, "rev-parse", `${badSha}^{tree}`)
   await assert.rejects(
-    verifyCandidateCommit({ repositoryRoot: fixture.root, commitSha: badSha, mergeCommitSha: fixture.mergeSha, managedSha: fixture.managedSha, sourceSha: fixture.sourceSha, treeSha: badTree }),
+    verifyCandidateCommit({ repositoryRoot: fixture.root, commitSha: badSha, mergeCommitSha: fixture.mergeSha, managedSha: fixture.managedSha, sourceSha: fixture.sourceSha, treeSha: badTree, authoritativeVerifier: async () => {} }),
     /observed|manifest|JSON|provenance|schema/i,
   )
 })
@@ -170,7 +173,29 @@ test("publication fixture rejects a candidate whose managed base is stale", asyn
       managedSha: "c".repeat(40),
       sourceSha: fixture.sourceSha,
       treeSha: fixture.treeSha,
+      authoritativeVerifier: async () => {},
     }),
     /candidate merge parents are not the exact managed\/source pair/,
   )
+})
+
+test("same-source rerun can independently reverify and reuse an immutable candidate tip", async (t) => {
+  const fixture = await createFixture()
+  t.after(() => rm(fixture.root, { recursive: true, force: true }))
+  const artifactRoot = path.join(fixture.root, "sync-artifact")
+  await mkdir(artifactRoot)
+  const result = await verifyExistingCandidate({
+    repositoryRoot: fixture.root,
+    commitSha: fixture.generatedSha,
+    managedSha: fixture.managedSha,
+    sourceSha: fixture.sourceSha,
+    bindingOutput: path.join(artifactRoot, "existing-capture-binding.json"),
+    classificationOutput: path.join(artifactRoot, "existing-classification.json"),
+    authoritativeVerifier: async () => {},
+  })
+  assert.equal(result.status, "REUSED_VERIFIED_IMMUTABLE_CANDIDATE")
+  assert.equal(result.commitSha, fixture.generatedSha)
+  assert.equal(result.mergeCommitSha, fixture.mergeSha)
+  assert.equal(JSON.parse(await readFile(result.classificationOutput, "utf8")).sourceSha, fixture.sourceSha)
+  assert.equal(JSON.parse(await readFile(path.join(artifactRoot, "existing-capture-binding.json"), "utf8")).upstreamSha, fixture.sourceSha)
 })

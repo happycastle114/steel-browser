@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "packageScripts": {
+    "package.json": {
+      "build": "npm run build -w api -w ui && npm run build:managed",
+      "check:managed": "npm run typecheck:managed && npm run test:managed",
+      "check:raw-state-comparisons": "tsx managed/shared/src/raw-state-comparison-cli.ts",
+      "test": "npm run test -w api",
+      "verify:upstream-corpus": "tsx managed/shared/src/upstream-corpus-cli.ts verify"
+    },
+    "api/package.json": {
+      "build": "tsc && npm run copy:templates && npm run copy:fingerprint",
+      "test": "vitest run"
+    },
+    "ui/package.json": {
+      "build": "tsc && vite build"
+    },
+    "managed/console/package.json": {
+      "build": "tsc --project tsconfig.json",
+      "typecheck": "tsc --noEmit --project tsconfig.json"
+    },
+    "managed/gateway/package.json": {
+      "build": "tsc --project tsconfig.json",
+      "test": "vitest run",
+      "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.test.json"
+    },
+    "managed/shared/package.json": {
+      "build": "tsc --project tsconfig.json",
+      "test": "vitest run",
+      "typecheck": "tsc --noEmit --project tsconfig.json"
+    },
+    "managed/worker/package.json": {
+      "build": "tsc --project tsconfig.json",
+      "test": "vitest run --no-file-parallelism",
+      "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.test.json"
+    }
+  },
+  "gates": {
+    "UPSTREAM_CORPUS": [
+      { "operation": "PROCESS", "cwd": ".", "executable": "node_modules/.bin/tsx", "args": ["managed/shared/src/upstream-corpus-cli.ts", "verify"] }
+    ],
+    "MANAGED": [
+      { "operation": "PROCESS", "cwd": "managed/shared", "executable": "node_modules/.bin/tsc", "args": ["--project", "tsconfig.json"] },
+      { "operation": "PROCESS", "cwd": "managed/shared", "executable": "node_modules/.bin/tsc", "args": ["--noEmit", "--project", "tsconfig.json"] },
+      { "operation": "PROCESS", "cwd": "managed/gateway", "executable": "node_modules/.bin/tsc", "args": ["--noEmit", "--project", "tsconfig.json"] },
+      { "operation": "PROCESS", "cwd": "managed/gateway", "executable": "node_modules/.bin/tsc", "args": ["--noEmit", "--project", "tsconfig.test.json"] },
+      { "operation": "PROCESS", "cwd": "managed/console", "executable": "node_modules/.bin/tsc", "args": ["--noEmit", "--project", "tsconfig.json"] },
+      { "operation": "PROCESS", "cwd": "api", "executable": "node_modules/.bin/tsc", "args": [] },
+      { "operation": "COPY_DIRECTORY", "source": "api/src/templates", "destination": "api/build/templates" },
+      { "operation": "COPY_FILE", "source": "api/src/scripts/fingerprint.js", "destination": "api/build/scripts/fingerprint.js" },
+      { "operation": "PROCESS", "cwd": "managed/worker", "executable": "node_modules/.bin/tsc", "args": ["--noEmit", "--project", "tsconfig.json"] },
+      { "operation": "PROCESS", "cwd": "managed/worker", "executable": "node_modules/.bin/tsc", "args": ["--noEmit", "--project", "tsconfig.test.json"] },
+      { "operation": "PROCESS", "cwd": "managed/shared", "executable": "node_modules/.bin/vitest", "args": ["run"] },
+      { "operation": "PROCESS", "cwd": "managed/worker", "executable": "node_modules/.bin/vitest", "args": ["run", "--no-file-parallelism"] },
+      { "operation": "PROCESS", "cwd": "managed/gateway", "executable": "node_modules/.bin/vitest", "args": ["run"] }
+    ],
+    "ROOT_TEST": [
+      { "operation": "PROCESS", "cwd": "api", "executable": "node_modules/.bin/vitest", "args": ["run"] }
+    ],
+    "ROOT_BUILD": [
+      { "operation": "PROCESS", "cwd": "api", "executable": "node_modules/.bin/tsc", "args": [] },
+      { "operation": "COPY_DIRECTORY", "source": "api/src/templates", "destination": "api/build/templates" },
+      { "operation": "COPY_FILE", "source": "api/src/scripts/fingerprint.js", "destination": "api/build/scripts/fingerprint.js" },
+      { "operation": "PROCESS", "cwd": "ui", "executable": "node_modules/.bin/tsc", "args": [] },
+      { "operation": "PROCESS", "cwd": "ui", "executable": "node_modules/.bin/vite", "args": ["build"] },
+      { "operation": "PROCESS", "cwd": "managed/shared", "executable": "node_modules/.bin/tsc", "args": ["--project", "tsconfig.json"] },
+      { "operation": "PROCESS", "cwd": "managed/gateway", "executable": "node_modules/.bin/tsc", "args": ["--project", "tsconfig.json"] },
+      { "operation": "PROCESS", "cwd": "managed/console", "executable": "node_modules/.bin/tsc", "args": ["--project", "tsconfig.json"] },
+      { "operation": "PROCESS", "cwd": "managed/worker", "executable": "node_modules/.bin/tsc", "args": ["--project", "tsconfig.json"] }
+    ],
+    "RAW_STATE": [
+      { "operation": "PROCESS", "cwd": ".", "executable": "node_modules/.bin/tsx", "args": ["managed/shared/src/raw-state-comparison-cli.ts"] }
+    ]
+  }
+}

@@ -8,17 +8,25 @@ and builds run with `contents: read` and `persist-credentials: false`, while onl
 receives contents/PR write permission.
 
 A candidate is built from the protected `managed` tip, merged with the exact source commit, and
-published as `upstream-sync/<40-character-source-sha>-<40-character-managed-sha>`. The publisher imports a bundle produced by
+published once as immutable `upstream-sync/<12-character-source-sha>`. The publisher imports a bundle produced by
 the candidate job and runs `verify-candidate-commit.mjs`, which independently verifies the exact
 managed/source merge parents, generated tree, regular-file modes, classification digest, and an
-exact allowlist. A stale primary candidate ref is never overwritten: it recovers on a
-candidate-commit-qualified ref and that ref is verified by the same production checker.
+exact allowlist. If that canonical ref already exists for the same source, the publisher independently
+revalidates its topology, corpus, pre-gate capture binding, and classification before reusing it. A
+different or invalid existing ref blocks publication; no recovery ref or force update is created.
 
 The candidate is never auto-merged, rebased, force-pushed, released, or deployed. The workflow
 fails before PR creation on merge conflicts, upstream edits to fork-owned paths, missing reviewed
 Steel runtime capture, pinned corpus/source drift, managed/root test or build failures, or
 dependency/license/browser/migration classification requiring human review. The managed pull
 request gate repeats the checks on the actual PR merge ref before the publisher returns success.
+When a pull request changes sync/capture code, the managed lock, or reviewed corpus inputs, that same
+required `Managed pull request gates / gates` job also runs `bootstrap-pr-capture.sh`. It resolves the
+current public upstream SHA, builds the exact source with the pinned runtime recipe, requires the full
+37 REST/5 WebSocket corpus plus root-CDP `Browser.getVersion`, and uploads
+`steel-bootstrap-capture-<source-sha>-<capture-binding-sha256>`. The job summary records the workflow
+run URL, artifact path, binding digest, and uploaded archive digest. The script itself is pinned by
+`.github/bootstrap-capture-contract.json`; a capture-sensitive PR cannot replace it with a skip stub.
 
 Run the local contract and license checks from the repository root:
 
@@ -54,7 +62,7 @@ node scripts/upstream-sync/capture-observation.mjs \
 
 `classify-upstream.mjs` writes a machine-readable API/browser/dependency/license/migration/scope
 classification with the exact source diff digest and merge SHA. Dependency, browser, license, and
-migration changes remain blocked until a canonical
+migration changes, together with API changes, remain blocked until a canonical
 `managed/tests/upstream-acknowledgements/<source-sha>.json` binds a stable source/diff review
 subject, an `evidencePath` whose bytes are re-hashed during validation, categories, reviewer,
 timestamp, and decision. It never binds the managed tip that contains the acknowledgement itself.

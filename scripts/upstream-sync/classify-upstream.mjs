@@ -17,6 +17,12 @@ export const CHANGE_CATEGORY = Object.freeze({
   SCOPE: "SCOPE",
 })
 
+export const TRACE_STATUS = Object.freeze({
+  FOUND: "FOUND",
+  NOT_FOUND: "NOT_FOUND",
+  UNAVAILABLE: "UNAVAILABLE",
+})
+
 const CATEGORY_PATTERNS = Object.freeze({
   [CHANGE_CATEGORY.API]: [/^api\//u, /(?:routes?|controllers?|schemas?|openapi|websocket)/iu],
   [CHANGE_CATEGORY.BROWSER]: [/(?:Dockerfile|browser|chrom(?:e|ium)|playwright|puppeteer|cdp)/iu],
@@ -36,6 +42,7 @@ const CONTENT_PATTERNS = Object.freeze({
 })
 
 const REVIEW_REQUIRED_CATEGORIES = Object.freeze([
+  CHANGE_CATEGORY.API,
   CHANGE_CATEGORY.BROWSER,
   CHANGE_CATEGORY.DEPENDENCY,
   CHANGE_CATEGORY.LICENSE,
@@ -43,6 +50,7 @@ const REVIEW_REQUIRED_CATEGORIES = Object.freeze([
 ])
 
 const REVIEW_REASON_BY_CATEGORY = Object.freeze({
+  [CHANGE_CATEGORY.API]: "API_REVIEW_REQUIRED",
   [CHANGE_CATEGORY.BROWSER]: "BROWSER_REVIEW_REQUIRED",
   [CHANGE_CATEGORY.DEPENDENCY]: "DEPENDENCY_REVIEW_REQUIRED",
   [CHANGE_CATEGORY.LICENSE]: "LICENSE_REVIEW_REQUIRED",
@@ -106,6 +114,28 @@ async function gitOutput(repositoryRoot, args, encoding = "utf8") {
   return (await execFileAsync("git", args, { cwd: repositoryRoot, encoding })).stdout
 }
 
+export async function collectUpstreamTraceability(repositoryRoot, lockSha, sourceSha) {
+  try {
+    await execFileAsync("git", ["merge-base", "--is-ancestor", lockSha, sourceSha], { cwd: repositoryRoot })
+  } catch {
+    return { status: TRACE_STATUS.UNAVAILABLE, baseSha: lockSha, headSha: sourceSha, commits: [], releaseNotes: { status: TRACE_STATUS.UNAVAILABLE, paths: [] }, migrationNotes: { status: TRACE_STATUS.UNAVAILABLE, paths: [] } }
+  }
+  const [logOutput, pathOutput] = await Promise.all([
+    gitOutput(repositoryRoot, ["log", "--format=%H%x09%s", `${lockSha}..${sourceSha}`]),
+    gitOutput(repositoryRoot, ["diff", "--name-only", "--find-renames", `${lockSha}..${sourceSha}`]),
+  ])
+  const commits = logOutput.split("\n").filter(Boolean).map((line) => {
+    const separator = line.indexOf("\t")
+    if (separator !== 40) throw new Error("upstream source range commit record is invalid")
+    return { sha: line.slice(0, separator), subject: line.slice(separator + 1) }
+  })
+  const paths = pathOutput.split("\n").map((entry) => entry.trim()).filter(Boolean).sort()
+  const releaseNotePaths = paths.filter((entry) => /(?:^|\/)(?:CHANGELOG|RELEASE(?:S|[-_.]NOTES?)?|UPGRAD(?:E|ING))(?:[-_.].*)?$/iu.test(entry) || /(?:^|\/)docs?\/(?:release|upgrade|migration)[^/]*\.(?:md|mdx|txt)$/iu.test(entry))
+  const migrationNotePaths = paths.filter((entry) => /(?:^|\/)(?:migrations?|upgrade|upgrading)(?:\/|[-_.])/iu.test(entry))
+  const note = (matched) => ({ status: matched.length > 0 ? TRACE_STATUS.FOUND : TRACE_STATUS.NOT_FOUND, paths: matched })
+  return { status: TRACE_STATUS.FOUND, baseSha: lockSha, headSha: sourceSha, commits, releaseNotes: note(releaseNotePaths), migrationNotes: note(migrationNotePaths) }
+}
+
 export async function classifyUpstream({ repositoryRoot, managedSha, sourceSha, lockSha, mergeSha, observationAvailable = false, reviewAcknowledgementPath, evidenceRoot }) {
   assertSha(managedSha, "managed SHA")
   assertSha(sourceSha, "source SHA")
@@ -117,8 +147,11 @@ export async function classifyUpstream({ repositoryRoot, managedSha, sourceSha, 
   const diffText = diffBytes.toString("utf8")
   const categories = classifyChangedPaths(changedPaths, diffText)
   const blockedReasons = []
+  const upstreamTraceability = await collectUpstreamTraceability(repositoryRoot, lockSha, sourceSha)
+  if (upstreamTraceability.status === TRACE_STATUS.UNAVAILABLE) blockedReasons.push("UPSTREAM_RANGE_UNAVAILABLE")
   const requiresObservation = sourceSha !== lockSha
   if (requiresObservation && !observationAvailable) blockedReasons.push("OBSERVED_CORPUS_REQUIRED")
+  if (categories.includes(CHANGE_CATEGORY.API)) blockedReasons.push("API_REVIEW_REQUIRED")
   if (categories.includes(CHANGE_CATEGORY.DEPENDENCY)) blockedReasons.push("DEPENDENCY_REVIEW_REQUIRED")
   if (categories.includes(CHANGE_CATEGORY.LICENSE)) blockedReasons.push("LICENSE_REVIEW_REQUIRED")
   if (categories.includes(CHANGE_CATEGORY.BROWSER)) blockedReasons.push("BROWSER_REVIEW_REQUIRED")
@@ -150,6 +183,7 @@ export async function classifyUpstream({ repositoryRoot, managedSha, sourceSha, 
     categories,
     diffSha256: createHash("sha256").update(diffBytes).digest("hex"),
     reviewAcknowledgement,
+    upstreamTraceability,
     blocked: blockedReasons.length > 0,
     blockedReasons,
   }

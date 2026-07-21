@@ -38,7 +38,12 @@ const DeletionRuleSchema = z.object({ type: z.literal(REPOSITORY_RULE.DELETION) 
 const NonFastForwardRuleSchema = z
   .object({ type: z.literal(REPOSITORY_RULE.NON_FAST_FORWARD) })
   .strict()
-const UpdateRuleSchema = z.object({ type: z.literal(REPOSITORY_RULE.UPDATE) }).strict()
+const UpdateRuleSchema = z
+  .object({
+    type: z.literal(REPOSITORY_RULE.UPDATE),
+    parameters: z.object({ update_allows_fetch_and_merge: z.literal(false) }).strict(),
+  })
+  .strict()
 const PullRequestRuleSchema = z
   .object({
     type: z.literal(REPOSITORY_RULE.PULL_REQUEST),
@@ -61,7 +66,7 @@ const RequiredStatusChecksRuleSchema = z
       .object({
         strict_required_status_checks_policy: z.literal(true),
         required_status_checks: z
-          .array(z.object({ context: z.literal(REQUIRED_STATUS_CHECK_CONTEXT) }).strict())
+          .array(z.object({ context: z.literal(REQUIRED_STATUS_CHECK_CONTEXT), integration_id: z.number().int().positive().nullable() }).strict())
           .nonempty(),
       })
       .strict(),
