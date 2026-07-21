@@ -105,6 +105,33 @@ test("keeps Chromium sandboxed while adapting ephemeral Ubuntu runners", async (
   }
 })
 
+test("threads the private DBus session into every Chromium verification", async () => {
+  const [environmentSource, cdpSource] = await Promise.all([
+    readFile(new URL("../../../api/src/env.ts", import.meta.url), "utf8"),
+    readFile(
+      new URL("../../../api/src/services/cdp/cdp.service.ts", import.meta.url),
+      "utf8",
+    ),
+  ])
+
+  assert.match(environmentSource, /DBUS_SESSION_BUS_ADDRESS: z\.string\(\)\.optional\(\)/u)
+  assert.match(environmentSource, /XDG_RUNTIME_DIR: z\.string\(\)\.optional\(\)/u)
+  assert.match(cdpSource, /env\.DBUS_SESSION_BUS_ADDRESS/u)
+  assert.match(cdpSource, /env\.XDG_RUNTIME_DIR/u)
+
+  for (const workflowPath of workflowPaths) {
+    const bytes = await readFile(new URL(`../../../${workflowPath}`, import.meta.url), "utf8")
+    const workflow = yaml.parse(bytes)
+    const steps = Object.values(workflow.jobs).flatMap((job) => job.steps)
+    const verifyStep = steps.find(({ name }) =>
+      name === "Verify managed product and release boundaries" ||
+      name === "Run managed compatibility gates",
+    )
+
+    assert.match(verifyStep.run, /dbus-run-session -- npm run check:managed/u)
+  }
+})
+
 test("hydrates only DuckDB after script-free installs on exact toolchains", async () => {
   for (const workflowPath of workflowPaths) {
     const bytes = await readFile(new URL(`../../../${workflowPath}`, import.meta.url), "utf8")

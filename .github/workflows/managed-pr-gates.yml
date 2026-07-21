@@ -42,7 +42,7 @@ jobs:
       - name: Verify managed product and release boundaries
         run: |
           npm run verify:runtime-scope
-          npm run check:managed
+          dbus-run-session -- npm run check:managed
           npm run test:managed-release
           bash -n managed/manager/image/build-reproducible.sh
           bash -n managed/worker/image/build-reproducible.sh

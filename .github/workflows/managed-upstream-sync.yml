@@ -94,7 +94,7 @@ jobs:
         if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
         continue-on-error: true
         run: |
-          npm run check:managed
+          dbus-run-session -- npm run check:managed
           npm run test:managed-release
           npm run verify:upstream-corpus
       - name: Restore the Ubuntu user-namespace restriction

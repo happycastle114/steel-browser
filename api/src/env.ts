@@ -31,6 +31,8 @@ const envSchema = z.object({
     .transform((val) => val === "true" || val === "1")
     .default("true"),
   DISPLAY: z.string().optional().default(":10"),
+  DBUS_SESSION_BUS_ADDRESS: z.string().optional(),
+  XDG_RUNTIME_DIR: z.string().optional(),
   ENABLE_CDP_LOGGING: z
     .string()
     .optional()

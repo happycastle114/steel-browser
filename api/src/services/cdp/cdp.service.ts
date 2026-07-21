@@ -912,6 +912,12 @@ export class CDPService extends EventEmitter {
           env: {
             HOME: os.userInfo().homedir,
             TZ: timezone,
+            ...(env.DBUS_SESSION_BUS_ADDRESS === undefined
+              ? {}
+              : { DBUS_SESSION_BUS_ADDRESS: env.DBUS_SESSION_BUS_ADDRESS }),
+            ...(env.XDG_RUNTIME_DIR === undefined
+              ? {}
+              : { XDG_RUNTIME_DIR: env.XDG_RUNTIME_DIR }),
             ...(isHeadless ? {} : { DISPLAY: env.DISPLAY }),
           },
           userDataDir,
