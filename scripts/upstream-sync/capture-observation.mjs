@@ -172,7 +172,9 @@ async function main() {
 
 if (process.argv[1] !== undefined && path.basename(process.argv[1]) === path.basename(fileURLToPath(import.meta.url))) {
   main().catch((error) => {
-    console.error(error instanceof Error ? error.message : "unknown observation capture failure")
+    const message = error instanceof Error ? error.message : "unknown observation capture failure"
+    const prefix = error?.code === "RUNTIME_CAPTURE_BLOCKED" ? "RUNTIME_CAPTURE_BLOCKED: " : ""
+    console.error(`${prefix}${message}`)
     process.exitCode = 1
   })
 }
