@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-import { withDeepReadonlyOutput } from "./deep-readonly.js"
+import { withDeepFrozenOutput } from "./deep-readonly.js"
 import {
   FINGERPRINT_RECEIPT_ERROR_CODE,
   FINGERPRINT_RECEIPT_KIND,
@@ -72,7 +72,7 @@ const NoEchoWriteReceiptBaseSchema = z.discriminatedUnion("slot", [
   BlueWriteReceiptSchema,
   GreenWriteReceiptSchema,
 ])
-export const NoEchoWriteReceiptSchema = withDeepReadonlyOutput(
+export const NoEchoWriteReceiptSchema = withDeepFrozenOutput(
   NoEchoWriteReceiptBaseSchema,
 )
 
@@ -86,7 +86,7 @@ const ConfigBoundProofSchema = z
 
 const FingerprintProofBaseSchema = ConfigBoundProofSchema
 
-export const FingerprintProofSchema = withDeepReadonlyOutput(FingerprintProofBaseSchema)
+export const FingerprintProofSchema = withDeepFrozenOutput(FingerprintProofBaseSchema)
 
 type FingerprintReceiptErrorCode =
   (typeof FINGERPRINT_RECEIPT_ERROR_CODE)[keyof typeof FINGERPRINT_RECEIPT_ERROR_CODE]

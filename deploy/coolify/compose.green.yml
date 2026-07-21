@@ -1,0 +1,157 @@
+{
+  "x-steel-managed": {
+    "poolId": "managed-green-pool",
+    "poolSlot": "GREEN",
+    "schemaVersion": 1
+  },
+  "services": {
+    "manager": {
+      "image": "${STEEL_MANAGED_MANAGER_IMAGE:?digest-pinned manager image is required}",
+      "command": [
+        "/usr/local/bin/steel-managed-manager",
+        "--pool-id=managed-green-pool",
+        "--worker=worker-00=http://worker-00:3000",
+        "--worker=worker-01=http://worker-01:3000",
+        "--public-bind=0.0.0.0:3000",
+        "--health-bind=127.0.0.1:3001",
+        "--create-token-key-file=/run/steel/managed-create-token-key",
+        "--release-evidence-file=/run/steel/managed-release-evidence.json",
+        "--release-evidence-sha256=${STEEL_MANAGED_RELEASE_EVIDENCE_SHA256:?release evidence SHA-256 is required}"
+      ],
+      "environment": {
+        "STEEL_MANAGED_CONFIG_JSON": "${STEEL_MANAGED_CONFIG_JSON:?STEEL_MANAGED_CONFIG_JSON is required}"
+      },
+      "secrets": [
+        {
+          "source": "managed-create-token-key",
+          "target": "/run/steel-secret-source/managed-create-token-key",
+          "uid": "0",
+          "gid": "0",
+          "mode": 256
+        },
+        {
+          "source": "managed-release-evidence",
+          "target": "/run/steel-release-evidence-source/release-evidence.json",
+          "uid": "0",
+          "gid": "0",
+          "mode": 256
+        }
+      ],
+      "read_only": true,
+      "tmpfs": [
+        "/run/steel:rw,noexec,nosuid,nodev,size=1048576,mode=0700,uid=0,gid=0",
+        "/tmp:rw,noexec,nosuid,nodev,size=67108864,mode=1777,uid=10001,gid=10001"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "cap_add": [
+        "CHOWN",
+        "SETGID",
+        "SETPCAP",
+        "SETUID"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 256,
+      "mem_limit": "512m",
+      "mem_reservation": "256m",
+      "stop_grace_period": "90s",
+      "restart": "unless-stopped",
+      "depends_on": {
+        "worker-00": {
+          "condition": "service_healthy"
+        },
+        "worker-01": {
+          "condition": "service_healthy"
+        }
+      },
+      "networks": [
+        "coolify",
+        "private"
+      ],
+      "labels": [
+        "traefik.enable=true",
+        "traefik.docker.network=coolify",
+        "traefik.http.routers.steel-managed-green.entrypoints=https",
+        "traefik.http.routers.steel-managed-green.rule=Host(`${STEEL_MANAGED_ROUTE_HOST:?STEEL_MANAGED_ROUTE_HOST is required}`)",
+        "traefik.http.routers.steel-managed-green.tls=true",
+        "traefik.http.services.steel-managed-green.loadbalancer.server.port=3000"
+      ]
+    },
+    "worker-00": {
+      "image": "${STEEL_MANAGED_WORKER_IMAGE:?digest-pinned worker image is required}",
+      "environment": {
+        "MANAGED_WORKER_ID": "worker-00"
+      },
+      "user": "10001:10001",
+      "read_only": true,
+      "tmpfs": [
+        "/run/steel:rw,noexec,nosuid,nodev,size=67108864,mode=0700,uid=10001,gid=10001",
+        "/tmp:rw,noexec,nosuid,nodev,size=268435456,mode=1777,uid=10001,gid=10001",
+        "/var/lib/steel/profile:rw,noexec,nosuid,nodev,size=268435456,mode=0700,uid=10001,gid=10001"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 512,
+      "shm_size": "512m",
+      "mem_limit": "2560m",
+      "mem_reservation": "1280m",
+      "stop_grace_period": "60s",
+      "restart": "unless-stopped",
+      "networks": [
+        "private"
+      ]
+    },
+    "worker-01": {
+      "image": "${STEEL_MANAGED_WORKER_IMAGE:?digest-pinned worker image is required}",
+      "environment": {
+        "MANAGED_WORKER_ID": "worker-01"
+      },
+      "user": "10001:10001",
+      "read_only": true,
+      "tmpfs": [
+        "/run/steel:rw,noexec,nosuid,nodev,size=67108864,mode=0700,uid=10001,gid=10001",
+        "/tmp:rw,noexec,nosuid,nodev,size=268435456,mode=1777,uid=10001,gid=10001",
+        "/var/lib/steel/profile:rw,noexec,nosuid,nodev,size=268435456,mode=0700,uid=10001,gid=10001"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "pids_limit": 512,
+      "shm_size": "512m",
+      "mem_limit": "2560m",
+      "mem_reservation": "1280m",
+      "stop_grace_period": "60s",
+      "restart": "unless-stopped",
+      "networks": [
+        "private"
+      ]
+    }
+  },
+  "networks": {
+    "coolify": {
+      "external": true,
+      "name": "coolify"
+    },
+    "private": {
+      "internal": true
+    }
+  },
+  "secrets": {
+    "managed-create-token-key": {
+      "environment": "STEEL_MANAGED_CREATE_TOKEN_KEY_HEX"
+    },
+    "managed-release-evidence": {
+      "environment": "STEEL_MANAGED_RELEASE_EVIDENCE_JSON"
+    }
+  }
+}

@@ -36,6 +36,14 @@ describe("parseWorkerConfig", () => {
     { MANAGED_WORKER_ID: "worker-00", PORT: "3001" },
     { MANAGED_WORKER_HOST: "0.0.0.0", MANAGED_WORKER_ID: "worker-00" },
     { MANAGED_WORKER_ID: "worker-00", MANAGED_WORKER_PORT: "3000" },
+    {
+      MANAGED_WORKER_ID: "worker-00",
+      STEEL_MANAGED_CREATE_TOKEN_KEY_HEX: "not-allowed-on-workers",
+    },
+    {
+      MANAGED_CREATE_TOKEN_KEY_FILE: "/run/secrets/managed-create-token-key",
+      MANAGED_WORKER_ID: "worker-00",
+    },
   ])("rejects a bind override", (environment) => {
     // Given
     const untrustedEnvironment = environment

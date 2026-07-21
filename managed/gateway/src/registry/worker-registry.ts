@@ -1,5 +1,5 @@
 import type { Clock } from "../domain/clock.js"
-import { SessionNotFoundError, WorkerRegistryTransitionError } from "../domain/errors.js"
+import { WorkerRegistryTransitionError } from "../domain/errors.js"
 import type { AllocationId, PublicSessionId, WorkerId } from "../domain/ids.js"
 import { GatewayEventType, SessionState, WorkerState } from "../domain/states.js"
 import type { EventLedger } from "../events/event-ledger.js"
@@ -14,11 +14,11 @@ import type {
   WorkerRegistrySnapshot,
 } from "./registry-model.js"
 import { WorkerObservationTransitions } from "./worker-observation-transitions.js"
+import { SessionReleaseTransitions } from "./session-release-transitions.js"
 import {
   createRegistryState,
   descriptor,
   findAllocation,
-  requireCurrent,
   requireAvailableAllocation,
   requireAvailableSession,
   requireSession,
@@ -36,10 +36,12 @@ type WorkerRegistryOptions = {
 export class WorkerRegistry {
   private readonly state: RegistryState
   private readonly observations: WorkerObservationTransitions
+  private readonly releases: SessionReleaseTransitions
 
   public constructor(options: WorkerRegistryOptions) {
     this.state = createRegistryState(options)
     this.observations = new WorkerObservationTransitions(this.state)
+    this.releases = new SessionReleaseTransitions(this.state)
   }
 
   public beginObservation(workerId: WorkerId): WorkerObservation {
@@ -135,102 +137,19 @@ export class WorkerRegistry {
   }
 
   public beginRelease(sessionId: PublicSessionId): SessionRecord {
-    const session = requireSession(this.state, sessionId)
-    if (session.state !== SessionState.LIVE) throw new SessionNotFoundError(sessionId)
-    const worker = requireCurrent(this.state, {
-      workerId: session.workerId,
-      instanceId: session.instanceId,
-      origin: requireWorker(this.state, session.workerId, session.instanceId).origin,
-    })
-    if (
-      (worker.state !== WorkerState.LIVE && worker.state !== WorkerState.RELEASING) ||
-      worker.sessionId !== sessionId
-    ) {
-      throw new SessionNotFoundError(sessionId)
-    }
-    const releasingSession = { ...session, state: SessionState.RELEASING } as const
-    this.state.sessionRecords.set(sessionId, releasingSession)
-    storeWorker(this.state, { ...worker, state: WorkerState.RELEASING })
-    this.state.ledger.append({
-      type: GatewayEventType.SESSION_RELEASING,
-      workerId: worker.workerId,
-      instanceId: worker.instanceId,
-      allocationId: session.allocationId,
-      sessionId,
-    })
-    return releasingSession
+    return this.releases.begin(sessionId)
   }
 
   public reconcileReleased(sessionId: PublicSessionId, worker: WorkerDescriptor): SessionRecord {
-    requireCurrent(this.state, worker)
-    const session = requireSession(this.state, sessionId)
-    if (
-      session.state !== SessionState.RELEASING ||
-      session.workerId !== worker.workerId ||
-      session.instanceId !== worker.instanceId
-    ) {
-      throw new SessionNotFoundError(sessionId)
-    }
-    const terminalAt = this.state.clock.now()
-    const released = { ...session, state: SessionState.RELEASED, terminalAt } as const
-    this.state.sessionRecords.set(sessionId, released)
-    storeWorker(this.state, {
-      ...worker,
-      state: WorkerState.IDLE,
-      observedAt: terminalAt,
-    })
-    this.state.ledger.append({
-      type: GatewayEventType.SESSION_RELEASED,
-      workerId: worker.workerId,
-      instanceId: worker.instanceId,
-      allocationId: session.allocationId,
-      sessionId,
-    })
-    return released
+    return this.releases.reconcile(sessionId, worker)
   }
 
   public markReleaseUncertain(sessionId: PublicSessionId): SessionRecord {
-    const session = requireSession(this.state, sessionId)
-    const worker = requireWorker(this.state, session.workerId, session.instanceId)
-    if (
-      session.state !== SessionState.RELEASING ||
-      worker.state !== WorkerState.RELEASING ||
-      worker.sessionId !== sessionId
-    ) {
-      throw new SessionNotFoundError(sessionId)
-    }
-    storeWorker(this.state, { ...worker, state: WorkerState.RELEASE_UNCERTAIN })
-    this.state.ledger.append({
-      type: GatewayEventType.SESSION_RELEASE_UNCERTAIN,
-      workerId: worker.workerId,
-      instanceId: worker.instanceId,
-      allocationId: session.allocationId,
-      sessionId,
-    })
-    return session
+    return this.releases.markUncertain(sessionId)
   }
 
   public cancelRelease(sessionId: PublicSessionId): SessionRecord {
-    const session = requireSession(this.state, sessionId)
-    const worker = requireWorker(this.state, session.workerId, session.instanceId)
-    if (
-      session.state !== SessionState.RELEASING ||
-      worker.state !== WorkerState.RELEASING ||
-      worker.sessionId !== sessionId
-    ) {
-      throw new SessionNotFoundError(sessionId)
-    }
-    const live = { ...session, state: SessionState.LIVE } as const
-    this.state.sessionRecords.set(sessionId, live)
-    storeWorker(this.state, { ...worker, state: WorkerState.LIVE })
-    this.state.ledger.append({
-      type: GatewayEventType.SESSION_RELEASE_CANCELLED,
-      workerId: worker.workerId,
-      instanceId: worker.instanceId,
-      allocationId: session.allocationId,
-      sessionId,
-    })
-    return live
+    return this.releases.cancel(sessionId)
   }
 
   public session(sessionId: PublicSessionId): SessionRecord | undefined {

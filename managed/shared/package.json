@@ -2,24 +2,39 @@
   "name": "@happycastle/steel-managed-shared",
   "version": "0.0.0",
   "private": true,
+  "sideEffects": false,
   "type": "module",
   "exports": {
     ".": {
       "types": "./build/index.d.ts",
       "import": "./build/index.js"
+    },
+    "./browser": {
+      "types": "./build/browser.d.ts",
+      "browser": "./build/browser.js",
+      "import": "./build/browser.js"
+    },
+    "./ai-client": {
+      "types": "./build/ai-client.d.ts",
+      "browser": "./build/ai-client.js",
+      "import": "./build/ai-client.js"
     }
   },
   "scripts": {
     "build": "tsc --project tsconfig.json",
+    "pretest": "npm run build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
-    "zod": "3.25.76"
+    "json-canonicalize": "2.0.0",
+    "zod": "3.25.76",
+    "zod-to-json-schema": "3.24.6"
   },
   "devDependencies": {
     "@types/node": "22.14.1",
+    "esbuild": "0.25.9",
     "typescript": "5.9.2",
-    "vitest": "3.2.4"
+    "vitest": "3.2.6"
   }
 }

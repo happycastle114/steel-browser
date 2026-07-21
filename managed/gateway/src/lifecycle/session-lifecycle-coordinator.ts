@@ -19,6 +19,7 @@ import type { WorkerHttpClient } from "../worker/worker-http-contract.js"
 import type {
   LifecycleCreatedResult,
   LifecycleCreateResult,
+  ManagedCreateHeaderFactory,
   PendingSessionCreate,
 } from "./lifecycle-model.js"
 
@@ -50,9 +51,19 @@ export class SessionLifecycleCoordinator {
     this.ids = options.ids
   }
 
-  public async create(signal: AbortSignal): Promise<LifecycleCreateResult> {
+  public async create(
+    signal: AbortSignal,
+    managedCreate?: ManagedCreateHeaderFactory,
+  ): Promise<LifecycleCreateResult> {
     this.requireActiveSignal(signal, LifecycleOperation.CREATE)
-    const pending = { publicSessionId: this.ids.nextPublicSessionId() }
+    const publicSessionId = this.ids.nextPublicSessionId()
+    const managedHeaders = managedCreate === undefined
+      ? undefined
+      : await managedCreate(publicSessionId)
+    const pending = {
+      publicSessionId,
+      ...(managedHeaders === undefined ? {} : { managedCreate: managedHeaders }),
+    }
     const allocationId = this.ids.nextAllocationId()
     const worker = this.registry.reserveNext(allocationId)
     if (worker === undefined) {
@@ -121,6 +132,9 @@ export class SessionLifecycleCoordinator {
       const created = await this.client.create(
         input.worker,
         {
+          ...(input.pending.managedCreate === undefined
+            ? {}
+            : { managedCreate: input.pending.managedCreate }),
           publicSessionId: input.pending.publicSessionId,
         },
         input.signal,

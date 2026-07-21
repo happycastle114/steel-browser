@@ -1,8 +1,11 @@
 import { z } from "zod"
 import {
-  InstanceIdSchema,
+  ManagedCreateHeaderValuesSchema,
+  PRIVATE_SUPERVISOR_ROUTE_REGISTRY,
+  type PrivateSupervisorRoute,
+} from "@happycastle/steel-managed-shared"
+import {
   PublicSessionIdSchema,
-  WorkerIdSchema,
   type PublicSessionId,
   type UpstreamSessionId,
 } from "../domain/ids.js"
@@ -10,22 +13,19 @@ import type { WorkerRemoteState } from "../domain/states.js"
 import type { RecoverableSession, WorkerDescriptor } from "../registry/registry-model.js"
 import type { StaticWorkerEndpoint } from "./static-worker-provider.js"
 
-export const WorkerPath = {
-  ACTIVE_SESSION: "/v1/managed-worker/active-session",
-  META: "/v1/managed-worker/meta",
+export const UpstreamWorkerPath = {
   SESSIONS: "/v1/sessions",
 } as const
 
-export const WorkerHeader = {
-  INSTANCE_ID: "x-managed-worker-instance-id",
-  WORKER_ID: "x-managed-worker-id",
-} as const
+export const WorkerPath = UpstreamWorkerPath
 
-export const WorkerBootStatus = {
-  BOOTSTRAPPING: "BOOTSTRAPPING",
-  READY: "READY",
-} as const
-export type WorkerBootStatus = (typeof WorkerBootStatus)[keyof typeof WorkerBootStatus]
+export function requirePrivateSupervisorRoute(
+  id: PrivateSupervisorRoute["id"],
+): PrivateSupervisorRoute {
+  const route = PRIVATE_SUPERVISOR_ROUTE_REGISTRY.find((candidate) => candidate.id === id)
+  if (route === undefined) throw new TypeError(`private supervisor route not registered: ${id}`)
+  return route
+}
 
 export const UpstreamSessionState = {
   FAILED: "failed",
@@ -35,37 +35,6 @@ export const UpstreamSessionState = {
 } as const
 export type UpstreamSessionState =
   (typeof UpstreamSessionState)[keyof typeof UpstreamSessionState]
-
-const WorkerBootStatusSchema = z.union([
-  z.literal(WorkerBootStatus.BOOTSTRAPPING),
-  z.literal(WorkerBootStatus.READY),
-])
-
-export const WorkerMetaResponseSchema = z
-  .object({
-    workerId: WorkerIdSchema,
-    instanceId: InstanceIdSchema,
-    status: WorkerBootStatusSchema,
-  })
-  .strict()
-  .readonly()
-
-const ActiveSessionSchema = z
-  .object({
-    id: PublicSessionIdSchema,
-    status: z.literal(UpstreamSessionState.LIVE),
-  })
-  .strict()
-  .readonly()
-
-export const WorkerActiveSessionResponseSchema = z
-  .object({
-    workerId: WorkerIdSchema,
-    instanceId: InstanceIdSchema,
-    activeSession: ActiveSessionSchema.nullable(),
-  })
-  .strict()
-  .readonly()
 
 export const UpstreamSessionStateSchema = z.union([
   z.literal(UpstreamSessionState.FAILED),
@@ -87,7 +56,10 @@ export const UpstreamReleaseResponseSchema = UpstreamSessionResponseSchema.and(
 )
 
 export const WorkerCreateCommandSchema = z
-  .object({ publicSessionId: PublicSessionIdSchema })
+  .object({
+    managedCreate: ManagedCreateHeaderValuesSchema.optional(),
+    publicSessionId: PublicSessionIdSchema,
+  })
   .strict()
   .readonly()
 export type WorkerCreateCommand = z.infer<typeof WorkerCreateCommandSchema>

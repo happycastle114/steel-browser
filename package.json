@@ -13,18 +13,25 @@
   ],
   "scripts": {
     "build": "npm run build -w api -w ui && npm run build:managed",
-    "build:managed": "npm run build -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-console -w @happycastle/steel-managed-worker",
+    "build:managed": "npm run build -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-operations-client -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-ai-client -w @happycastle/steel-managed-console -w @happycastle/steel-managed-worker -w @happycastle/steel-managed-manager",
     "build:managed-dependencies": "npm run build -w @happycastle/steel-managed-shared",
+    "check:managed-shared-type-safety": "tsx managed/shared/src/type-safety-guard-cli.ts",
     "check:raw-state-comparisons": "tsx managed/shared/src/raw-state-comparison-cli.ts",
-    "check:managed": "npm run typecheck:managed && npm run test:managed",
+    "check:managed": "npm run check:managed-shared-type-safety && npm run check:raw-state-comparisons && npm run check:managed-api-drift && npm run check:managed-operations-browser && npm run typecheck:managed && npm run test:managed",
+    "check:managed-api-drift": "npm run check:managed-api-drift -w @happycastle/steel-managed-gateway",
+    "check:managed-operations-browser": "npm run check:browser-bundle -w @happycastle/steel-managed-operations-client",
     "dev": "concurrently \"npm run dev -w api\" \"npm run dev -w ui\"",
     "generate:upstream-corpus": "tsx managed/shared/src/upstream-corpus-cli.ts generate",
+    "generate:managed-api": "npm run generate:managed-api -w @happycastle/steel-managed-gateway",
     "test": "npm run test -w api",
+    "test:production-audit": "node --test managed/security/test/*.test.mjs",
+    "test:production-audit-mutations": "node managed/security/test/mutation-gate.mjs",
     "test:coolify-secret-fixture": "tsx managed/shared/src/coolify-secret-fixture-cli.ts",
     "pretest:managed": "npm run build:managed-dependencies",
-    "test:managed": "npm run test -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-worker -w @happycastle/steel-managed-gateway",
+    "test:managed": "npm run test -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-worker -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-operations-client -w @happycastle/steel-managed-ai-client -w @happycastle/steel-managed-console -w @happycastle/steel-managed-manager && npm run test:production-audit && npm run test:production-audit-mutations",
+    "test:managed-release": "node --test managed/release/test/*.test.mjs",
     "pretypecheck:managed": "npm run build:managed-dependencies",
-    "typecheck:managed": "npm run typecheck -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-console -w @happycastle/steel-managed-worker",
+    "typecheck:managed": "npm run typecheck -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-operations-client -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-ai-client -w @happycastle/steel-managed-console -w @happycastle/steel-managed-worker -w @happycastle/steel-managed-manager",
     "verify:managed-overlay": "tsx managed/shared/src/managed-overlay-cli.ts",
     "verify:runtime-scope": "tsx managed/shared/src/runtime-scope-cli.ts",
     "verify:upstream-corpus": "tsx managed/shared/src/upstream-corpus-cli.ts verify",
@@ -43,11 +50,36 @@
   },
   "dependencies": {
     "@types/lodash-es": "^4.17.12",
-    "fastify": "^5.2.1",
+    "fastify": "5.8.5",
     "husky": "^9.1.7",
     "lodash-es": "^4.17.21"
   },
   "overrides": {
-    "tar-fs": ">=3.1.1"
+    "basic-ftp": "5.3.1",
+    "duckdb@1.4.2": {
+      "node-gyp": "12.4.0"
+    },
+    "fast-uri": "3.1.4",
+    "fastify": "$fastify",
+    "form-data": "4.0.6",
+    "handlebars": "4.7.9",
+    "generative-bayesian-network@2.1.82": {
+      "adm-zip": "0.6.0"
+    },
+    "minimatch@^3.0.0": {
+      "brace-expansion": "1.1.16"
+    },
+    "minimatch@^5.0.0": {
+      "brace-expansion": "2.1.2"
+    },
+    "minimatch@^9.0.0": {
+      "brace-expansion": "2.1.2"
+    },
+    "minimatch@^10.0.0": {
+      "brace-expansion": "5.0.7"
+    },
+    "tar": "7.5.20",
+    "tar-fs": "3.1.1",
+    "ws": "8.21.1"
   }
 }

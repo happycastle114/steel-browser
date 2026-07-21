@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-import { withDeepReadonlyOutput } from "./deep-readonly.js"
+import { withDeepFrozenOutput } from "./deep-readonly.js"
 import {
   MANAGED_ACTIVE_LISTENER_INVENTORY,
   ManagedActiveListenerInventorySchema,
@@ -101,7 +101,7 @@ const ManagedProjectRuntimeBaseSchema = z.discriminatedUnion("runtimeState", [
   ColdStandbyManagedProjectSchema,
   StoppedFailedManagedProjectSchema,
 ])
-export const ManagedProjectRuntimeSchema = withDeepReadonlyOutput(ManagedProjectRuntimeBaseSchema)
+export const ManagedProjectRuntimeSchema = withDeepFrozenOutput(ManagedProjectRuntimeBaseSchema)
 
 const ManagerSecretIsolationBaseSchema = z
   .object({
@@ -113,7 +113,7 @@ const ManagerSecretIsolationBaseSchema = z
     serviceEnvironmentFiles: z.tuple([]),
   })
   .strict()
-export const ManagerSecretIsolationSchema = withDeepReadonlyOutput(ManagerSecretIsolationBaseSchema)
+export const ManagerSecretIsolationSchema = withDeepFrozenOutput(ManagerSecretIsolationBaseSchema)
 
 const ManagedDeploymentSourceConfigBaseSchema = z
   .object({
@@ -132,7 +132,7 @@ const ManagedDeploymentSourceConfigBaseSchema = z
     capacityStatus: DeploymentCapacityStatusSchema,
   })
   .strict()
-export const ManagedDeploymentSourceConfigSchema = withDeepReadonlyOutput(
+export const ManagedDeploymentSourceConfigSchema = withDeepFrozenOutput(
   ManagedDeploymentSourceConfigBaseSchema,
 )
 
@@ -160,7 +160,7 @@ const ManagedDeploymentTopologyBaseSchema = z
       context.addIssue({ code: z.ZodIssueCode.custom, message: "managed project slots must be distinct" })
     }
   })
-export const ManagedDeploymentTopologySchema = withDeepReadonlyOutput(ManagedDeploymentTopologyBaseSchema)
+export const ManagedDeploymentTopologySchema = withDeepFrozenOutput(ManagedDeploymentTopologyBaseSchema)
 
 export type ManagedProjectRuntime = z.infer<typeof ManagedProjectRuntimeSchema>
 export type ManagedDeploymentSourceConfig = z.infer<typeof ManagedDeploymentSourceConfigSchema>

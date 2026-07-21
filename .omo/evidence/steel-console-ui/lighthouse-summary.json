@@ -1,0 +1,16 @@
+{
+  "tool": "Lighthouse 12.8.2",
+  "url": "http://127.0.0.1:4173/ui/",
+  "mobile": {
+    "performance": [99, 98, 98],
+    "performanceMedian": 98,
+    "accessibility": [100, 100, 100],
+    "accessibilityMedian": 100
+  },
+  "desktop": {
+    "performance": [100, 100, 100],
+    "performanceMedian": 100,
+    "accessibility": [100, 100, 100],
+    "accessibilityMedian": 100
+  }
+}

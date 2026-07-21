@@ -1,0 +1,9 @@
+Steel Browser - Happycastle Managed Worker
+
+This distribution contains Steel Browser, developed by the Steel project and
+licensed under the Apache License, Version 2.0.
+
+Happycastle modifications add a private identity supervisor, durable bounded
+create journal, loopback-only upstream process boundary, managed source
+overlay, health and shutdown lifecycle, and immutable runtime packaging. The
+upstream base image and source revision are recorded in SOURCE.json.

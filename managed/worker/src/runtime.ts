@@ -16,6 +16,7 @@ import {
 } from "./shutdown.js"
 
 export type WorkerRuntimeDependencies = {
+  readonly nodeRuntimeVersion: string
   readonly server?: WorkerServerDependencies
   readonly signals: SignalControl
 }
@@ -30,7 +31,7 @@ export async function startWorker(
   environment: NodeJS.ProcessEnv,
   dependencies: WorkerRuntimeDependencies,
 ): Promise<RunningWorker> {
-  assertNode22Runtime(process.versions.node)
+  assertNode22Runtime(dependencies.nodeRuntimeVersion)
   const application = createWorkerApplication(
     parseWorkerConfig(environment),
     dependencies.server,

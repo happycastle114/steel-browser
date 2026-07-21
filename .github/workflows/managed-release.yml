@@ -1,0 +1,138 @@
+name: Managed Steel release
+
+on:
+  push:
+    branches: [managed]
+    paths:
+      - ".github/workflows/managed-release.yml"
+      - "managed/**"
+      - "deploy/coolify/**"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: Cold-standby project to deploy after both projects are stopped
+        required: true
+        default: none
+        type: choice
+        options: [none, blue, green]
+      route_host:
+        description: Exact candidate or production Host routed by this deployment
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: managed-steel-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+          cache: npm
+      - name: Install exact Rust toolchain
+        run: |
+          rustup toolchain install 1.91.1 --profile minimal
+          rustup override set 1.91.1
+      - name: Install without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Hydrate the pinned DuckDB native binding
+        run: npm rebuild duckdb --foreground-scripts
+      - name: Verify managed product and release boundaries
+        run: |
+          npm run check:managed
+          npm run test:managed-release
+          bash -n managed/manager/image/build-reproducible.sh
+          bash -n managed/worker/image/build-reproducible.sh
+
+  release:
+    needs: verify
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+          cache: npm
+      - uses: docker/setup-buildx-action@v3
+      - name: Authenticate the GitHub container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build reproducible manager and worker images
+        env:
+          BUILD_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          release_root="${RUNNER_TEMP}/steel-managed-release"
+          receipts="${release_root}/receipts"
+          mkdir -p "${receipts}"
+          source_revision="$(git rev-parse HEAD)"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          MANAGED_SOURCE_REVISION="${source_revision}" \
+          MANAGED_CANDIDATE_REPOSITORY="ghcr.io/${owner}/steel-managed-manager" \
+          MANAGED_MANAGER_BUILD_RECEIPT="${receipts}/manager-build.json" \
+          MANAGED_PRODUCTION_AUDIT_RECEIPT="${receipts}/manager-production-audit.json" \
+          MANAGED_BUILD_RUN_ID="${BUILD_RUN_ID}" \
+          MANAGED_IMAGE_PLATFORM="linux/amd64" \
+          managed/manager/image/build-reproducible.sh
+          MANAGED_SOURCE_REVISION="${source_revision}" \
+          MANAGED_CANDIDATE_REPOSITORY="ghcr.io/${owner}/steel-managed-worker" \
+          MANAGED_RUNTIME_STRATEGY_RECEIPT="${receipts}/worker-runtime-strategy.json" \
+          MANAGED_PRODUCTION_AUDIT_RECEIPT="${receipts}/worker-production-audit.json" \
+          MANAGED_BUILD_RUN_ID="${BUILD_RUN_ID}" \
+          MANAGED_IMAGE_PLATFORM="linux/amd64" \
+          managed/worker/image/build-reproducible.sh
+          echo "STEEL_RELEASE_ROOT=${release_root}" >> "${GITHUB_ENV}"
+      - name: Read back Chromium and generate digest-pinned Coolify bundles
+        run: |
+          set -euo pipefail
+          receipts="${STEEL_RELEASE_ROOT}/receipts"
+          worker_image="$(jq -er '.candidateImage' "${receipts}/worker-runtime-strategy.json")"
+          docker pull "${worker_image}"
+          browser_output="$(docker run --rm --entrypoint /usr/bin/chromium "${worker_image}" --version)"
+          browser_version="$(sed -nE 's/.* ([0-9]+(\.[0-9]+){3}).*/\1/p' <<< "${browser_output}")"
+          test -n "${browser_version}"
+          node managed/release/coolify-bundle-cli.mjs \
+            --browser-version "${browser_version}" \
+            --manager-receipt "${receipts}/manager-build.json" \
+            --output "${STEEL_RELEASE_ROOT}/bundle" \
+            --toolchain-lock package-lock.json \
+            --upstream-lock managed/upstream.lock.json \
+            --worker-receipt "${receipts}/worker-runtime-strategy.json"
+          cp -R "${receipts}" "${STEEL_RELEASE_ROOT}/bundle/receipts"
+      - name: Upload release evidence and Compose bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: steel-managed-${{ github.sha }}
+          path: ${{ env.STEEL_RELEASE_ROOT }}/bundle
+          if-no-files-found: error
+          retention-days: 30
+      - name: Deploy the explicitly selected stopped Coolify project
+        if: github.event_name == 'workflow_dispatch' && inputs.deploy_target != 'none'
+        env:
+          COOLIFY_API_BASE: ${{ secrets.COOLIFY_API_BASE }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+          COOLIFY_BLUE_APPLICATION_UUID: ${{ secrets.COOLIFY_BLUE_APPLICATION_UUID }}
+          COOLIFY_GREEN_APPLICATION_UUID: ${{ secrets.COOLIFY_GREEN_APPLICATION_UUID }}
+          STEEL_MANAGED_CONFIG_JSON: ${{ secrets.STEEL_MANAGED_CONFIG_JSON }}
+          STEEL_MANAGED_CREATE_TOKEN_KEY_HEX: ${{ secrets.STEEL_MANAGED_CREATE_TOKEN_KEY_HEX }}
+          STEEL_MANAGED_RELEASE_DIRECTORY: ${{ env.STEEL_RELEASE_ROOT }}/bundle
+          STEEL_MANAGED_ROUTE_HOST: ${{ inputs.route_host }}
+        run: |
+          set -euo pipefail
+          slot="$(tr '[:lower:]' '[:upper:]' <<< '${{ inputs.deploy_target }}')"
+          node managed/release/coolify-deploy-cli.mjs --target-slot "${slot}"

@@ -4,21 +4,14 @@ import type { FastifyPluginAsync } from "fastify"
 import fastifyPlugin from "fastify-plugin"
 import { describe, expect, it } from "vitest"
 import {
-  UPSTREAM_SESSION_STATUS,
-  WORKER_ACTIVE_SESSION_MAX_RESPONSE_BYTES,
-  WORKER_ACTIVE_SESSION_PATH,
   WORKER_BOOT_STATUS,
   WORKER_META_PATH,
   parseWorkerConfig,
 } from "../src/config.js"
-import {
-  createWorkerApplication,
-  type UpstreamActiveSession,
-} from "../src/server.js"
+import { createWorkerApplication } from "../src/server.js"
 import { deferred } from "./test-support.js"
 
 const INSTANCE_ID = "11223344-5566-4788-99aa-bbccddeeff00"
-const SESSION_ID = "99887766-5544-4322-88aa-bbccddeeff00"
 const REQUEST_ORIGIN = "https://manager.internal.example"
 
 type HttpResult = {
@@ -63,10 +56,6 @@ describe("createWorkerApplication", () => {
       parseWorkerConfig({ MANAGED_WORKER_ID: "worker-00" }),
       {
         createInstanceId: () => INSTANCE_ID,
-        readActiveSession: () => ({
-          id: SESSION_ID,
-          status: UPSTREAM_SESSION_STATUS.IDLE,
-        }),
         shutdownUpstream: async () => undefined,
         upstreamPlugin,
       },
@@ -109,10 +98,6 @@ describe("createWorkerApplication", () => {
       parseWorkerConfig({ MANAGED_WORKER_ID: "worker-01" }),
       {
         createInstanceId: () => INSTANCE_ID,
-        readActiveSession: () => ({
-          id: SESSION_ID,
-          status: UPSTREAM_SESSION_STATUS.IDLE,
-        }),
         shutdownUpstream: async () => undefined,
         upstreamPlugin,
       },
@@ -135,68 +120,6 @@ describe("createWorkerApplication", () => {
       expect(response.headers["x-managed-worker-id"]).toBe("worker-01")
       expect(response.headers["x-managed-worker-instance-id"]).toBe(INSTANCE_ID)
     } finally {
-      await application.server.close()
-    }
-  })
-
-  it("serves a bounded private active-session projection without history", async () => {
-    // Given
-    let activeSession: UpstreamActiveSession = {
-      id: SESSION_ID,
-      status: UPSTREAM_SESSION_STATUS.IDLE,
-    }
-    const testUpstreamPlugin: FastifyPluginAsync<SteelBrowserConfig> = async () => undefined
-    const upstreamPlugin = fastifyPlugin(testUpstreamPlugin, {
-      name: "active-session-test-upstream",
-    })
-    const application = createWorkerApplication(
-      parseWorkerConfig({ MANAGED_WORKER_ID: "worker-00" }),
-      {
-        createInstanceId: () => INSTANCE_ID,
-        readActiveSession: () => activeSession,
-        shutdownUpstream: async () => undefined,
-        upstreamPlugin,
-      },
-    )
-    const listen = application.server.listen({ host: "127.0.0.1", port: 0 })
-
-    try {
-      // When
-      const origin = await listen
-      const emptyResponse = await requestOrigin(origin, WORKER_ACTIVE_SESSION_PATH)
-      activeSession = { id: SESSION_ID, status: UPSTREAM_SESSION_STATUS.LIVE }
-      const activeResponse = await requestOrigin(origin, WORKER_ACTIVE_SESSION_PATH)
-      activeSession = { id: SESSION_ID, status: UPSTREAM_SESSION_STATUS.RELEASED }
-      const releasedResponse = await requestOrigin(origin, WORKER_ACTIVE_SESSION_PATH)
-
-      // Then
-      expect(emptyResponse.statusCode).toBe(200)
-      expect(JSON.parse(emptyResponse.body)).toEqual({
-        activeSession: null,
-        instanceId: INSTANCE_ID,
-        workerId: "worker-00",
-      })
-      expect(activeResponse.statusCode).toBe(200)
-      expect(JSON.parse(activeResponse.body)).toEqual({
-        activeSession: { id: SESSION_ID, status: UPSTREAM_SESSION_STATUS.LIVE },
-        instanceId: INSTANCE_ID,
-        workerId: "worker-00",
-      })
-      expect(releasedResponse.statusCode).toBe(200)
-      expect(JSON.parse(releasedResponse.body)).toEqual({
-        activeSession: null,
-        instanceId: INSTANCE_ID,
-        workerId: "worker-00",
-      })
-      for (const response of [emptyResponse, activeResponse, releasedResponse]) {
-        expect(Buffer.byteLength(response.body)).toBeLessThanOrEqual(
-          WORKER_ACTIVE_SESSION_MAX_RESPONSE_BYTES,
-        )
-        expect(response.headers["x-managed-worker-id"]).toBe("worker-00")
-        expect(response.headers["x-managed-worker-instance-id"]).toBe(INSTANCE_ID)
-      }
-    } finally {
-      await listen
       await application.server.close()
     }
   })

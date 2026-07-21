@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   AllocationIdSchema,
   EventLedger,
+  GatewayEventType,
   ObservationCommitKind,
   SessionState,
   StaleWorkerGenerationError,
@@ -100,5 +101,33 @@ describe("WorkerRegistry", () => {
     expect(lateResult.kind).toBe(ObservationCommitKind.STALE_OBSERVATION)
     expect(currentResult.kind).toBe(ObservationCommitKind.COMMITTED)
     expect(registry.workers()[0]?.instanceId).toBe(instanceId(2))
+  })
+
+  it("preserves the public release facade when a release is cancelled", () => {
+    const clock = new FakeClock()
+    const ledger = new EventLedger({ clock })
+    const registry = new WorkerRegistry({ clock, ledger })
+    const workerId = WorkerIdSchema.parse("worker-00")
+    const worker = workerDescriptor(0, 1)
+    registry.commitObservation(registry.beginObservation(workerId), {
+      worker,
+      remoteState: WorkerRemoteState.IDLE,
+      sessions: [],
+    })
+    const allocationId = AllocationIdSchema.parse("allocation-1")
+    const sessionId = publicSessionId(1)
+    registry.reserveNext(allocationId)
+    registry.bindSession({
+      allocationId,
+      publicSessionId: sessionId,
+      upstreamSessionId: upstreamSessionId(1),
+    })
+
+    registry.beginRelease(sessionId)
+    registry.cancelRelease(sessionId)
+
+    expect(registry.session(sessionId)?.state).toBe(SessionState.LIVE)
+    expect(registry.workers()[0]?.state).toBe(WorkerState.LIVE)
+    expect(ledger.readAfter().at(-1)?.type).toBe(GatewayEventType.SESSION_RELEASE_CANCELLED)
   })
 })

@@ -1,4 +1,7 @@
-import { startWorker } from "./runtime.js"
+import {
+  productionSupervisorDependencies,
+  startManagedWorkerSupervisor,
+} from "./supervisor-runtime.js"
 import type { SignalControl } from "./shutdown.js"
 
 const nodeSignals: SignalControl = {
@@ -13,4 +16,8 @@ const nodeSignals: SignalControl = {
   },
 }
 
-await startWorker(process.env, { signals: nodeSignals })
+const runtime = await startManagedWorkerSupervisor(
+  process.env,
+  productionSupervisorDependencies(nodeSignals),
+)
+await runtime.completion

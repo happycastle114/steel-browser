@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-import { withDeepReadonlyOutput } from "./deep-readonly.js"
+import { withDeepFrozenOutput } from "./deep-readonly.js"
 import { MANAGED_DEPLOYMENT_CONFIG } from "./deployment-topology.js"
 import {
   COOLIFY_PRODUCTION_OWNER,
@@ -81,7 +81,7 @@ const RuntimeScopeCertificateBaseSchema = z
   })
   .strict()
 
-export const RuntimeScopeCertificateSchema = withDeepReadonlyOutput(
+export const RuntimeScopeCertificateSchema = withDeepFrozenOutput(
   RuntimeScopeCertificateBaseSchema,
 )
 

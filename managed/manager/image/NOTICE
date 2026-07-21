@@ -1,0 +1,6 @@
+Happycastle Steel managed manager
+
+This image contains the manager control plane implemented in this repository and its locked
+runtime dependencies. Base-image identities are recorded in base-images.lock.json. Complete
+runtime source and console asset hashes are generated during the image build and embedded in
+the final image.

@@ -5,6 +5,7 @@ export const LOCK_STAGE = {
   CORPUS_LOCKED: "CORPUS_LOCKED",
   FINAL: "FINAL",
 } as const
+export type LockStage = (typeof LOCK_STAGE)[keyof typeof LOCK_STAGE]
 
 const GitCommitShaSchema = z.string().regex(/^[0-9a-f]{40}$/u).brand("GitCommitSha")
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u).brand("Sha256")

@@ -1,5 +1,7 @@
 import type { SignalControl, ShutdownSignal } from "../src/shutdown.js"
 
+export const TEST_NODE_RUNTIME_VERSION = "22.23.1" as const
+
 export class FakeSignalControl implements SignalControl {
   private readonly listeners = new Map<ShutdownSignal, Set<() => void>>()
   exitCode: number | undefined

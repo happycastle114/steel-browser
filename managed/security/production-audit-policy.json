@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "receiptKind": "STEEL_PRODUCTION_DEPENDENCY_AUDIT",
+  "platform": {
+    "architecture": "amd64",
+    "os": "linux"
+  },
+  "runtime": {
+    "nodeImage": "docker.io/library/node:22.23.1-bookworm@sha256:5647be709086c696ff32edaaf1c70cd26d1da6ab2b39c32f3c7b4c4a31957e37",
+    "nodeVersion": "22.23.1"
+  },
+  "audit": {
+    "registryOrigin": "https://registry.npmjs.org",
+    "residuals": []
+  },
+  "targets": {
+    "MANAGER": {
+      "forbiddenPackages": [
+        "@jridgewell/resolve-uri",
+        "@jridgewell/sourcemap-codec",
+        "@swc/core",
+        "eslint",
+        "husky",
+        "jiti",
+        "prettier",
+        "tsx",
+        "typescript",
+        "vite",
+        "vitest"
+      ],
+      "includeWorkspaceRoot": false,
+      "ignoreScripts": true,
+      "nativeOverlays": [],
+      "requiredWorkspaces": [
+        "@happycastle/steel-managed-gateway",
+        "@happycastle/steel-managed-manager",
+        "@happycastle/steel-managed-shared"
+      ],
+      "scanRoots": [
+        "node_modules",
+        "managed/gateway/node_modules",
+        "managed/manager/node_modules",
+        "managed/shared/node_modules"
+      ],
+      "workspaces": [
+        "@happycastle/steel-managed-gateway",
+        "@happycastle/steel-managed-manager",
+        "@happycastle/steel-managed-shared"
+      ],
+      "workspaceSources": {
+        "@happycastle/steel-managed-gateway": "managed/gateway",
+        "@happycastle/steel-managed-manager": "managed/manager",
+        "@happycastle/steel-managed-shared": "managed/shared"
+      }
+    },
+    "WORKER": {
+      "forbiddenPackages": [
+        "@jridgewell/resolve-uri",
+        "@jridgewell/sourcemap-codec",
+        "@swc/core",
+        "eslint",
+        "husky",
+        "jiti",
+        "prettier",
+        "tsx",
+        "typescript",
+        "vite",
+        "vitest"
+      ],
+      "includeWorkspaceRoot": false,
+      "ignoreScripts": true,
+      "nativeOverlays": [
+        {
+          "location": "node_modules/classic-level",
+          "name": "classic-level",
+          "version": "2.0.0"
+        },
+        {
+          "location": "node_modules/duckdb",
+          "name": "duckdb",
+          "version": "1.4.2"
+        }
+      ],
+      "requiredWorkspaces": [
+        "@happycastle/steel-managed-shared",
+        "@happycastle/steel-managed-worker",
+        "@steel-browser/api"
+      ],
+      "scanRoots": [
+        "node_modules",
+        "api/node_modules",
+        "managed/shared/node_modules",
+        "managed/worker/node_modules"
+      ],
+      "workspaces": [
+        "@happycastle/steel-managed-shared",
+        "@happycastle/steel-managed-worker",
+        "@steel-browser/api"
+      ],
+      "workspaceSources": {
+        "@happycastle/steel-managed-shared": "managed/shared",
+        "@happycastle/steel-managed-worker": "managed/worker",
+        "@steel-browser/api": "api"
+      }
+    }
+  }
+}

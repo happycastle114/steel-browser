@@ -1,0 +1,21 @@
+{
+  "keyHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "principalKind": "USER",
+  "principalId": "사용자:alice@example.com",
+  "idempotencyKey": "request:correlation-0001",
+  "requestBody": {
+    "locale": "ko-KR",
+    "note": "한글",
+    "nested": {
+      "z": 2,
+      "a": 1
+    }
+  },
+  "sessionIdMode": "CLIENT_SUPPLIED",
+  "ownerPreimageHex": "737465656c2d6f776e65722d763100000004555345520000001bec82acec9aa9ec9e903a616c696365406578616d706c652e636f6d",
+  "ownerSha256": "f11203358c72d0ff42d2d1608e31b5f6ebaf3d353a35135c9303c2ee9c2478c3",
+  "requestCanonical": "{\"body\":{\"locale\":\"ko-KR\",\"nested\":{\"a\":1,\"z\":2},\"note\":\"한글\"},\"sessionIdMode\":\"CLIENT_SUPPLIED\",\"v\":1}",
+  "requestSha256": "3e78dac164edb634c783262ec9b16e2dfb5e4a533e3b8c87d8710bdcdb3a9c89",
+  "tokenPreimageHex": "737465656c2d6372656174652d763100000020f11203358c72d0ff42d2d1608e31b5f6ebaf3d353a35135c9303c2ee9c2478c300000018726571756573743a636f7272656c6174696f6e2d30303031",
+  "createToken": "h1_8bf0660febce867dd8f974cf3a5d84b83a78c0adaf18f4e7e9cab5b3aae93723"
+}

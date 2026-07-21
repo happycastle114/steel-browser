@@ -1,9 +1,16 @@
 import { afterEach, describe, expect, it } from "vitest"
 import {
+  CREATE_JOURNAL_STATE,
+  MANAGED_CREATE_HEADER,
+  ManagedCreateHeaderValuesSchema,
+  PRIVATE_SUPERVISOR_BODY_LIMIT,
+} from "@happycastle/steel-managed-shared"
+import {
   StaticWorkerEndpointSchema,
   WorkerHttpAdapter,
   WorkerHttpStatusError,
   WorkerIdentityMismatchError,
+  WorkerProtocolError,
   WorkerRemoteState,
   WorkerTransportError,
   WorkerTransportReason,
@@ -47,6 +54,33 @@ describe("WorkerHttpAdapter integration", () => {
     expect(releasedList.sessions).toHaveLength(0)
   })
 
+  it("forwards the exact validated managed create journal headers", async () => {
+    const fake = new LocalWorkerFake({ workerSequence: 0, instanceSequence: 1 })
+    openWorkers.push(fake)
+    const endpoint = StaticWorkerEndpointSchema.parse({
+      workerId: fake.workerId,
+      origin: await fake.listen(),
+    })
+    const adapter = new WorkerHttpAdapter({ timeoutMilliseconds: 1_000, maxResponseBytes: 8_192 })
+    const signal = new AbortController().signal
+    const probe = await adapter.probe(endpoint, signal)
+    const managedCreate = ManagedCreateHeaderValuesSchema.parse({
+      [MANAGED_CREATE_HEADER.MANAGER_INSTANCE_ID]: "00000000-0000-4000-8000-000000000301",
+      [MANAGED_CREATE_HEADER.OWNER_SHA256]: "a".repeat(64),
+      [MANAGED_CREATE_HEADER.POOL_ID]: "test-pool",
+      [MANAGED_CREATE_HEADER.REQUEST_SHA256]: "b".repeat(64),
+      [MANAGED_CREATE_HEADER.TOKEN]: `h1_${"c".repeat(64)}`,
+    })
+
+    await adapter.create(probe.worker, {
+      managedCreate,
+      publicSessionId: publicSessionId(1),
+    }, signal)
+
+    expect(fake.managedCreateHeaders).toEqual(managedCreate)
+    await adapter.close()
+  })
+
   it("rejects a raw call when the worker generation changed after discovery", async () => {
     // Given
     const fake = new LocalWorkerFake({ workerSequence: 0, instanceSequence: 1 })
@@ -80,8 +114,8 @@ describe("WorkerHttpAdapter integration", () => {
     const fake = new LocalWorkerFake({
       workerSequence: 0,
       instanceSequence: 1,
-      sessionListGate: listGate,
-      onSessionList: () => signalListStarted?.(),
+      activeCreatesGate: listGate,
+      onActiveCreates: () => signalListStarted?.(),
     })
     openWorkers.push(fake)
     const endpoint = StaticWorkerEndpointSchema.parse({
@@ -128,26 +162,53 @@ describe("WorkerHttpAdapter integration", () => {
     await adapter.close()
   })
 
-  it("fails closed when the active-session response exceeds the configured body bound", async () => {
+  it.each([
+    CREATE_JOURNAL_STATE.ACCEPTED,
+    CREATE_JOURNAL_STATE.UPSTREAM_PENDING,
+    CREATE_JOURNAL_STATE.UNCERTAIN,
+  ])("keeps an active %s create busy without inventing a live session", async (state) => {
+    // Given
+    const fake = new LocalWorkerFake({ workerSequence: 0, instanceSequence: 1 })
+    openWorkers.push(fake)
+    const endpoint = StaticWorkerEndpointSchema.parse({
+      workerId: fake.workerId,
+      origin: await fake.listen(),
+    })
+    const adapter = new WorkerHttpAdapter({ timeoutMilliseconds: 1_000, maxResponseBytes: 8_192 })
+    fake.reportPendingCreate(state)
+
+    // When
+    const probe = await adapter.probe(endpoint, new AbortController().signal)
+
+    // Then
+    expect(probe.remoteState).toBe(WorkerRemoteState.BUSY)
+    expect(probe.sessions).toEqual([])
+    await adapter.close()
+  })
+
+  it("fails closed at the canonical active-creates route body limit", async () => {
     // Given
     const fake = new LocalWorkerFake({
       workerSequence: 0,
       instanceSequence: 1,
-      sessionListPaddingBytes: 1_024,
+      activeCreatesPaddingBytes: PRIVATE_SUPERVISOR_BODY_LIMIT.CREATES_ACTIVE + 1_024,
     })
     openWorkers.push(fake)
     const endpoint = StaticWorkerEndpointSchema.parse({
       workerId: fake.workerId,
       origin: await fake.listen(),
     })
-    const adapter = new WorkerHttpAdapter({ timeoutMilliseconds: 1_000, maxResponseBytes: 256 })
+    const adapter = new WorkerHttpAdapter({
+      timeoutMilliseconds: 1_000,
+      maxResponseBytes: 1_048_576,
+    })
 
     // When
     const probe = adapter.probe(endpoint, new AbortController().signal)
 
     // Then
-    await expect(probe).rejects.toMatchObject({ reason: WorkerTransportReason.NETWORK })
-    await expect(probe).rejects.toBeInstanceOf(WorkerTransportError)
+    await expect(probe).rejects.toThrow("worker response exceeded route body limit")
+    await expect(probe).rejects.toBeInstanceOf(WorkerProtocolError)
     await adapter.close()
   })
 

@@ -49,7 +49,7 @@ describe("uncertain release recovery", () => {
   it("preserves release linkage through a failed probe before idle confirmation", async () => {
     const fixture = await uncertainReleaseFixture(true)
     await expect(fixture.release()).rejects.toMatchObject({ statusCode: 503 })
-    fixture.worker.setActiveSessionStatus(503)
+    fixture.worker.setActiveCreatesStatus(503)
 
     await fixture.reconciler.run(fixture.signal)
 
@@ -57,7 +57,7 @@ describe("uncertain release recovery", () => {
     expect(fixture.registry.workers()[0]?.state).toBe(
       WorkerState.RELEASE_UNCERTAIN_UNREACHABLE,
     )
-    fixture.worker.setActiveSessionStatus(200)
+    fixture.worker.setActiveCreatesStatus(200)
     await fixture.reconciler.run(fixture.signal)
     expect(fixture.registry.session(fixture.sessionId)?.state).toBe(SessionState.RELEASED)
     expect(fixture.registry.workers()[0]?.state).toBe(WorkerState.IDLE)

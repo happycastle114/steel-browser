@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-import { withDeepReadonlyOutput } from "./deep-readonly.js"
+import { withDeepFrozenOutput } from "./deep-readonly.js"
 import { CAPACITY_GATE_RESULT, type CapacityGateResult } from "./deployment-capacity-result.js"
 import { MANAGED_DEPLOYMENT_CONFIG } from "./deployment-topology.js"
 
@@ -53,7 +53,7 @@ const ShmTmpfsCapacityInputBaseSchema = z
     warmIdleOomCount: z.number().int().safe().nonnegative(),
   })
   .strict()
-export const ShmTmpfsCapacityInputSchema = withDeepReadonlyOutput(ShmTmpfsCapacityInputBaseSchema)
+export const ShmTmpfsCapacityInputSchema = withDeepFrozenOutput(ShmTmpfsCapacityInputBaseSchema)
 
 export type ShmTmpfsCapacityInput = z.infer<typeof ShmTmpfsCapacityInputSchema>
 
@@ -140,7 +140,7 @@ const PressureCapacityInputBaseSchema = z
     inodeThresholdsVerified: z.boolean(),
   })
   .strict()
-export const PressureCapacityInputSchema = withDeepReadonlyOutput(PressureCapacityInputBaseSchema)
+export const PressureCapacityInputSchema = withDeepFrozenOutput(PressureCapacityInputBaseSchema)
 
 export type PressureCapacityInput = z.infer<typeof PressureCapacityInputSchema>
 

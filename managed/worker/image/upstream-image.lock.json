@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "registry": "ghcr.io",
+  "repository": "steel-dev/steel-browser",
+  "packageVersion": "1004247379",
+  "createdDate": "2026-07-06",
+  "indexDigest": "sha256:1c988dc8a8eda687648d1c94e10e8b8627343977119f09aa34a6adf345ba104d",
+  "platforms": {
+    "linux/amd64": {
+      "subjectDigest": "sha256:556402b20a178fb373b0b247f24d5be6fb3e3cf8d31ce7d25387f0e7a0247535",
+      "configDigest": "sha256:397f07eee40d08d1dc3bb6a6a34647a6e7eaa91f5432a9573c08ceabc5cc8815",
+      "attestationDigest": "sha256:83e60224db0f37ee2f16d0fbffeee6d81bcc3c500e884c7f560008244609d2de"
+    },
+    "linux/arm64": {
+      "subjectDigest": "sha256:89fbce4260b09264d4e49771de6d304bba683e9c462b7a4ffc417b48c0a58646",
+      "configDigest": "sha256:1913e642c9d9550131bd1a14ed06913c63a9cb41261ee95b2104fd45cd186409",
+      "attestationDigest": "sha256:c3d6bc38042bdd90cf46e202200c9b505e174b5070b3db70948408dce9c7a4d7"
+    }
+  },
+  "provenance": {
+    "repository": "https://github.com/steel-dev/steel-browser",
+    "revision": "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2",
+    "ref": "refs/heads/main",
+    "githubActionsRunId": "28784462621"
+  },
+  "browserVersion": {
+    "status": "RUNTIME_READBACK_REQUIRED",
+    "value": null,
+    "command": "/usr/bin/chromium --version",
+    "environment": "Coolify exact digest container"
+  }
+}

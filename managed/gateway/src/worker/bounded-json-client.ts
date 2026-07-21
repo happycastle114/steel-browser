@@ -1,4 +1,5 @@
 import { TextDecoder } from "node:util"
+import { WORKER_IDENTITY_HEADER } from "@happycastle/steel-managed-shared"
 import { Agent, request } from "undici"
 import { z } from "zod"
 import {
@@ -10,13 +11,13 @@ import {
 } from "../domain/errors.js"
 import type { InstanceId, WorkerId } from "../domain/ids.js"
 import { WorkerTransportReason } from "../domain/states.js"
-import { WorkerHeader } from "./worker-http-contract.js"
 
 const CONTENT_TYPE = { JSON: "application/json" } as const
+const WORKER_OPERATION_TIMEOUT_MAXIMUM_MS = 120_000
 
 const BoundedJsonClientOptionsSchema = z
   .object({
-    timeoutMilliseconds: z.number().int().min(1).max(30_000),
+    timeoutMilliseconds: z.number().int().min(1).max(WORKER_OPERATION_TIMEOUT_MAXIMUM_MS),
     maxResponseBytes: z.number().int().min(256).max(1_048_576),
   })
   .strict()
@@ -31,7 +32,9 @@ type JsonRequest<T, I> = {
   readonly schema: z.ZodType<T, z.ZodTypeDef, I>
   readonly signal: AbortSignal
   readonly body?: string
+  readonly headers?: Readonly<Record<string, string>>
   readonly validateErrorResponse?: (body: unknown, headers: BoundedJsonResponse<T>["headers"]) => void
+  readonly maxResponseBytes?: number
 }
 
 export type WorkerIdentityExpectation = {
@@ -63,9 +66,11 @@ export class BoundedJsonClient {
   public async send<T, I>(input: JsonRequest<T, I>): Promise<BoundedJsonResponse<T>> {
     const timeoutSignal = AbortSignal.timeout(this.options.timeoutMilliseconds)
     const combinedSignal = AbortSignal.any([input.signal, timeoutSignal])
+    const maxResponseBytes = this.responseByteLimit(input.maxResponseBytes)
     try {
       const requestOptions = {
         dispatcher: this.dispatcher,
+        ...(input.headers === undefined ? {} : { headers: input.headers }),
         method: input.method,
         signal: combinedSignal,
       } as const
@@ -74,17 +79,23 @@ export class BoundedJsonClient {
           ? await request(input.url, requestOptions)
           : await request(input.url, {
               ...requestOptions,
-              headers: { "content-type": CONTENT_TYPE.JSON },
+              headers: {
+                ...input.headers,
+                "content-type": CONTENT_TYPE.JSON,
+              },
               body: input.body,
             })
       this.requireIdentity(response.headers, input.identity)
       if (response.statusCode < 200 || response.statusCode >= 300) {
         const bytes = await response.body.bytes()
+        this.assertResponseSize(bytes, maxResponseBytes, input.workerId)
         input.validateErrorResponse?.(this.decodeBody(bytes, input.workerId), response.headers)
         throw new WorkerHttpStatusError(input.workerId, response.statusCode)
       }
+      const responseBytes = await response.body.bytes()
+      this.assertResponseSize(responseBytes, maxResponseBytes, input.workerId)
       return {
-        body: this.parseBody(await response.body.bytes(), input.schema, input.workerId),
+        body: this.parseBody(responseBytes, input.schema, input.workerId),
         headers: response.headers,
       }
     } catch (error) {
@@ -107,6 +118,20 @@ export class BoundedJsonClient {
 
   public async close(): Promise<void> {
     await this.dispatcher.close()
+  }
+
+  private responseByteLimit(routeLimit: number | undefined): number {
+    if (routeLimit === undefined) return this.options.maxResponseBytes
+    if (!Number.isSafeInteger(routeLimit) || routeLimit < 1) {
+      throw new TypeError("route response body limit must be a positive safe integer")
+    }
+    return Math.min(routeLimit, this.options.maxResponseBytes)
+  }
+
+  private assertResponseSize(bytes: Uint8Array, limit: number, workerId: WorkerId): void {
+    if (bytes.byteLength > limit) {
+      throw new WorkerProtocolError(workerId, "worker response exceeded route body limit")
+    }
   }
 
   private parseBody<T, I>(
@@ -142,8 +167,8 @@ export function assertWorkerIdentityHeaders(
   headers: Readonly<Record<string, string | readonly string[] | undefined>>,
   expected: WorkerIdentityExpectation,
 ): void {
-  const workerId = singleHeader(headers[WorkerHeader.WORKER_ID])
-  const instanceId = singleHeader(headers[WorkerHeader.INSTANCE_ID])
+  const workerId = singleHeader(headers[WORKER_IDENTITY_HEADER.WORKER_ID])
+  const instanceId = singleHeader(headers[WORKER_IDENTITY_HEADER.INSTANCE_ID])
   if (workerId === undefined || instanceId === undefined) {
     throw new WorkerProtocolError(expected.workerId, "worker response instance header missing")
   }

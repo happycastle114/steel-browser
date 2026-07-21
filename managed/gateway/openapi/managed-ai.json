@@ -1,0 +1,2472 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Steel Managed AI API",
+    "version": "2026-07-01",
+    "license": {
+      "name": "Apache-2.0"
+    }
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/v1/capabilities": {
+      "get": {
+        "operationId": "getAiCapabilities",
+        "tags": [
+          "Managed AI"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful managed AI operation",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiCapabilities"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed AI error (401)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed AI error (502)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools": {
+      "get": {
+        "operationId": "listAiTools",
+        "tags": [
+          "Managed AI"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 14
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful managed AI operation",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiToolPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed AI error (400)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "INVALID_CURSOR"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed AI error (401)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed AI error (502)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/actions": {
+      "post": {
+        "operationId": "submitAiAction",
+        "tags": [
+          "Managed AI"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful managed AI operation",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Retry-After": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              },
+              "Location": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiActionAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed AI error (400)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "INVALID_ARGUMENT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed AI error (401)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Managed AI error (403)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "ACCESS_FORBIDDEN"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Managed AI error (413)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "BODY_TOO_LARGE",
+                                "RESULT_TOO_LARGE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Managed AI error (415)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "UNSUPPORTED_MEDIA_TYPE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Managed AI error (422)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "TOOL_INPUT_INVALID"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed AI error (502)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Managed AI error (503)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Retry-After": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "MANAGED_AI_RESULT_CAPACITY",
+                                "MANAGED_ACTION_CAPACITY"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Managed AI error (504)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Retry-After": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "TOOL_TIMEOUT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/results/{id}": {
+      "get": {
+        "operationId": "getAiResult",
+        "tags": [
+          "Managed AI"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Completed managed AI result",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiResultCompleted"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Successful managed AI operation",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "Retry-After": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiResultPending"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed AI error (400)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "INVALID_ARGUMENT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed AI error (401)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Managed AI error (403)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "ACCESS_FORBIDDEN"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Managed AI error (404)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "RESULT_NOT_FOUND"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed AI error (502)",
+            "headers": {
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cloudflareAccess": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Cf-Access-Jwt-Assertion"
+      }
+    },
+    "schemas": {
+      "AiActionAccepted": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "resultId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "requestId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "correlationId": {
+            "$ref": "#/components/schemas/AiActionAccepted/properties/requestId"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ACCEPTED"
+            ]
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "apiVersion",
+          "resultId",
+          "requestId",
+          "correlationId",
+          "state",
+          "retryAfterSeconds"
+        ],
+        "additionalProperties": false
+      },
+      "AiActionRequest": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "type": "string",
+                "enum": [
+                  "2026-07-01"
+                ]
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.session.create"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "type": "object",
+                "properties": {
+                  "idempotencyKey": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+                  }
+                },
+                "required": [
+                  "idempotencyKey"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.session.list"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "QUEUED",
+                        "STARTING",
+                        "LIVE",
+                        "RELEASING",
+                        "RELEASED",
+                        "FAILED",
+                        "LOST"
+                      ]
+                    },
+                    "minItems": 1
+                  },
+                  "pageSize": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "cursor": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]+$",
+                    "minLength": 2
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.session.get"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "sessionId"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.session.release"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/2/properties/arguments"
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.admission.status"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "type": "object",
+                "properties": {
+                  "admissionId": {
+                    "$ref": "#/components/schemas/AiActionRequest/anyOf/2/properties/arguments/properties/sessionId"
+                  }
+                },
+                "required": [
+                  "admissionId"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.admission.cancel"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/4/properties/arguments"
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.browser.navigate"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "$ref": "#/components/schemas/AiActionRequest/anyOf/2/properties/arguments/properties/sessionId"
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 2048
+                  }
+                },
+                "required": [
+                  "sessionId",
+                  "url"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.browser.snapshot"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/2/properties/arguments"
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.browser.screenshot"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "$ref": "#/components/schemas/AiActionRequest/anyOf/2/properties/arguments/properties/sessionId"
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "png",
+                      "jpeg"
+                    ]
+                  },
+                  "fullPage": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "sessionId"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.browser.scrape"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "$ref": "#/components/schemas/AiActionRequest/anyOf/2/properties/arguments/properties/sessionId"
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "text",
+                      "markdown"
+                    ]
+                  }
+                },
+                "required": [
+                  "sessionId",
+                  "format"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.browser.click"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "$ref": "#/components/schemas/AiActionRequest/anyOf/2/properties/arguments/properties/sessionId"
+                  },
+                  "selector": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  }
+                },
+                "required": [
+                  "sessionId",
+                  "selector"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.browser.type"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "$ref": "#/components/schemas/AiActionRequest/anyOf/2/properties/arguments/properties/sessionId"
+                  },
+                  "selector": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  },
+                  "text": {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  "clear": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "sessionId",
+                  "selector",
+                  "text"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.browser.key"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "$ref": "#/components/schemas/AiActionRequest/anyOf/2/properties/arguments/properties/sessionId"
+                  },
+                  "key": {
+                    "type": "string",
+                    "enum": [
+                      "ENTER",
+                      "TAB",
+                      "ESCAPE",
+                      "ARROW_UP",
+                      "ARROW_DOWN",
+                      "ARROW_LEFT",
+                      "ARROW_RIGHT",
+                      "BACKSPACE",
+                      "DELETE",
+                      "SPACE"
+                    ]
+                  }
+                },
+                "required": [
+                  "sessionId",
+                  "key"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "apiVersion": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/0/properties/apiVersion"
+              },
+              "tool": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "steel.browser.live_view"
+                    ]
+                  },
+                  "version": {
+                    "type": "string",
+                    "enum": [
+                      "1.0.0"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "arguments": {
+                "$ref": "#/components/schemas/AiActionRequest/anyOf/2/properties/arguments"
+              }
+            },
+            "required": [
+              "apiVersion",
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "AiCapabilities": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "service": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "enum": [
+                  "happycastle-steel-managed"
+                ]
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+              }
+            },
+            "required": [
+              "name",
+              "version"
+            ],
+            "additionalProperties": false
+          },
+          "mcp": {
+            "type": "object",
+            "properties": {
+              "endpoint": {
+                "type": "string",
+                "enum": [
+                  "/mcp"
+                ]
+              },
+              "protocolVersion": {
+                "type": "string",
+                "enum": [
+                  "2025-11-25"
+                ]
+              },
+              "stateless": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              }
+            },
+            "required": [
+              "endpoint",
+              "protocolVersion",
+              "stateless"
+            ],
+            "additionalProperties": false
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "httpBodyBytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "textBytes": {
+                "$ref": "#/components/schemas/AiCapabilities/properties/limits/properties/httpBodyBytes"
+              },
+              "binaryBytes": {
+                "$ref": "#/components/schemas/AiCapabilities/properties/limits/properties/httpBodyBytes"
+              },
+              "resultBytes": {
+                "$ref": "#/components/schemas/AiCapabilities/properties/limits/properties/httpBodyBytes"
+              },
+              "httpHeaderBytes": {
+                "$ref": "#/components/schemas/AiCapabilities/properties/limits/properties/httpBodyBytes"
+              },
+              "httpConnectionCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "httpConnectionReservedBytes": {
+                "$ref": "#/components/schemas/AiCapabilities/properties/limits/properties/httpBodyBytes"
+              },
+              "httpBodyCount": {
+                "$ref": "#/components/schemas/AiCapabilities/properties/limits/properties/httpConnectionCount"
+              },
+              "httpBodyReservedBytes": {
+                "$ref": "#/components/schemas/AiCapabilities/properties/limits/properties/httpBodyBytes"
+              },
+              "resultCount": {
+                "$ref": "#/components/schemas/AiCapabilities/properties/limits/properties/httpConnectionCount"
+              },
+              "actionTimeoutMs": {
+                "$ref": "#/components/schemas/AiCapabilities/properties/limits/properties/httpConnectionCount"
+              },
+              "actionCount": {
+                "$ref": "#/components/schemas/AiCapabilities/properties/limits/properties/httpConnectionCount"
+              },
+              "webSocketCount": {
+                "$ref": "#/components/schemas/AiCapabilities/properties/limits/properties/httpConnectionCount"
+              },
+              "webSocketReservedBytes": {
+                "$ref": "#/components/schemas/AiCapabilities/properties/limits/properties/httpBodyBytes"
+              }
+            },
+            "required": [
+              "httpBodyBytes",
+              "textBytes",
+              "binaryBytes",
+              "resultBytes",
+              "httpHeaderBytes",
+              "httpConnectionCount",
+              "httpConnectionReservedBytes",
+              "httpBodyCount",
+              "httpBodyReservedBytes",
+              "resultCount",
+              "actionTimeoutMs",
+              "actionCount",
+              "webSocketCount",
+              "webSocketReservedBytes"
+            ],
+            "additionalProperties": false
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "enum": [
+                    "steel.session.create",
+                    "steel.session.list",
+                    "steel.session.get",
+                    "steel.session.release",
+                    "steel.admission.status",
+                    "steel.admission.cancel",
+                    "steel.browser.navigate",
+                    "steel.browser.snapshot",
+                    "steel.browser.screenshot",
+                    "steel.browser.scrape",
+                    "steel.browser.click",
+                    "steel.browser.type",
+                    "steel.browser.key",
+                    "steel.browser.live_view"
+                  ]
+                },
+                "version": {
+                  "type": "string",
+                  "enum": [
+                    "1.0.0"
+                  ]
+                },
+                "mutability": {
+                  "type": "string",
+                  "enum": [
+                    "READ",
+                    "WRITE"
+                  ]
+                },
+                "sessionRequirement": {
+                  "type": "string",
+                  "enum": [
+                    "NONE",
+                    "EXPLICIT"
+                  ]
+                },
+                "inputSchemaSha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "outputSchemaSha256": {
+                  "$ref": "#/components/schemas/AiCapabilities/properties/tools/items/properties/inputSchemaSha256"
+                }
+              },
+              "required": [
+                "name",
+                "version",
+                "mutability",
+                "sessionRequirement",
+                "inputSchemaSha256",
+                "outputSchemaSha256"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 14,
+            "maxItems": 14
+          }
+        },
+        "required": [
+          "apiVersion",
+          "service",
+          "mcp",
+          "limits",
+          "tools"
+        ],
+        "additionalProperties": false
+      },
+      "ManagedErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "INVALID_ARGUMENT",
+                  "INVALID_CURSOR",
+                  "ACCESS_AUTH_REQUIRED",
+                  "ACCESS_FORBIDDEN",
+                  "SESSION_NOT_FOUND",
+                  "ADMISSION_NOT_FOUND",
+                  "RESULT_NOT_FOUND",
+                  "TOOL_NOT_FOUND",
+                  "ROUTE_NOT_FOUND",
+                  "METHOD_NOT_ALLOWED",
+                  "NOT_ACCEPTABLE",
+                  "MANAGED_SESSION_REQUIRED",
+                  "SESSION_STATE_CONFLICT",
+                  "CREATE_TOKEN_CONFLICT",
+                  "EVENT_CURSOR_RESTARTED",
+                  "LIST_CURSOR_RESTARTED",
+                  "INSTANCE_LOST",
+                  "EVENT_CURSOR_EXPIRED",
+                  "LIST_CURSOR_EXPIRED",
+                  "BODY_TOO_LARGE",
+                  "RESULT_TOO_LARGE",
+                  "UNSUPPORTED_MEDIA_TYPE",
+                  "MANAGED_FEATURE_UNSUPPORTED",
+                  "TOOL_INPUT_INVALID",
+                  "ADMISSION_TIMEOUT",
+                  "QUEUE_FULL",
+                  "RATE_LIMITED",
+                  "UPSTREAM_BAD_RESPONSE",
+                  "NO_REACHABLE_WORKER",
+                  "MANAGER_DRAINING",
+                  "MANAGED_LIMITER_CAPACITY",
+                  "MANAGED_TICKET_CAPACITY",
+                  "MANAGED_IDEMPOTENCY_CAPACITY",
+                  "MANAGED_SNAPSHOT_CAPACITY",
+                  "MANAGED_INGRESS_CAPACITY",
+                  "MANAGED_AI_RESULT_CAPACITY",
+                  "MANAGED_ACTION_CAPACITY",
+                  "MANAGED_WS_CAPACITY",
+                  "WORKER_JOURNAL_CAPACITY",
+                  "UPSTREAM_TIMEOUT",
+                  "TOOL_TIMEOUT"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "requestId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "details": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "enum": [
+                      "null"
+                    ],
+                    "nullable": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope/properties/error/properties/details"
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope/properties/error/properties/details"
+                    }
+                  }
+                ]
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "retryable",
+              "requestId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "apiVersion",
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "AiResultPending": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "resultId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "requestId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "correlationId": {
+            "$ref": "#/components/schemas/AiResultPending/properties/requestId"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "PENDING"
+            ]
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "apiVersion",
+          "resultId",
+          "requestId",
+          "correlationId",
+          "state",
+          "retryAfterSeconds"
+        ],
+        "additionalProperties": false
+      },
+      "AiToolPage": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "enum": [
+                    "steel.session.create",
+                    "steel.session.list",
+                    "steel.session.get",
+                    "steel.session.release",
+                    "steel.admission.status",
+                    "steel.admission.cancel",
+                    "steel.browser.navigate",
+                    "steel.browser.snapshot",
+                    "steel.browser.screenshot",
+                    "steel.browser.scrape",
+                    "steel.browser.click",
+                    "steel.browser.type",
+                    "steel.browser.key",
+                    "steel.browser.live_view"
+                  ]
+                },
+                "version": {
+                  "type": "string",
+                  "enum": [
+                    "1.0.0"
+                  ]
+                },
+                "mutability": {
+                  "type": "string",
+                  "enum": [
+                    "READ",
+                    "WRITE"
+                  ]
+                },
+                "sessionRequirement": {
+                  "type": "string",
+                  "enum": [
+                    "NONE",
+                    "EXPLICIT"
+                  ]
+                },
+                "inputSchemaSha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "outputSchemaSha256": {
+                  "$ref": "#/components/schemas/AiToolPage/properties/items/items/properties/inputSchemaSha256"
+                },
+                "inputSchema": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "enum": [
+                        "null"
+                      ],
+                      "nullable": true
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AiToolPage/properties/items/items/properties/inputSchema"
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": {
+                        "$ref": "#/components/schemas/AiToolPage/properties/items/items/properties/inputSchema"
+                      }
+                    }
+                  ]
+                },
+                "outputSchema": {
+                  "$ref": "#/components/schemas/AiToolPage/properties/items/items/properties/inputSchema"
+                }
+              },
+              "required": [
+                "name",
+                "version",
+                "mutability",
+                "sessionRequirement",
+                "inputSchemaSha256",
+                "outputSchemaSha256",
+                "inputSchema",
+                "outputSchema"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 14
+          },
+          "page": {
+            "type": "object",
+            "properties": {
+              "pageSize": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 14
+              },
+              "hasMore": {
+                "type": "boolean"
+              },
+              "nextCursor": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]+$",
+                "minLength": 2
+              }
+            },
+            "required": [
+              "pageSize",
+              "hasMore"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "apiVersion",
+          "items",
+          "page"
+        ],
+        "additionalProperties": false
+      },
+      "AiResultCompleted": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "apiVersion",
+          "resultId",
+          "state",
+          "result",
+          "requestId",
+          "correlationId"
+        ],
+        "properties": {
+          "apiVersion": {
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "resultId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "enum": [
+              "COMPLETED"
+            ]
+          },
+          "result": {
+            "type": "object",
+            "description": "Exact schema is advertised by /v1/tools"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "correlationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,61 +1,45 @@
+import { ManagedCreateHeaderValuesSchema } from "@happycastle/steel-managed-shared"
 import {
   WorkerIdentityMismatchError,
   WorkerMutationNotStartedError,
   WorkerProtocolError,
   WorkerTransportError,
 } from "../domain/errors.js"
-import { assertNever } from "../domain/exhaustive.js"
 import {
-  AllocationIdSchema,
   UpstreamSessionIdSchema,
-  type PublicSessionId,
   type UpstreamSessionId,
 } from "../domain/ids.js"
-import {
-  WorkerMutation,
-  WorkerRemoteState,
-  WorkerTransportReason,
-} from "../domain/states.js"
-import {
-  WorkerDescriptorSchema,
-  type RecoverableSession,
-  type WorkerDescriptor,
-} from "../registry/registry-model.js"
+import { WorkerMutation, WorkerTransportReason } from "../domain/states.js"
 import type { StaticWorkerEndpoint } from "./static-worker-provider.js"
-import {
-  assertWorkerIdentityHeaders,
-  BoundedJsonClient,
-  type BoundedJsonClientOptions,
-} from "./bounded-json-client.js"
+import { BoundedJsonClient, type BoundedJsonClientOptions } from "./bounded-json-client.js"
 import {
   UpstreamCreateRequestSchema,
   UpstreamReleaseResponseSchema,
   UpstreamSessionResponseSchema,
   UpstreamSessionState,
-  WorkerBootStatus,
-  WorkerActiveSessionResponseSchema,
-  WorkerMetaResponseSchema,
-  WorkerPath,
+  UpstreamWorkerPath,
   type WorkerCreateCommand,
   type WorkerCreateResult,
   type WorkerHttpClient,
   type WorkerListResult,
   type WorkerProbe,
 } from "./worker-http-contract.js"
+import { WorkerSupervisorReader } from "./worker-supervisor-reader.js"
 
-const HTTP_METHOD = { GET: "GET", POST: "POST" } as const
-type WireIdentity = Pick<WorkerDescriptor, "workerId" | "instanceId">
+const HTTP_METHOD = { POST: "POST" } as const
 export class WorkerHttpAdapter implements WorkerHttpClient {
   private readonly client: BoundedJsonClient
+  private readonly supervisor: WorkerSupervisorReader
 
   public constructor(input: BoundedJsonClientOptions) {
     this.client = new BoundedJsonClient(input)
+    this.supervisor = new WorkerSupervisorReader(this.client)
   }
 
   public async probe(endpoint: StaticWorkerEndpoint, signal: AbortSignal): Promise<WorkerProbe> {
-    const worker = await this.readMetadata(endpoint, signal)
-    const listed = await this.readActiveSession(worker, signal)
-    await this.requireCurrent(worker, signal)
+    const worker = await this.supervisor.readMetadata(endpoint, signal)
+    const listed = await this.supervisor.readActiveCreates(worker, signal)
+    await this.assertCurrent(worker, signal)
     return listed
   }
 
@@ -63,9 +47,9 @@ export class WorkerHttpAdapter implements WorkerHttpClient {
     worker: WorkerProbe["worker"],
     signal: AbortSignal,
   ): Promise<WorkerListResult> {
-    await this.requireCurrent(worker, signal)
-    const listed = await this.readActiveSession(worker, signal)
-    await this.requireCurrent(worker, signal)
+    await this.assertCurrent(worker, signal)
+    const listed = await this.supervisor.readActiveCreates(worker, signal)
+    await this.assertCurrent(worker, signal)
     return listed
   }
 
@@ -76,14 +60,18 @@ export class WorkerHttpAdapter implements WorkerHttpClient {
   ): Promise<WorkerCreateResult> {
     await this.requireMutationPreflight(worker, signal, WorkerMutation.CREATE)
     const wireRequest = UpstreamCreateRequestSchema.parse({ sessionId: command.publicSessionId })
+    const headers = command.managedCreate === undefined
+      ? undefined
+      : ManagedCreateHeaderValuesSchema.parse(command.managedCreate)
     const response = await this.client.send({
       workerId: worker.workerId,
       identity: worker,
-      url: new URL(WorkerPath.SESSIONS, worker.origin),
+      url: new URL(UpstreamWorkerPath.SESSIONS, worker.origin),
       method: HTTP_METHOD.POST,
       schema: UpstreamSessionResponseSchema,
       signal,
       body: JSON.stringify(wireRequest),
+      ...(headers === undefined ? {} : { headers }),
     })
     if (
       response.body.status !== UpstreamSessionState.LIVE ||
@@ -91,8 +79,8 @@ export class WorkerHttpAdapter implements WorkerHttpClient {
     ) {
       throw new WorkerProtocolError(worker.workerId, "upstream create response mismatched")
     }
-    this.requireResponseIdentity(response.headers, worker)
-    await this.requireCurrent(worker, signal)
+    this.supervisor.requireResponseIdentity(response.headers, worker)
+    await this.assertCurrent(worker, signal)
     return {
       worker,
       upstreamSessionId: UpstreamSessionIdSchema.parse(response.body.id),
@@ -109,7 +97,7 @@ export class WorkerHttpAdapter implements WorkerHttpClient {
       workerId: worker.workerId,
       identity: worker,
       url: new URL(
-        `${WorkerPath.SESSIONS}/${encodeURIComponent(upstreamSessionId)}/release`,
+        `${UpstreamWorkerPath.SESSIONS}/${encodeURIComponent(upstreamSessionId)}/release`,
         worker.origin,
       ),
       method: HTTP_METHOD.POST,
@@ -122,56 +110,19 @@ export class WorkerHttpAdapter implements WorkerHttpClient {
     ) {
       throw new WorkerProtocolError(worker.workerId, "upstream release response mismatched")
     }
-    this.requireResponseIdentity(response.headers, worker)
-    await this.requireCurrent(worker, signal)
+    this.supervisor.requireResponseIdentity(response.headers, worker)
+    await this.assertCurrent(worker, signal)
   }
 
   public async close(): Promise<void> {
     await this.client.close()
   }
 
-  private async readMetadata(
-    endpoint: StaticWorkerEndpoint,
-    signal: AbortSignal,
-  ): Promise<WorkerProbe["worker"]> {
-    const response = await this.client.send({
-      workerId: endpoint.workerId,
-      identity: { workerId: endpoint.workerId },
-      url: new URL(WorkerPath.META, endpoint.origin),
-      method: HTTP_METHOD.GET,
-      schema: WorkerMetaResponseSchema,
-      signal,
-      validateErrorResponse: (body, headers) => {
-        const parsed = WorkerMetaResponseSchema.safeParse(body)
-        if (!parsed.success) {
-          throw new WorkerProtocolError(endpoint.workerId, "worker metadata response mismatched", {
-            cause: parsed.error,
-          })
-        }
-        this.requireWireIdentity(parsed.data, headers, endpoint.workerId)
-      },
-    })
-    const metadata = response.body
-    this.requireWireIdentity(metadata, response.headers, endpoint.workerId)
-    switch (metadata.status) {
-      case WorkerBootStatus.READY:
-        return WorkerDescriptorSchema.parse({
-          workerId: metadata.workerId,
-          instanceId: metadata.instanceId,
-          origin: endpoint.origin,
-        })
-      case WorkerBootStatus.BOOTSTRAPPING:
-        throw new WorkerProtocolError(endpoint.workerId, "worker is still bootstrapping")
-      default:
-        return assertNever(metadata.status)
-    }
-  }
-
-  private async requireCurrent(
+  public async assertCurrent(
     worker: WorkerProbe["worker"],
     signal: AbortSignal,
   ): Promise<void> {
-    const current = await this.readMetadata(worker, signal)
+    const current = await this.supervisor.readMetadata(worker, signal)
     if (current.instanceId !== worker.instanceId) {
       throw new WorkerIdentityMismatchError(worker.workerId, current.instanceId)
     }
@@ -183,7 +134,7 @@ export class WorkerHttpAdapter implements WorkerHttpClient {
     mutation: WorkerMutation,
   ): Promise<void> {
     try {
-      await this.requireCurrent(worker, signal)
+      await this.assertCurrent(worker, signal)
     } catch (error) {
       if (
         signal.aborted &&
@@ -196,59 +147,4 @@ export class WorkerHttpAdapter implements WorkerHttpClient {
     }
     if (signal.aborted) throw new WorkerMutationNotStartedError(worker.workerId, mutation)
   }
-
-  private async readActiveSession(
-    worker: WorkerProbe["worker"],
-    signal: AbortSignal,
-  ): Promise<WorkerListResult> {
-    const response = await this.client.send({
-      workerId: worker.workerId,
-      identity: worker,
-      url: new URL(WorkerPath.ACTIVE_SESSION, worker.origin),
-      method: HTTP_METHOD.GET,
-      schema: WorkerActiveSessionResponseSchema,
-      signal,
-    })
-    this.requireWireIdentity(response.body, response.headers, worker.workerId, worker.instanceId)
-    const sessions =
-      response.body.activeSession === null
-        ? []
-        : [this.recoverableSession(response.body.activeSession.id)]
-    return {
-      worker,
-      remoteState: sessions.length === 0 ? WorkerRemoteState.IDLE : WorkerRemoteState.BUSY,
-      sessions,
-    }
-  }
-
-  private requireWireIdentity(
-    body: WireIdentity,
-    headers: Readonly<Record<string, string | readonly string[] | undefined>>,
-    expectedWorkerId: WorkerProbe["worker"]["workerId"],
-    expectedInstanceId?: WorkerProbe["worker"]["instanceId"],
-  ): void {
-    if (body.workerId !== expectedWorkerId) {
-      throw new WorkerIdentityMismatchError(expectedWorkerId, body.instanceId)
-    }
-    if (expectedInstanceId !== undefined && body.instanceId !== expectedInstanceId) {
-      throw new WorkerIdentityMismatchError(expectedWorkerId, body.instanceId)
-    }
-    this.requireResponseIdentity(headers, body)
-  }
-
-  private requireResponseIdentity(
-    headers: Readonly<Record<string, string | readonly string[] | undefined>>,
-    expected: WireIdentity,
-  ): void {
-    assertWorkerIdentityHeaders(headers, expected)
-  }
-
-  private recoverableSession(publicSessionId: PublicSessionId): RecoverableSession {
-    return {
-      allocationId: AllocationIdSchema.parse(`allocation-recovered-${publicSessionId}`),
-      publicSessionId,
-      upstreamSessionId: UpstreamSessionIdSchema.parse(publicSessionId),
-    }
-  }
-
 }

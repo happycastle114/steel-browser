@@ -7,18 +7,22 @@
     "node": ">=22 <23"
   },
   "scripts": {
-    "prebuild": "npm run build -w @steel-browser/api",
+    "prebuild": "npm run build -w @happycastle/steel-managed-shared -w @steel-browser/api",
     "build": "tsc --project tsconfig.json",
     "start": "node build/cli.js",
-    "pretest": "npm run build -w @steel-browser/api",
-    "test": "vitest run --no-file-parallelism",
-    "pretest:integration": "npm run build -w @steel-browser/api",
-    "test:integration": "vitest run --no-file-parallelism test/server.integration.test.ts test/runtime.socket.test.ts",
-    "test:unit": "vitest run --no-file-parallelism test/config.test.ts test/shutdown.test.ts",
-    "pretypecheck": "npm run build -w @steel-browser/api",
+    "pretest": "npm run build -w @happycastle/steel-managed-shared -w @steel-browser/api",
+    "test": "env NODE_ENV=development vitest run --no-file-parallelism",
+    "pretest:integration": "npm run build -w @happycastle/steel-managed-shared -w @steel-browser/api",
+    "test:integration": "env NODE_ENV=development vitest run --no-file-parallelism test/server.integration.test.ts test/runtime.socket.test.ts",
+    "test:image-policy": "env NODE_ENV=development vitest run --no-file-parallelism test/image-policy.test.ts test/dockerfile-policy.test.ts test/reproducible-build-policy.test.ts test/browser-readback-gate.test.ts test/runtime-source-policy.test.ts test/runtime-strategy-gate.test.ts test/source-disclosure-policy.test.ts test/private-supervisor-telemetry-policy.test.ts",
+    "verify:browser-readback": "node build/browser-readback-cli.js",
+    "verify:runtime-strategy": "node build/runtime-strategy-cli.js",
+    "test:unit": "env NODE_ENV=development vitest run --no-file-parallelism test/config.test.ts test/shutdown.test.ts",
+    "pretypecheck": "npm run build -w @happycastle/steel-managed-shared -w @steel-browser/api",
     "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.test.json"
   },
   "dependencies": {
+    "@happycastle/steel-managed-shared": "0.0.0",
     "@fastify/cors": "10.1.0",
     "@fastify/sensible": "6.0.3",
     "@steel-browser/api": "0.5.2",
@@ -29,6 +33,6 @@
     "@types/node": "22.14.1",
     "fastify-plugin": "5.0.1",
     "typescript": "5.9.2",
-    "vitest": "3.2.4"
+    "vitest": "3.2.6"
   }
 }

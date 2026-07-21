@@ -32,7 +32,7 @@ describe("WorkerReconciler HTTP integration", () => {
     const reconciler = new WorkerReconciler({ provider, client: adapter, registry })
     const signal = new AbortController().signal
     await reconciler.run(signal)
-    first.reportActiveSessionId("550e8400-e29b-11d4-a716-446655440000")
+    first.reportActiveCreateSessionId("550e8400-e29b-11d4-a716-446655440000")
 
     const endpoint = provider.list().at(0)
     if (endpoint === undefined) throw new TypeError("expected the first configured worker")
