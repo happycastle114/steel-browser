@@ -29,6 +29,16 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Hydrate the pinned DuckDB native binding
         run: npm rebuild duckdb --foreground-scripts
+      - name: Enable Chromium sandbox on the ephemeral runner
+        run: |
+          set -euo pipefail
+          policy=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          test -r "${policy}"
+          original="$(cat "${policy}")"
+          test "${original}" = "0" || test "${original}" = "1"
+          echo "STEEL_CI_APPARMOR_USERNS_ORIGINAL=${original}" >> "${GITHUB_ENV}"
+          echo 0 | sudo tee "${policy}" >/dev/null
+          test "$(cat "${policy}")" = "0"
       - name: Verify managed product and release boundaries
         run: |
           npm run verify:runtime-scope
@@ -36,3 +46,11 @@ jobs:
           npm run test:managed-release
           bash -n managed/manager/image/build-reproducible.sh
           bash -n managed/worker/image/build-reproducible.sh
+      - name: Restore the Ubuntu user-namespace restriction
+        if: always()
+        run: |
+          set -euo pipefail
+          policy=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          test "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}" = "0" || test "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}" = "1"
+          echo "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}" | sudo tee "${policy}" >/dev/null
+          test "$(cat "${policy}")" = "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}"

@@ -80,6 +80,31 @@ test("runs shared guard fixtures without file-level CPU contention", async () =>
   assert.equal(sharedPackage.scripts.test, "vitest run --no-file-parallelism")
 })
 
+test("keeps Chromium sandboxed while adapting ephemeral Ubuntu runners", async () => {
+  for (const workflowPath of workflowPaths) {
+    const bytes = await readFile(new URL(`../../../${workflowPath}`, import.meta.url), "utf8")
+    const workflow = yaml.parse(bytes)
+    const steps = Object.values(workflow.jobs).flatMap((job) => job.steps)
+    const enableIndex = steps.findIndex(
+      ({ name }) => name === "Enable Chromium sandbox on the ephemeral runner",
+    )
+    const verifyIndex = steps.findIndex(({ name }) =>
+      name === "Verify managed product and release boundaries" ||
+      name === "Run managed compatibility gates",
+    )
+    const restoreIndex = steps.findIndex(
+      ({ name }) => name === "Restore the Ubuntu user-namespace restriction",
+    )
+
+    assert.ok(enableIndex >= 0)
+    assert.ok(verifyIndex > enableIndex)
+    assert.ok(restoreIndex > verifyIndex)
+    assert.match(steps[enableIndex].run, /apparmor_restrict_unprivileged_userns/u)
+    assert.match(steps[enableIndex].run, /echo 0 \| sudo tee/u)
+    assert.match(steps[restoreIndex].run, /STEEL_CI_APPARMOR_USERNS_ORIGINAL/u)
+  }
+})
+
 test("hydrates only DuckDB after script-free installs on exact toolchains", async () => {
   for (const workflowPath of workflowPaths) {
     const bytes = await readFile(new URL(`../../../${workflowPath}`, import.meta.url), "utf8")

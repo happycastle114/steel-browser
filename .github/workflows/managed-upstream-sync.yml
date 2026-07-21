@@ -78,6 +78,17 @@ jobs:
       - name: Hydrate the pinned DuckDB native binding
         if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
         run: npm rebuild duckdb --foreground-scripts
+      - name: Enable Chromium sandbox on the ephemeral runner
+        if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
+        run: |
+          set -euo pipefail
+          policy=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          test -r "${policy}"
+          original="$(cat "${policy}")"
+          test "${original}" = "0" || test "${original}" = "1"
+          echo "STEEL_CI_APPARMOR_USERNS_ORIGINAL=${original}" >> "${GITHUB_ENV}"
+          echo 0 | sudo tee "${policy}" >/dev/null
+          test "$(cat "${policy}")" = "0"
       - name: Run managed compatibility gates
         id: verify
         if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
@@ -86,6 +97,14 @@ jobs:
           npm run check:managed
           npm run test:managed-release
           npm run verify:upstream-corpus
+      - name: Restore the Ubuntu user-namespace restriction
+        if: always() && steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
+        run: |
+          set -euo pipefail
+          policy=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          test "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}" = "0" || test "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}" = "1"
+          echo "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}" | sudo tee "${policy}" >/dev/null
+          test "$(cat "${policy}")" = "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}"
       - name: Push the isolated sync branch
         if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
         env:
