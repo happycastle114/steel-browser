@@ -28,6 +28,18 @@ async function git(repositoryRoot, args, options = {}) {
   return result.stdout
 }
 
+async function assertCanonicalMergeTree(repositoryRoot, mergeCommitSha, managedSha, sourceSha) {
+  let canonicalTreeSha
+  try {
+    canonicalTreeSha = (await git(repositoryRoot, ["-c", "merge.renormalize=false", "merge-tree", "--write-tree", "--no-messages", managedSha, sourceSha])).trim()
+  } catch {
+    throw new Error("canonical managed/source merge tree could not be reconstructed")
+  }
+  if (!SHA_PATTERN.test(canonicalTreeSha)) throw new Error("canonical managed/source merge tree is invalid")
+  const mergeTreeSha = (await git(repositoryRoot, ["rev-parse", `${mergeCommitSha}^{tree}`])).trim()
+  if (mergeTreeSha !== canonicalTreeSha) throw new Error("candidate merge tree is not the canonical managed/source merge result")
+}
+
 async function show(repositoryRoot, commitSha, filePath) {
   return git(repositoryRoot, ["show", `${commitSha}:${filePath}`])
 }
@@ -129,6 +141,7 @@ export async function verifyCandidateCommit({ repositoryRoot, commitSha, mergeCo
   if (mergeParents.length !== 3 || mergeParents[0] !== mergeCommitSha || mergeParents[1] !== managedSha || mergeParents[2] !== sourceSha) {
     throw new Error("candidate merge parents are not the exact managed/source pair")
   }
+  await assertCanonicalMergeTree(root, mergeCommitSha, managedSha, sourceSha)
   if ((await git(root, ["rev-parse", `${commitSha}^{tree}`])).trim() !== treeSha) throw new Error("candidate tree digest drift")
   const dirtyEntries = (await git(root, ["status", "--porcelain=v1", "--untracked-files=all"]))
     .split("\n")

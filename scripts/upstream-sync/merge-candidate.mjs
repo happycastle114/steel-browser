@@ -20,7 +20,7 @@ export async function mergeCandidate({ repositoryRoot, managedSha, sourceSha }) 
   const head = await git(repositoryRoot, ["rev-parse", "HEAD"])
   if (head !== managedSha) throw new Error("candidate merge did not start from the exact managed SHA")
   try {
-    await git(repositoryRoot, ["merge", "--no-edit", "--no-ff", sourceSha])
+    await git(repositoryRoot, ["-c", "merge.renormalize=false", "-c", "commit.gpgSign=false", "-c", "core.hooksPath=/dev/null", "merge", "--strategy=ort", "--no-edit", "--no-ff", sourceSha])
   } catch {
     await git(repositoryRoot, ["reset", "--hard", managedSha])
     if (await git(repositoryRoot, ["rev-parse", "HEAD"]) !== managedSha || (await git(repositoryRoot, ["status", "--porcelain=v1", "--untracked-files=all"])) !== "") throw new Error("merge conflict cleanup did not restore the exact managed tree")

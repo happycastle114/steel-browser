@@ -179,6 +179,24 @@ test("publication fixture rejects a candidate whose managed base is stale", asyn
   )
 })
 
+test("publication fixture rejects a forged merge tree with exact managed and source parents", async (t) => {
+  const fixture = await createFixture()
+  t.after(() => rm(fixture.root, { recursive: true, force: true }))
+  await runGit(fixture.root, "switch", "--detach", fixture.mergeSha)
+  await writeFile(path.join(fixture.root, "injected-by-candidate.txt"), "not present in the canonical merge\n")
+  await runGit(fixture.root, "add", "injected-by-candidate.txt")
+  const forgedTree = await runGit(fixture.root, "write-tree")
+  const forgedMergeSha = await runGit(fixture.root, "commit-tree", forgedTree, "-p", fixture.managedSha, "-p", fixture.sourceSha, "-m", "forged merge")
+  await runGit(fixture.root, "switch", "--detach", forgedMergeSha)
+  await runGit(fixture.root, "restore", "--source", fixture.generatedSha, "--", "managed")
+  const forgedGeneratedSha = await commit(fixture.root, "generated corpus on forged merge")
+  const forgedGeneratedTree = await runGit(fixture.root, "rev-parse", `${forgedGeneratedSha}^{tree}`)
+  await assert.rejects(
+    verifyCandidateCommit({ repositoryRoot: fixture.root, commitSha: forgedGeneratedSha, mergeCommitSha: forgedMergeSha, managedSha: fixture.managedSha, sourceSha: fixture.sourceSha, treeSha: forgedGeneratedTree, authoritativeVerifier: async () => {} }),
+    /candidate merge tree is not the canonical managed\/source merge result/,
+  )
+})
+
 test("same-source rerun can independently reverify and reuse an immutable candidate tip", async (t) => {
   const fixture = await createFixture()
   t.after(() => rm(fixture.root, { recursive: true, force: true }))
