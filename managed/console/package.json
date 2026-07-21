@@ -4,10 +4,45 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --noEmit --project tsconfig.json"
+    "build": "tsc --noEmit --project tsconfig.json && vite build",
+    "dev": "vite --host 127.0.0.1",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "test:visual": "npm run test:visual:product && npm run test:visual:showcase",
+    "test:visual:product": "playwright test",
+    "test:visual:showcase": "playwright test --config playwright.showcase.config.ts",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "react-doctor": "react-doctor --json"
+  },
+  "dependencies": {
+    "@happycastle/steel-managed-shared": "0.0.0",
+    "@tanstack/react-query": "5.101.3",
+    "ky": "2.0.2",
+    "lucide-react": "1.25.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.30.4",
+    "zod": "3.25.76"
   },
   "devDependencies": {
-    "typescript": "5.9.2"
+    "@axe-core/playwright": "4.12.1",
+    "@playwright/test": "1.61.1",
+    "@testing-library/jest-dom": "7.0.0",
+    "@testing-library/react": "15.0.7",
+    "@testing-library/user-event": "14.6.1",
+    "@types/node": "22.20.1",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@types/ws": "8.18.1",
+    "@vitejs/plugin-react": "4.7.0",
+    "jsdom": "29.1.1",
+    "react-doctor": "0.8.1",
+    "react-grab": "0.1.48",
+    "react-scan": "0.5.7",
+    "typescript": "5.9.2",
+    "vite": "6.4.3",
+    "vitest": "3.2.4",
+    "ws": "8.21.1"
   }
 }

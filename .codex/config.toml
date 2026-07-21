@@ -1,0 +1,8 @@
+[mcp_servers.steel_managed]
+url = "https://steel.soungmin.tech/mcp"
+enabled = true
+required = false
+startup_timeout_sec = 20
+tool_timeout_sec = 75
+default_tools_approval_mode = "writes"
+env_http_headers = { "CF-Access-Client-Id" = "STEEL_CF_ACCESS_CLIENT_ID", "CF-Access-Client-Secret" = "STEEL_CF_ACCESS_CLIENT_SECRET" }

@@ -1,0 +1,29 @@
+{
+  "name": "@happycastle/steel-managed-operations-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "import": "./build/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "check:browser-bundle": "tsx scripts/check-browser-bundle.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.test.json"
+  },
+  "dependencies": {
+    "@happycastle/steel-managed-shared": "0.0.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "rollup": "4.59.0",
+    "tsx": "^4.19.2",
+    "typescript": "5.9.2",
+    "vite": "6.4.2",
+    "vitest": "3.2.4"
+  }
+}

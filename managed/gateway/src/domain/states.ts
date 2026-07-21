@@ -91,3 +91,10 @@ export const WorkerMutation = {
   RELEASE: "RELEASE",
 } as const
 export type WorkerMutation = (typeof WorkerMutation)[keyof typeof WorkerMutation]
+
+export const ActionJobOutcomeKind = {
+  COMPLETED: "COMPLETED",
+  FAILED: "FAILED",
+} as const
+export type ActionJobOutcomeKind =
+  (typeof ActionJobOutcomeKind)[keyof typeof ActionJobOutcomeKind]

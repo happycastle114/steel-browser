@@ -1,0 +1,213 @@
+.action-button {
+  align-items: center;
+  background: var(--surface-primary);
+  border: var(--stroke-hairline) solid var(--border-default);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: var(--type-label);
+  font-weight: 550;
+  gap: var(--space-2);
+  justify-content: center;
+  min-block-size: var(--control-min-size);
+  padding: var(--space-2) var(--space-4);
+  transition: background-color var(--motion-micro) ease-out, border-color var(--motion-micro) ease-out, opacity var(--motion-micro) ease-out, transform var(--motion-micro) ease-out;
+}
+
+.action-button svg {
+  block-size: 1rem;
+  inline-size: 1rem;
+  stroke-width: 1.75;
+}
+
+.action-button:hover:not(:disabled) {
+  background: var(--surface-secondary);
+  border-color: var(--accent-500);
+}
+
+.action-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.action-button:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.action-button--primary {
+  background: var(--accent-600);
+  border-color: var(--accent-600);
+  color: var(--surface-primary);
+}
+
+.action-button--primary:hover:not(:disabled) {
+  background: var(--accent-700);
+  border-color: var(--accent-700);
+}
+
+.action-button--quiet {
+  background: transparent;
+  border-color: transparent;
+}
+
+.action-button--destructive {
+  border-color: var(--status-error);
+  color: var(--status-error);
+}
+
+.action-button__spinner,
+.state-label .lucide-loader-circle {
+  animation: spin var(--motion-reconcile) linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.state-label {
+  align-items: center;
+  display: inline-flex;
+  font-size: var(--type-caption);
+  font-weight: 600;
+  gap: var(--space-1);
+  min-inline-size: max-content;
+}
+
+.state-label__icon {
+  block-size: 0.75rem;
+  inline-size: 0.75rem;
+  stroke-width: 2.25;
+}
+
+.state-label--success {
+  color: var(--status-success);
+}
+
+.state-label--warning {
+  color: var(--status-warning);
+}
+
+.state-label--error {
+  color: var(--status-error);
+}
+
+.state-label--info {
+  color: var(--status-info);
+}
+
+.state-label--neutral {
+  color: var(--text-secondary);
+}
+
+.inline-notice {
+  align-items: flex-start;
+  background: var(--surface-primary);
+  border: var(--stroke-hairline) solid var(--border-default);
+  border-inline-start-width: var(--space-1);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: var(--space-3) var(--space-4);
+}
+
+.inline-notice > svg {
+  block-size: 1.125rem;
+  inline-size: 1.125rem;
+  margin-block-start: var(--space-1);
+}
+
+.inline-notice__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.inline-notice__copy strong {
+  font-size: var(--type-label);
+}
+
+.inline-notice__copy span {
+  color: var(--text-secondary);
+  font-size: var(--type-caption);
+  overflow-wrap: anywhere;
+}
+
+.inline-notice--error {
+  border-inline-start-color: var(--status-error);
+  color: var(--status-error);
+}
+
+.inline-notice--warning {
+  border-inline-start-color: var(--status-warning);
+  color: var(--status-warning);
+}
+
+.inline-notice--info {
+  border-inline-start-color: var(--status-info);
+  color: var(--status-info);
+}
+
+.inline-notice--success {
+  border-inline-start-color: var(--status-success);
+  color: var(--status-success);
+}
+
+.empty-state {
+  align-items: center;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  justify-content: center;
+  min-block-size: 12rem;
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+}
+
+.empty-state__icon {
+  block-size: 2rem;
+  color: var(--text-tertiary);
+  inline-size: 2rem;
+  stroke-width: 1.5;
+}
+
+.empty-state__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.empty-state__copy h2 {
+  color: var(--text-primary);
+  font-size: var(--type-component);
+}
+
+.skeleton {
+  background: var(--surface-secondary);
+  border-radius: var(--radius-panel);
+  min-block-size: var(--space-4);
+  opacity: 0.72;
+}
+
+.skeleton--line {
+  inline-size: min(100%, 28rem);
+}
+
+.skeleton--short {
+  inline-size: min(60%, 14rem);
+}
+
+@media (max-width: 47.999rem) {
+  .inline-notice {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .inline-notice > .action-button {
+    grid-column: 1 / -1;
+    inline-size: 100%;
+  }
+}

@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest"
 import {
+  MANAGED_CREATE_HEADER,
+  ManagedCreateHeaderValuesSchema,
+} from "@happycastle/steel-managed-shared"
+import {
   AdmissionQueue,
   EventLedger,
   LifecycleCreateKind,
@@ -23,6 +27,39 @@ afterEach(async () => {
 })
 
 describe("SessionLifecycleCoordinator integration", () => {
+  it("retains managed create context across lifecycle dispatch", async () => {
+    const first = new LocalWorkerFake({ workerSequence: 0, instanceSequence: 1 })
+    const second = new LocalWorkerFake({ workerSequence: 1, instanceSequence: 1 })
+    openWorkers.push(first, second)
+    const provider = await localWorkerProvider(first, second)
+    const clock = new FakeClock()
+    const ids = new SequentialIdGenerator()
+    const registry = new WorkerRegistry({ clock, ledger: new EventLedger({ clock }) })
+    const admissions = new AdmissionQueue<PendingSessionCreate>({
+      capacity: 2,
+      clock,
+      ids,
+      ticketTtlMilliseconds: 120_000,
+    })
+    const adapter = new WorkerHttpAdapter({ timeoutMilliseconds: 1_000, maxResponseBytes: 8_192 })
+    await new WorkerReconciler({ provider, client: adapter, registry }).run(
+      new AbortController().signal,
+    )
+    const coordinator = new SessionLifecycleCoordinator({ registry, admissions, client: adapter, ids })
+    const managedCreate = ManagedCreateHeaderValuesSchema.parse({
+      [MANAGED_CREATE_HEADER.MANAGER_INSTANCE_ID]: "00000000-0000-4000-8000-000000000301",
+      [MANAGED_CREATE_HEADER.OWNER_SHA256]: "a".repeat(64),
+      [MANAGED_CREATE_HEADER.POOL_ID]: "test-pool",
+      [MANAGED_CREATE_HEADER.REQUEST_SHA256]: "b".repeat(64),
+      [MANAGED_CREATE_HEADER.TOKEN]: `h1_${"c".repeat(64)}`,
+    })
+
+    await coordinator.create(new AbortController().signal, async () => managedCreate)
+
+    expect(first.managedCreateHeaders).toEqual(managedCreate)
+    await adapter.close()
+  })
+
   it("runs two isolated sessions, queues a third, and hands capacity off after reconciled release", async () => {
     // Given
     const first = new LocalWorkerFake({ workerSequence: 0, instanceSequence: 1 })

@@ -7,24 +7,22 @@ import {
 } from "./upstream-corpus-primitives.js"
 import {
   CorpusManifestSchema,
-  CREATE_JOURNAL_BINDING,
-  HTTP_METHOD,
   PROTOCOL_KIND,
   RestCorpusEntrySchema,
   RouteMatrixSchema,
-  SESSION_ID_MODE,
   SessionIdVerdictSchema,
-  WEBSOCKET_MESSAGE_BY_UPGRADE,
   WebSocketCorpusEntrySchema,
-  type RestCorpusEntry, type RouteMatrix, type SessionIdVerdict, type WebSocketCorpusEntry,
 } from "./upstream-corpus-model.js"
 import { verifyObservedReceipt } from "./upstream-observed-receipt.js"
 import {
-  discoverPinnedRuntimeRoutes,
-  PINNED_ROUTE_SOURCE_PATHS,
-  routeKey,
-  type DiscoveredRoute,
-} from "./upstream-route-source.js"
+  matrixRouteKey,
+  requireEqual,
+  requireUnique,
+  verifyRestEntries,
+  verifySessionIdVerdict,
+  verifySourceInventory,
+  verifyWebSocketEntries,
+} from "./upstream-corpus-verification-rules.js"
 
 export type CorpusSource = { readonly path: string; readonly text: string }
 
@@ -49,126 +47,6 @@ export type CorpusVerification = {
 }
 
 export { CorpusVerificationError, sha256 } from "./upstream-corpus-primitives.js"
-
-function requireEqual(actual: unknown, expected: unknown, detail: string): void {
-  if (actual !== expected) {
-    throw new CorpusVerificationError(detail)
-  }
-}
-
-function requireUnique(values: readonly string[], detail: string): void {
-  if (new Set(values).size !== values.length) {
-    throw new CorpusVerificationError(detail)
-  }
-}
-
-function assertNever(value: never): never {
-  throw new CorpusVerificationError(`unhandled session ID mode: ${JSON.stringify(value)}`)
-}
-
-function verifySessionIdVerdict(verdict: SessionIdVerdict): void {
-  switch (verdict.mode) {
-    case SESSION_ID_MODE.CLIENT_SUPPLIED:
-      requireEqual(verdict.createReturnedCallerId, true, "caller session ID was not retained")
-      requireEqual(verdict.createJournalBinding, CREATE_JOURNAL_BINDING.CLIENT_ID_DIRECT, "client ID journal binding drift")
-      break
-    case SESSION_ID_MODE.UPSTREAM_RETURNED:
-      requireEqual(verdict.createReturnedCallerId, false, "returned-ID mode retained caller ID")
-      requireEqual(
-        verdict.createJournalBinding,
-        CREATE_JOURNAL_BINDING.CREATE_TOKEN_TO_UPSTREAM_RETURNED_ID,
-        "returned ID journal binding drift",
-      )
-      break
-    default:
-      return assertNever(verdict.mode)
-  }
-  requireEqual(
-    verdict.freshConnectionListRecoveredActiveId,
-    true,
-    "active ID was not recovered by list after disconnect",
-  )
-  requireEqual(
-    verdict.freshConnectionGetRecoveredActiveId,
-    true,
-    "active ID was not recovered by get after disconnect",
-  )
-  requireEqual(verdict.releaseReturnedActiveId, true, "release returned a different active ID")
-}
-
-type MatrixRoute = RouteMatrix["routes"][number]
-
-function matrixRouteKey(route: MatrixRoute): string {
-  const method: DiscoveredRoute["method"] =
-    route.protocol === PROTOCOL_KIND.REST ? route.method : "UPGRADE"
-  return routeKey({ protocol: route.protocol, method, path: route.path, source: route.source })
-}
-
-function verifySourceInventory(bundle: CorpusBundle, matrixRoutes: readonly string[]): string {
-  const sortText = (left: string, right: string) => left.localeCompare(right)
-  const expectedPaths = [...PINNED_ROUTE_SOURCE_PATHS].sort(sortText)
-  const actualPaths = bundle.sources.map((source) => source.path).sort(sortText)
-  requireEqual(JSON.stringify(actualPaths), JSON.stringify(expectedPaths), "pinned source set drift")
-
-  const discovered = discoverPinnedRuntimeRoutes(bundle.sources)
-  const discoveredKeys = discovered.map(routeKey)
-  requireEqual(
-    JSON.stringify([...matrixRoutes].sort(sortText)),
-    JSON.stringify(discoveredKeys),
-    "route matrix does not cover the pinned runtime source",
-  )
-  return sha256(`${discoveredKeys.join("\n")}\n`)
-}
-
-function verifyRestEntries(
-  entries: readonly RestCorpusEntry[],
-  routeById: ReadonlyMap<string, MatrixRoute>,
-): void {
-  for (const entry of entries) {
-    const route = routeById.get(entry.routeId)
-    if (route === undefined || route.protocol !== PROTOCOL_KIND.REST) {
-      throw new CorpusVerificationError(`unknown REST route reference: ${entry.routeId}`)
-    }
-    if (route.method !== HTTP_METHOD.ALL && entry.request.method !== route.method) {
-      throw new CorpusVerificationError(`REST method drift: ${entry.routeId}`)
-    }
-    requireEqual(entry.request.path, route.path, `REST path drift: ${entry.routeId}`)
-    if (!route.expected.statuses.includes(entry.response.status)) {
-      throw new CorpusVerificationError(`REST status drift: ${entry.routeId}`)
-    }
-    if (!route.expected.contentTypes.includes(entry.response.contentType)) {
-      throw new CorpusVerificationError(`REST content type drift: ${entry.routeId}`)
-    }
-    for (const header of route.expected.headers) {
-      if (entry.response.headers[header] === undefined) {
-        throw new CorpusVerificationError(`REST header drift: ${entry.routeId}:${header}`)
-      }
-    }
-    requireEqual(
-      JSON.stringify(Object.keys(entry.response.urlFields).sort()),
-      JSON.stringify([...route.expected.urlFields].sort()),
-      `REST URL fields drift: ${entry.routeId}`,
-    )
-  }
-}
-
-function verifyWebSocketEntries(
-  entries: readonly WebSocketCorpusEntry[],
-  routeById: ReadonlyMap<string, MatrixRoute>,
-): void {
-  for (const entry of entries) {
-    const route = routeById.get(entry.routeId)
-    if (route === undefined || route.protocol !== PROTOCOL_KIND.WEBSOCKET) {
-      throw new CorpusVerificationError(`unknown WebSocket route reference: ${entry.routeId}`)
-    }
-    if (route.expectedCloseCodes?.includes(entry.closeCode) !== true) {
-      throw new CorpusVerificationError(`unexpected WebSocket close code: ${entry.routeId}`)
-    }
-    requireEqual(entry.requestPath, route.path, `WebSocket path drift: ${entry.routeId}`)
-    const expectedMessageKind = WEBSOCKET_MESSAGE_BY_UPGRADE[route.upgradeClass]
-    requireEqual(entry.messageKind, expectedMessageKind, `WebSocket message drift: ${entry.routeId}`)
-  }
-}
 
 export function verifyCorpusBundle(bundle: CorpusBundle): CorpusVerification {
   const lock = parseUpstreamLock(parseJson(bundle.lockText, "managed/upstream.lock.json"))
@@ -196,7 +74,7 @@ export function verifyCorpusBundle(bundle: CorpusBundle): CorpusVerification {
   requireUnique(routeIds, "duplicate route ID")
   const matrixKeys = matrix.routes.map(matrixRouteKey)
   requireUnique(matrixKeys, "duplicate route registration")
-  const sourceInventorySha256 = verifySourceInventory(bundle, matrixKeys)
+  const sourceInventorySha256 = verifySourceInventory(bundle.sources, matrixKeys)
   requireEqual(manifest.sourceInventorySha256, sourceInventorySha256, "source inventory digest drift")
 
   const routeById = new Map(matrix.routes.map((route) => [route.id, route]))

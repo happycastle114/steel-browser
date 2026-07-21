@@ -3,8 +3,6 @@ import {
   AdmissionBackpressureError,
   AdmissionConfigurationError,
   AdmissionConfigurationField,
-  AdmissionTicketNotFoundError,
-  AdmissionTransitionError,
 } from "../domain/errors.js"
 import { assertNever } from "../domain/exhaustive.js"
 import type { AdmissionTicketId, AllocationId } from "../domain/ids.js"
@@ -15,14 +13,12 @@ import type {
   AdmissionTicket,
   MutableAdmissionRecord,
 } from "./admission-model.js"
+import { AdmissionRecordStore } from "./admission-record-store.js"
 
 export class AdmissionQueue<T> {
-  /** Queue and records are mutable because this class owns FIFO admission state. */
   private queuedIds: AdmissionTicketId[] = []
-  private readonly records = new Map<AdmissionTicketId, MutableAdmissionRecord<T>>()
-  private readonly terminalIds: AdmissionTicketId[] = []
+  private readonly records: AdmissionRecordStore<T>
   private readonly options: AdmissionQueueOptions
-  private readonly terminalCapacity: number
 
   public constructor(options: AdmissionQueueOptions) {
     if (!isPositiveInteger(options.capacity)) {
@@ -35,13 +31,14 @@ export class AdmissionQueue<T> {
       )
     }
     this.options = options
-    this.terminalCapacity = options.retainedTerminalCapacity ?? options.capacity
-    if (!isPositiveInteger(this.terminalCapacity)) {
+    const terminalCapacity = options.retainedTerminalCapacity ?? options.capacity
+    if (!isPositiveInteger(terminalCapacity)) {
       throw new AdmissionConfigurationError(
         AdmissionConfigurationField.RETAINED_TERMINAL_CAPACITY,
-        this.terminalCapacity,
+        terminalCapacity,
       )
     }
+    this.records = new AdmissionRecordStore(options.clock, terminalCapacity)
   }
 
   public enqueue(payload: T, signal?: AbortSignal): AdmissionTicket<T> {
@@ -67,7 +64,7 @@ export class AdmissionQueue<T> {
       record.abortSignal = signal
       record.abortListener = abortListener
     }
-    this.records.set(ticket.id, record)
+    this.records.add(record)
     this.queuedIds.push(ticket.id)
     return ticket
   }
@@ -76,7 +73,7 @@ export class AdmissionQueue<T> {
     this.expireDue()
     const ticketId = this.queuedIds.shift()
     if (ticketId === undefined) return undefined
-    const record = this.requireRecord(ticketId)
+    const record = this.records.require(ticketId)
     if (record.ticket.state !== AdmissionState.QUEUED) return this.reserveNext(allocationId)
     const reserved = { ...record.ticket, state: AdmissionState.RESERVED, allocationId } as const
     record.ticket = reserved
@@ -84,13 +81,13 @@ export class AdmissionQueue<T> {
   }
 
   public cancel(ticketId: AdmissionTicketId): AdmissionSettlement<T> {
-    const record = this.requireRecord(ticketId)
+    const record = this.records.require(ticketId)
     switch (record.ticket.state) {
       case AdmissionState.QUEUED:
         this.queuedIds = this.queuedIds.filter((queuedId) => queuedId !== ticketId)
-        return this.settleQueued(record, AdmissionState.CANCELLED)
+        return this.records.settleQueued(record, AdmissionState.CANCELLED)
       case AdmissionState.RESERVED:
-        return this.settleReserved(record, AdmissionState.CANCELLED)
+        return this.records.settleReserved(record, AdmissionState.CANCELLED)
       case AdmissionState.CANCELLED:
       case AdmissionState.EXPIRED:
       case AdmissionState.COMPLETED:
@@ -102,9 +99,9 @@ export class AdmissionQueue<T> {
   }
 
   public complete(ticketId: AdmissionTicketId): AdmissionSettlement<T> {
-    const record = this.requireRecord(ticketId)
+    const record = this.records.require(ticketId)
     if (record.ticket.state !== AdmissionState.RESERVED) return { ticket: record.ticket }
-    return this.settleReserved(record, AdmissionState.COMPLETED)
+    return this.records.settleReserved(record, AdmissionState.COMPLETED)
   }
 
   public expireDue(): readonly AdmissionSettlement<T>[] {
@@ -119,8 +116,8 @@ export class AdmissionQueue<T> {
         this.queuedIds = this.queuedIds.filter((ticketId) => ticketId !== record.ticket.id)
         settlements.push(
           record.ticket.state === AdmissionState.QUEUED
-            ? this.settleQueued(record, AdmissionState.EXPIRED)
-            : this.settleReserved(record, AdmissionState.EXPIRED),
+            ? this.records.settleQueued(record, AdmissionState.EXPIRED)
+            : this.records.settleReserved(record, AdmissionState.EXPIRED),
         )
       }
     }
@@ -136,8 +133,8 @@ export class AdmissionQueue<T> {
       ) {
         settlements.push(
           record.ticket.state === AdmissionState.QUEUED
-            ? this.settleQueued(record, AdmissionState.SHUTDOWN)
-            : this.settleReserved(record, AdmissionState.SHUTDOWN),
+            ? this.records.settleQueued(record, AdmissionState.SHUTDOWN)
+            : this.records.settleReserved(record, AdmissionState.SHUTDOWN),
         )
       }
     }
@@ -146,7 +143,7 @@ export class AdmissionQueue<T> {
   }
 
   public get(ticketId: AdmissionTicketId): AdmissionTicket<T> | undefined {
-    return this.records.get(ticketId)?.ticket
+    return this.records.ticket(ticketId)
   }
 
   public activeCount(): number {
@@ -157,68 +154,7 @@ export class AdmissionQueue<T> {
   }
 
   public terminalCount(): number {
-    return this.terminalIds.length
-  }
-
-  private settleQueued(
-    record: MutableAdmissionRecord<T>,
-    state:
-      | typeof AdmissionState.CANCELLED
-      | typeof AdmissionState.EXPIRED
-      | typeof AdmissionState.SHUTDOWN,
-  ): AdmissionSettlement<T> {
-    const previous = record.ticket
-    if (previous.state !== AdmissionState.QUEUED) {
-      throw new AdmissionTransitionError(previous.id)
-    }
-    const terminalAt = this.options.clock.now()
-    const terminal = { ...previous, state, terminalAt }
-    record.ticket = terminal
-    this.detachAbort(record)
-    this.terminalIds.push(record.ticket.id)
-    this.evictTerminalOverflow()
-    return { ticket: record.ticket }
-  }
-
-  private settleReserved(
-    record: MutableAdmissionRecord<T>,
-    state:
-      | typeof AdmissionState.CANCELLED
-      | typeof AdmissionState.EXPIRED
-      | typeof AdmissionState.COMPLETED
-      | typeof AdmissionState.SHUTDOWN,
-  ): AdmissionSettlement<T> {
-    const previous = record.ticket
-    if (previous.state !== AdmissionState.RESERVED) {
-      throw new AdmissionTransitionError(previous.id)
-    }
-    const terminal = { ...previous, state, terminalAt: this.options.clock.now() }
-    record.ticket = terminal
-    this.detachAbort(record)
-    this.terminalIds.push(record.ticket.id)
-    this.evictTerminalOverflow()
-    return { ticket: record.ticket, releasedAllocationId: previous.allocationId }
-  }
-
-  private detachAbort(record: MutableAdmissionRecord<T>): void {
-    if (record.abortSignal !== undefined && record.abortListener !== undefined) {
-      record.abortSignal.removeEventListener("abort", record.abortListener)
-      delete record.abortSignal
-      delete record.abortListener
-    }
-  }
-
-  private evictTerminalOverflow(): void {
-    while (this.terminalIds.length > this.terminalCapacity) {
-      const evicted = this.terminalIds.shift()
-      if (evicted !== undefined) this.records.delete(evicted)
-    }
-  }
-
-  private requireRecord(ticketId: AdmissionTicketId): MutableAdmissionRecord<T> {
-    const record = this.records.get(ticketId)
-    if (record === undefined) throw new AdmissionTicketNotFoundError(ticketId)
-    return record
+    return this.records.terminalCount()
   }
 }
 

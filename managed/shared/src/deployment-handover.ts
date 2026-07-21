@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-import { withDeepReadonlyOutput, type DeepReadonly } from "./deep-readonly.js"
+import { withDeepFrozenOutput, type DeepReadonly } from "./deep-readonly.js"
 import {
   MANAGED_ACTIVE_LISTENER_INVENTORY,
   STOPPED_MANAGED_LISTENER_INVENTORY,
@@ -42,7 +42,7 @@ const HandoverProjectRuntimeProofBaseSchema = z.discriminatedUnion("projectRunni
   RunningProjectRuntimeProofSchema,
   StoppedProjectRuntimeProofSchema,
 ])
-export const HandoverProjectRuntimeProofSchema = withDeepReadonlyOutput(
+export const HandoverProjectRuntimeProofSchema = withDeepFrozenOutput(
   HandoverProjectRuntimeProofBaseSchema,
 )
 
@@ -181,6 +181,6 @@ const HandoverTransitionBaseSchema = z
       context.addIssue({ code: z.ZodIssueCode.custom, message: "cutover capacity must be verified" })
     }
   })
-export const HandoverTransitionSchema = withDeepReadonlyOutput(HandoverTransitionBaseSchema)
+export const HandoverTransitionSchema = withDeepFrozenOutput(HandoverTransitionBaseSchema)
 
 export type HandoverTransition = z.infer<typeof HandoverTransitionSchema>

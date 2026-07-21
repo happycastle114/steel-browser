@@ -1,0 +1,5552 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Steel Managed Operations API",
+    "version": "2026-07-01",
+    "license": {
+      "name": "Apache-2.0"
+    }
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/v1/managed/pool": {
+      "get": {
+        "operationId": "getManagedPool",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pool"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/managed/workers": {
+      "get": {
+        "operationId": "listManagedWorkers",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 2
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "DISCOVERED",
+                  "REACHABLE",
+                  "IDLE",
+                  "RESERVED",
+                  "STARTING",
+                  "LIVE",
+                  "RELEASING",
+                  "UNREACHABLE",
+                  "QUARANTINED",
+                  "DRAINING"
+                ]
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed error (400)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "INVALID_ARGUMENT",
+                                "INVALID_CURSOR"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Managed error (403)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_FORBIDDEN"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Managed error (409)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "LIST_CURSOR_RESTARTED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Managed error (410)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "LIST_CURSOR_EXPIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Managed error (503)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "MANAGED_SNAPSHOT_CAPACITY"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/managed/sessions": {
+      "get": {
+        "operationId": "listManagedSessions",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 2
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "QUEUED",
+                  "STARTING",
+                  "LIVE",
+                  "RELEASING",
+                  "RELEASED",
+                  "FAILED",
+                  "LOST"
+                ]
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed error (400)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "INVALID_ARGUMENT",
+                                "INVALID_CURSOR"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Managed error (409)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "LIST_CURSOR_RESTARTED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Managed error (410)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "LIST_CURSOR_EXPIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Managed error (503)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "MANAGED_SNAPSHOT_CAPACITY"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/managed/sessions/{id}": {
+      "get": {
+        "operationId": "getManagedSession",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed error (400)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "INVALID_ARGUMENT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Managed error (404)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "SESSION_NOT_FOUND"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/managed/queue": {
+      "get": {
+        "operationId": "listManagedQueue",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 2
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "QUEUED",
+                  "RESERVED",
+                  "STARTING",
+                  "ADMITTED",
+                  "CANCELLED",
+                  "EXPIRED",
+                  "FAILED"
+                ]
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed error (400)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "INVALID_ARGUMENT",
+                                "INVALID_CURSOR"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Managed error (403)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_FORBIDDEN"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Managed error (409)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "LIST_CURSOR_RESTARTED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Managed error (410)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "LIST_CURSOR_EXPIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Managed error (503)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "MANAGED_SNAPSHOT_CAPACITY"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/managed/events": {
+      "get": {
+        "operationId": "listManagedEvents",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 2
+            }
+          },
+          {
+            "in": "query",
+            "name": "snapshotCursor",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 2
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed error (400)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "INVALID_ARGUMENT",
+                                "INVALID_CURSOR"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Managed error (403)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_FORBIDDEN"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Managed error (409)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "EVENT_CURSOR_RESTARTED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Managed error (410)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "EVENT_CURSOR_EXPIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/managed/admissions/{id}": {
+      "get": {
+        "operationId": "getManagedAdmission",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Admission"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed error (400)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "INVALID_ARGUMENT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Managed error (404)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ADMISSION_NOT_FOUND"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/managed/version": {
+      "get": {
+        "operationId": "getManagedVersion",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Version"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/managed/admissions": {
+      "post": {
+        "operationId": "createManagedAdmission",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagedAdmissionCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Admission"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed error (400)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "INVALID_ARGUMENT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Managed error (409)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "CREATE_TOKEN_CONFLICT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Managed error (429)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ADMISSION_TIMEOUT",
+                                "QUEUE_FULL",
+                                "RATE_LIMITED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Managed error (503)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "NO_REACHABLE_WORKER",
+                                "MANAGER_DRAINING",
+                                "MANAGED_LIMITER_CAPACITY",
+                                "MANAGED_TICKET_CAPACITY",
+                                "MANAGED_IDEMPOTENCY_CAPACITY"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Managed error (504)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_TIMEOUT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/managed/admissions/{id}/cancel": {
+      "post": {
+        "operationId": "cancelManagedAdmission",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyManagedMutationBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Admission"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed error (400)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "INVALID_ARGUMENT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Managed error (404)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ADMISSION_NOT_FOUND"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Managed error (409)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "SESSION_STATE_CONFLICT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Managed error (504)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_TIMEOUT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/managed/sessions/{id}/release": {
+      "post": {
+        "operationId": "releaseManagedSession",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyManagedMutationBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed error (400)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "INVALID_ARGUMENT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Managed error (404)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "SESSION_NOT_FOUND"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Managed error (409)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "SESSION_STATE_CONFLICT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Managed error (504)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_TIMEOUT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/managed/pool/drain": {
+      "post": {
+        "operationId": "drainManagedPool",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoolDrainRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pool"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed error (400)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "INVALID_ARGUMENT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Managed error (403)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_FORBIDDEN"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Managed error (409)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "SESSION_STATE_CONFLICT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Managed error (503)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "MANAGED_IDEMPOTENCY_CAPACITY"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/managed/pool/resume": {
+      "post": {
+        "operationId": "resumeManagedPool",
+        "tags": [
+          "Managed operations"
+        ],
+        "security": [
+          {
+            "cloudflareAccess": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoolResumeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful managed operation",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pool"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Managed error (400)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "INVALID_ARGUMENT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Managed error (401)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_AUTH_REQUIRED"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Managed error (403)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "ACCESS_FORBIDDEN"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Managed error (409)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "SESSION_STATE_CONFLICT"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Managed error (502)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "UPSTREAM_BAD_RESPONSE"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Managed error (503)",
+            "headers": {
+              "X-Managed-Api-Version": {
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "2026-07-01"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ManagedErrorEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "MANAGED_IDEMPOTENCY_CAPACITY"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cloudflareAccess": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Cf-Access-Jwt-Assertion"
+      }
+    },
+    "schemas": {
+      "Admission": {
+        "type": "object",
+        "properties": {
+          "admissionId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RESERVED",
+              "STARTING",
+              "ADMITTED",
+              "CANCELLED",
+              "EXPIRED",
+              "FAILED"
+            ]
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "sessionId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "failureCode": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+          }
+        },
+        "required": [
+          "admissionId",
+          "state",
+          "createdAt",
+          "expiresAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ManagedAdmissionCreateRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "SESSION_CREATE"
+            ]
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "operation"
+        ],
+        "additionalProperties": false
+      },
+      "AdmissionList": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "admissionId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "QUEUED",
+                    "RESERVED",
+                    "STARTING",
+                    "ADMITTED",
+                    "CANCELLED",
+                    "EXPIRED",
+                    "FAILED"
+                  ]
+                },
+                "position": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "sessionId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "expiresAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "failureCode": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                }
+              },
+              "required": [
+                "admissionId",
+                "state",
+                "createdAt",
+                "expiresAt",
+                "updatedAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "page": {
+            "type": "object",
+            "properties": {
+              "pageSize": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "nextCursor": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]+$",
+                "minLength": 2
+              },
+              "snapshotCursor": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]+$",
+                "minLength": 2
+              },
+              "hasMore": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "pageSize",
+              "snapshotCursor",
+              "hasMore"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "apiVersion",
+          "items",
+          "page"
+        ],
+        "additionalProperties": false
+      },
+      "EmptyManagedMutationBody": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "EventList": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string",
+                      "enum": [
+                        "2026-07-01"
+                      ]
+                    },
+                    "eventId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "bootId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "sequence": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,19}$"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "WORKER_STATE_CHANGED"
+                      ]
+                    },
+                    "workerId": {
+                      "type": "string",
+                      "pattern": "^worker-(?:0[0-9]|[12][0-9]|3[01])$"
+                    },
+                    "instanceId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string",
+                          "enum": [
+                            "DISCOVERED",
+                            "REACHABLE",
+                            "IDLE",
+                            "RESERVED",
+                            "STARTING",
+                            "LIVE",
+                            "RELEASING",
+                            "UNREACHABLE",
+                            "QUARANTINED",
+                            "DRAINING"
+                          ]
+                        },
+                        "to": {
+                          "type": "string",
+                          "enum": [
+                            "DISCOVERED",
+                            "REACHABLE",
+                            "IDLE",
+                            "RESERVED",
+                            "STARTING",
+                            "LIVE",
+                            "RELEASING",
+                            "UNREACHABLE",
+                            "QUARANTINED",
+                            "DRAINING"
+                          ]
+                        },
+                        "reasonCode": {
+                          "type": "string",
+                          "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "apiVersion",
+                    "eventId",
+                    "bootId",
+                    "sequence",
+                    "occurredAt",
+                    "type",
+                    "workerId",
+                    "instanceId",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string",
+                      "enum": [
+                        "2026-07-01"
+                      ]
+                    },
+                    "eventId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "bootId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "sequence": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,19}$"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "SESSION_STATE_CHANGED"
+                      ]
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string",
+                          "enum": [
+                            "QUEUED",
+                            "STARTING",
+                            "LIVE",
+                            "RELEASING",
+                            "RELEASED",
+                            "FAILED",
+                            "LOST"
+                          ]
+                        },
+                        "to": {
+                          "type": "string",
+                          "enum": [
+                            "QUEUED",
+                            "STARTING",
+                            "LIVE",
+                            "RELEASING",
+                            "RELEASED",
+                            "FAILED",
+                            "LOST"
+                          ]
+                        },
+                        "reasonCode": {
+                          "type": "string",
+                          "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "apiVersion",
+                    "eventId",
+                    "bootId",
+                    "sequence",
+                    "occurredAt",
+                    "type",
+                    "sessionId",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string",
+                      "enum": [
+                        "2026-07-01"
+                      ]
+                    },
+                    "eventId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "bootId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "sequence": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,19}$"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "ADMISSION_STATE_CHANGED"
+                      ]
+                    },
+                    "admissionId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string",
+                          "enum": [
+                            "QUEUED",
+                            "RESERVED",
+                            "STARTING",
+                            "ADMITTED",
+                            "CANCELLED",
+                            "EXPIRED",
+                            "FAILED"
+                          ]
+                        },
+                        "to": {
+                          "type": "string",
+                          "enum": [
+                            "QUEUED",
+                            "RESERVED",
+                            "STARTING",
+                            "ADMITTED",
+                            "CANCELLED",
+                            "EXPIRED",
+                            "FAILED"
+                          ]
+                        },
+                        "reasonCode": {
+                          "type": "string",
+                          "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "apiVersion",
+                    "eventId",
+                    "bootId",
+                    "sequence",
+                    "occurredAt",
+                    "type",
+                    "admissionId",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string",
+                      "enum": [
+                        "2026-07-01"
+                      ]
+                    },
+                    "eventId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "bootId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "sequence": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,19}$"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "CREATE_RECOVERY"
+                      ]
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "journalState": {
+                          "type": "string",
+                          "enum": [
+                            "ACCEPTED",
+                            "UPSTREAM_PENDING",
+                            "LIVE",
+                            "UNCERTAIN",
+                            "RELEASED_TERMINAL",
+                            "FAILED_TERMINAL"
+                          ]
+                        },
+                        "outcome": {
+                          "type": "string",
+                          "enum": [
+                            "RECOVERED",
+                            "QUARANTINED"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "journalState",
+                        "outcome"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "apiVersion",
+                    "eventId",
+                    "bootId",
+                    "sequence",
+                    "occurredAt",
+                    "type",
+                    "sessionId",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string",
+                      "enum": [
+                        "2026-07-01"
+                      ]
+                    },
+                    "eventId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "bootId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "sequence": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,19}$"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "INSTANCE_LOST"
+                      ]
+                    },
+                    "workerId": {
+                      "type": "string",
+                      "pattern": "^worker-(?:0[0-9]|[12][0-9]|3[01])$"
+                    },
+                    "instanceId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "reasonCode": {
+                          "type": "string",
+                          "enum": [
+                            "INSTANCE_CHANGED",
+                            "WORKER_RESTARTED"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "reasonCode"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "apiVersion",
+                    "eventId",
+                    "bootId",
+                    "sequence",
+                    "occurredAt",
+                    "type",
+                    "workerId",
+                    "instanceId",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string",
+                      "enum": [
+                        "2026-07-01"
+                      ]
+                    },
+                    "eventId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "bootId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "sequence": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,19}$"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "MANAGER_MODE_CHANGED"
+                      ]
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "transition": {
+                          "type": "string",
+                          "enum": [
+                            "DRAIN"
+                          ]
+                        },
+                        "from": {
+                          "type": "string",
+                          "enum": [
+                            "SERVING"
+                          ]
+                        },
+                        "to": {
+                          "type": "string",
+                          "enum": [
+                            "DRAINING"
+                          ]
+                        },
+                        "cause": {
+                          "type": "string",
+                          "enum": [
+                            "CUTOVER",
+                            "ROLLBACK",
+                            "REPROMOTION",
+                            "SHUTDOWN",
+                            "RECOVERY"
+                          ]
+                        },
+                        "deadlineAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "drainEnteredAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "safeAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "transition",
+                        "from",
+                        "to",
+                        "cause",
+                        "deadlineAt",
+                        "drainEnteredAt",
+                        "safeAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "apiVersion",
+                    "eventId",
+                    "bootId",
+                    "sequence",
+                    "occurredAt",
+                    "type",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string",
+                      "enum": [
+                        "2026-07-01"
+                      ]
+                    },
+                    "eventId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "bootId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    },
+                    "sequence": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]{0,19}$"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "MANAGER_MODE_CHANGED"
+                      ]
+                    },
+                    "payload": {
+                      "type": "object",
+                      "properties": {
+                        "transition": {
+                          "type": "string",
+                          "enum": [
+                            "RESUME"
+                          ]
+                        },
+                        "from": {
+                          "type": "string",
+                          "enum": [
+                            "DRAINING"
+                          ]
+                        },
+                        "to": {
+                          "type": "string",
+                          "enum": [
+                            "SERVING"
+                          ]
+                        },
+                        "cause": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "CUTOVER"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "ROLLBACK"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "REPROMOTION"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "RECOVERY"
+                              ]
+                            }
+                          ]
+                        },
+                        "previousSafeAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "resumedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "transition",
+                        "from",
+                        "to",
+                        "cause",
+                        "previousSafeAt",
+                        "resumedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "apiVersion",
+                    "eventId",
+                    "bootId",
+                    "sequence",
+                    "occurredAt",
+                    "type",
+                    "payload"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "minLength": 2
+          },
+          "snapshotCursor": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "minLength": 2
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "apiVersion",
+          "items",
+          "nextCursor",
+          "snapshotCursor",
+          "hasMore"
+        ],
+        "additionalProperties": false
+      },
+      "Pool": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "poolId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+          },
+          "managerInstanceId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "SERVING",
+              "DRAINING"
+            ]
+          },
+          "handover": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "SERVING"
+                    ]
+                  },
+                  "safe": {
+                    "type": "boolean",
+                    "enum": [
+                      false
+                    ]
+                  },
+                  "blocking": {
+                    "type": "object",
+                    "properties": {
+                      "queued": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "reserved": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "starting": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "live": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "releasing": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "uncertain": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "httpCreates": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "webSockets": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "queued",
+                      "reserved",
+                      "starting",
+                      "live",
+                      "releasing",
+                      "uncertain",
+                      "httpCreates",
+                      "webSockets"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "mode",
+                  "safe",
+                  "blocking"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "DRAINING"
+                    ]
+                  },
+                  "safe": {
+                    "type": "boolean"
+                  },
+                  "managerInstanceId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "cause": {
+                    "type": "string",
+                    "enum": [
+                      "CUTOVER",
+                      "ROLLBACK",
+                      "REPROMOTION",
+                      "SHUTDOWN",
+                      "RECOVERY"
+                    ]
+                  },
+                  "drainEnteredAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "lastMutationAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "idempotencyTtlMs": {
+                    "type": "integer",
+                    "minimum": 60000,
+                    "maximum": 3600000
+                  },
+                  "safeAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "blocking": {
+                    "type": "object",
+                    "properties": {
+                      "queued": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "reserved": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "starting": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "live": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "releasing": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "uncertain": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "httpCreates": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "webSockets": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "queued",
+                      "reserved",
+                      "starting",
+                      "live",
+                      "releasing",
+                      "uncertain",
+                      "httpCreates",
+                      "webSockets"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "mode",
+                  "safe",
+                  "managerInstanceId",
+                  "cause",
+                  "drainEnteredAt",
+                  "lastMutationAt",
+                  "idempotencyTtlMs",
+                  "safeAt",
+                  "blocking"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "physical": {
+                "type": "number",
+                "enum": [
+                  2
+                ]
+              },
+              "usableReachable": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "reconciledIdle": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "busy": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "unavailable": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "byState": {
+                "type": "object",
+                "properties": {
+                  "discovered": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "reachable": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "idle": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "reserved": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "starting": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "live": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "releasing": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "unreachable": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "quarantined": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "draining": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "discovered",
+                  "reachable",
+                  "idle",
+                  "reserved",
+                  "starting",
+                  "live",
+                  "releasing",
+                  "unreachable",
+                  "quarantined",
+                  "draining"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "physical",
+              "usableReachable",
+              "reconciledIdle",
+              "busy",
+              "unavailable",
+              "byState"
+            ],
+            "additionalProperties": false
+          },
+          "queue": {
+            "type": "object",
+            "properties": {
+              "depth": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "max": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "oldestWaitMs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "depth",
+              "max",
+              "oldestWaitMs"
+            ],
+            "additionalProperties": false
+          },
+          "memory": {
+            "type": "object",
+            "properties": {
+              "managerLimitBytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "baseP95Bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "tmpfsLimitBytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "snapshotLimitBytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "dynamicLimitBytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "result": {
+                "type": "object",
+                "properties": {
+                  "reservedBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "limitBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "reservedCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "limitCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "reservedBytes",
+                  "limitBytes",
+                  "reservedCount",
+                  "limitCount"
+                ],
+                "additionalProperties": false
+              },
+              "action": {
+                "type": "object",
+                "properties": {
+                  "reservedBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "limitBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "reservedCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "limitCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "reservedBytes",
+                  "limitBytes",
+                  "reservedCount",
+                  "limitCount"
+                ],
+                "additionalProperties": false
+              },
+              "webSocket": {
+                "type": "object",
+                "properties": {
+                  "reservedBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "limitBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "reservedCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "limitCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "reservedBytes",
+                  "limitBytes",
+                  "reservedCount",
+                  "limitCount"
+                ],
+                "additionalProperties": false
+              },
+              "ingressConnection": {
+                "type": "object",
+                "properties": {
+                  "reservedBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "limitBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "reservedCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "limitCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "reservedBytes",
+                  "limitBytes",
+                  "reservedCount",
+                  "limitCount"
+                ],
+                "additionalProperties": false
+              },
+              "ingressBody": {
+                "type": "object",
+                "properties": {
+                  "reservedBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "limitBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "reservedCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "limitCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "reservedBytes",
+                  "limitBytes",
+                  "reservedCount",
+                  "limitCount"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "managerLimitBytes",
+              "baseP95Bytes",
+              "tmpfsLimitBytes",
+              "snapshotLimitBytes",
+              "dynamicLimitBytes",
+              "result",
+              "action",
+              "webSocket",
+              "ingressConnection",
+              "ingressBody"
+            ],
+            "additionalProperties": false
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "apiVersion",
+          "poolId",
+          "managerInstanceId",
+          "mode",
+          "handover",
+          "counts",
+          "queue",
+          "memory",
+          "generatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "PoolDrainRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+          },
+          "expectedManagerInstanceId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "deadlineAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "CUTOVER",
+              "ROLLBACK",
+              "REPROMOTION",
+              "RECOVERY"
+            ]
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedManagerInstanceId",
+          "deadlineAt",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "PoolResumeRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+          },
+          "expectedManagerInstanceId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "expectedSafeAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "CUTOVER",
+              "ROLLBACK",
+              "REPROMOTION",
+              "RECOVERY"
+            ]
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedManagerInstanceId",
+          "expectedSafeAt",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "Session": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "STARTING",
+              "LIVE",
+              "RELEASING",
+              "RELEASED",
+              "FAILED",
+              "LOST"
+            ]
+          },
+          "workerId": {
+            "type": "string",
+            "pattern": "^worker-(?:0[0-9]|[12][0-9]|3[01])$"
+          },
+          "instanceId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "admissionId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "failureCode": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+          }
+        },
+        "required": [
+          "sessionId",
+          "state",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "SessionList": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sessionId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "QUEUED",
+                    "STARTING",
+                    "LIVE",
+                    "RELEASING",
+                    "RELEASED",
+                    "FAILED",
+                    "LOST"
+                  ]
+                },
+                "workerId": {
+                  "type": "string",
+                  "pattern": "^worker-(?:0[0-9]|[12][0-9]|3[01])$"
+                },
+                "instanceId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "admissionId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "startedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "endedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "failureCode": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                }
+              },
+              "required": [
+                "sessionId",
+                "state",
+                "createdAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "page": {
+            "type": "object",
+            "properties": {
+              "pageSize": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "nextCursor": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]+$",
+                "minLength": 2
+              },
+              "snapshotCursor": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]+$",
+                "minLength": 2
+              },
+              "hasMore": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "pageSize",
+              "snapshotCursor",
+              "hasMore"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "apiVersion",
+          "items",
+          "page"
+        ],
+        "additionalProperties": false
+      },
+      "Version": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "upstreamSha": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "managedSha": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "managerDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "workerDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "browserVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "toolchainLockSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "managerConfigSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "releaseEvidenceSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "releaseEvidenceMode": {
+            "type": "string",
+            "enum": [
+              "CONFIG_FILE"
+            ]
+          },
+          "createTokenKeyId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{16}$"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "apiVersion",
+          "upstreamSha",
+          "managedSha",
+          "managerDigest",
+          "workerDigest",
+          "browserVersion",
+          "toolchainLockSha256",
+          "managerConfigSha256",
+          "releaseEvidenceSha256",
+          "releaseEvidenceMode",
+          "createTokenKeyId",
+          "startedAt"
+        ],
+        "additionalProperties": false
+      },
+      "WorkerList": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "workerId": {
+                  "type": "string",
+                  "pattern": "^worker-(?:0[0-9]|[12][0-9]|3[01])$"
+                },
+                "instanceId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "DISCOVERED",
+                    "REACHABLE",
+                    "IDLE",
+                    "RESERVED",
+                    "STARTING",
+                    "LIVE",
+                    "RELEASING",
+                    "UNREACHABLE",
+                    "QUARANTINED",
+                    "DRAINING"
+                  ]
+                },
+                "sessionId": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                },
+                "lastSeenAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "stateChangedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "failureCode": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                }
+              },
+              "required": [
+                "workerId",
+                "instanceId",
+                "state",
+                "lastSeenAt",
+                "stateChangedAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "page": {
+            "type": "object",
+            "properties": {
+              "pageSize": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "nextCursor": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]+$",
+                "minLength": 2
+              },
+              "snapshotCursor": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]+$",
+                "minLength": 2
+              },
+              "hasMore": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "pageSize",
+              "snapshotCursor",
+              "hasMore"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "apiVersion",
+          "items",
+          "page"
+        ],
+        "additionalProperties": false
+      },
+      "JsonValue": {
+        "oneOf": [
+          {
+            "enum": [
+              null
+            ]
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "string"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JsonValue"
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            }
+          }
+        ]
+      },
+      "ManagedErrorEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "apiVersion",
+          "error"
+        ],
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "2026-07-01"
+            ]
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message",
+              "retryable",
+              "requestId"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "INVALID_ARGUMENT",
+                  "INVALID_CURSOR",
+                  "ACCESS_AUTH_REQUIRED",
+                  "ACCESS_FORBIDDEN",
+                  "SESSION_NOT_FOUND",
+                  "ADMISSION_NOT_FOUND",
+                  "RESULT_NOT_FOUND",
+                  "TOOL_NOT_FOUND",
+                  "ROUTE_NOT_FOUND",
+                  "METHOD_NOT_ALLOWED",
+                  "NOT_ACCEPTABLE",
+                  "MANAGED_SESSION_REQUIRED",
+                  "SESSION_STATE_CONFLICT",
+                  "CREATE_TOKEN_CONFLICT",
+                  "EVENT_CURSOR_RESTARTED",
+                  "LIST_CURSOR_RESTARTED",
+                  "INSTANCE_LOST",
+                  "EVENT_CURSOR_EXPIRED",
+                  "LIST_CURSOR_EXPIRED",
+                  "BODY_TOO_LARGE",
+                  "RESULT_TOO_LARGE",
+                  "UNSUPPORTED_MEDIA_TYPE",
+                  "MANAGED_FEATURE_UNSUPPORTED",
+                  "TOOL_INPUT_INVALID",
+                  "ADMISSION_TIMEOUT",
+                  "QUEUE_FULL",
+                  "RATE_LIMITED",
+                  "UPSTREAM_BAD_RESPONSE",
+                  "NO_REACHABLE_WORKER",
+                  "MANAGER_DRAINING",
+                  "MANAGED_LIMITER_CAPACITY",
+                  "MANAGED_TICKET_CAPACITY",
+                  "MANAGED_IDEMPOTENCY_CAPACITY",
+                  "MANAGED_SNAPSHOT_CAPACITY",
+                  "MANAGED_INGRESS_CAPACITY",
+                  "MANAGED_AI_RESULT_CAPACITY",
+                  "MANAGED_ACTION_CAPACITY",
+                  "MANAGED_WS_CAPACITY",
+                  "WORKER_JOURNAL_CAPACITY",
+                  "UPSTREAM_TIMEOUT",
+                  "TOOL_TIMEOUT"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "requestId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "details": {
+                "$ref": "#/components/schemas/JsonValue"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

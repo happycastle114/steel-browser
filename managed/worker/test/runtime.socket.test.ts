@@ -3,13 +3,12 @@ import type { SteelBrowserConfig } from "@steel-browser/api/plugin"
 import type { FastifyPluginAsync } from "fastify"
 import { describe, expect, it } from "vitest"
 import {
-  UPSTREAM_SESSION_STATUS,
   WORKER_BOOT_STATUS,
   WORKER_META_PATH,
 } from "../src/config.js"
 import { startWorker } from "../src/runtime.js"
 import { SHUTDOWN_OUTCOME } from "../src/shutdown.js"
-import { FakeSignalControl } from "./test-support.js"
+import { FakeSignalControl, TEST_NODE_RUNTIME_VERSION } from "./test-support.js"
 
 const INSTANCE_ID = "11223344-5566-4788-99aa-bbccddeeff00"
 
@@ -46,12 +45,9 @@ describe("managed worker fixed listener", () => {
     const runtime = await startWorker(
       { MANAGED_WORKER_ID: "worker-00", NODE_ENV: "test" },
       {
+        nodeRuntimeVersion: TEST_NODE_RUNTIME_VERSION,
         server: {
           createInstanceId: () => INSTANCE_ID,
-          readActiveSession: () => ({
-            id: INSTANCE_ID,
-            status: UPSTREAM_SESSION_STATUS.IDLE,
-          }),
           shutdownUpstream: async () => undefined,
           upstreamPlugin,
         },

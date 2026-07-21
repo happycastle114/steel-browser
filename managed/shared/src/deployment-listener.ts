@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-import { withDeepReadonlyOutput } from "./deep-readonly.js"
+import { withDeepFrozenOutput } from "./deep-readonly.js"
 import {
   MANAGED_LISTENER_BIND_SCOPE,
   MANAGED_LISTENER_CONTAINER_ROLE,
@@ -67,10 +67,10 @@ const ManagedActiveListenerInventoryBaseSchema = z.tuple([
   exactManagedListenerSchema(MANAGED_ACTIVE_LISTENER_INVENTORY[2]),
   exactManagedListenerSchema(MANAGED_ACTIVE_LISTENER_INVENTORY[3]),
 ])
-export const ManagedActiveListenerInventorySchema = withDeepReadonlyOutput(ManagedActiveListenerInventoryBaseSchema)
+export const ManagedActiveListenerInventorySchema = withDeepFrozenOutput(ManagedActiveListenerInventoryBaseSchema)
 
 const StoppedManagedListenerInventoryBaseSchema = z.tuple([])
-export const StoppedManagedListenerInventorySchema = withDeepReadonlyOutput(StoppedManagedListenerInventoryBaseSchema)
+export const StoppedManagedListenerInventorySchema = withDeepFrozenOutput(StoppedManagedListenerInventoryBaseSchema)
 
 export type ManagedActiveListenerInventory = z.infer<typeof ManagedActiveListenerInventorySchema>
 export type StoppedManagedListenerInventory = z.infer<typeof StoppedManagedListenerInventorySchema>

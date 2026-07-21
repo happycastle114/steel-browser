@@ -1,10 +1,16 @@
 import type { AdmissionTicketId, PublicSessionId } from "../domain/ids.js"
+import type { ManagedCreateHeaderValues } from "@happycastle/steel-managed-shared"
 import { LifecycleCreateKind } from "../domain/states.js"
 import type { SessionRecord } from "../registry/registry-model.js"
 
 export type PendingSessionCreate = {
+  readonly managedCreate?: ManagedCreateHeaderValues
   readonly publicSessionId: PublicSessionId
 }
+
+export type ManagedCreateHeaderFactory = (
+  publicSessionId: PublicSessionId,
+) => Promise<ManagedCreateHeaderValues>
 
 export type LifecycleCreateResult =
   | {

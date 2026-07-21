@@ -1,0 +1,157 @@
+^D+ node --version
+v22.23.1
++ npm run build -w @happycastle/steel-managed-manager
+
+> @happycastle/steel-managed-manager@0.0.0 build
+> tsc --project tsconfig.json
+
++ npm run typecheck -w @happycastle/steel-managed-manager
+
+> @happycastle/steel-managed-manager@0.0.0 typecheck
+> tsc --noEmit --project tsconfig.json && tsc --noEmit --project tsconfig.test.json
+
++ npm run test -w @happycastle/steel-managed-manager
+
+> @happycastle/steel-managed-manager@0.0.0 test
+> vitest run && cargo test --manifest-path init/Cargo.toml
+
+[?25l
+ RUN  v3.2.4 /Users/soungmin/Documents/Project/steel-browser-manager-composition/managed/manager
+
+[?2026h
+ ❯ test/jwt-authenticator.test.ts [queued]
+
+ Test Files 0 passed (5)
+      Tests 0 passed (0)
+   Start at 17:47:34
+   Duration 101ms
+[?2026l[?2026h[K
+ ❯ test/jwt-authenticator.test.ts 0/9
+
+ Test Files 0 passed (5)
+      Tests 0 passed (9)
+   Start at 17:47:34
+   Duration 605ms
+[?2026l[?2026h[K
+ ❯ test/jwt-authenticator.test.ts 1/9
+
+ Test Files 0 passed (5)
+      Tests 1 passed (9)
+   Start at 17:47:34
+   Duration 705ms
+[?2026l[?2026h[K
+ ❯ test/jwt-authenticator.test.ts 4/9
+
+ Test Files 0 passed (5)
+      Tests 4 passed (9)
+   Start at 17:47:34
+   Duration 807ms
+[?2026l[?2026h[K ✓ test/jwt-authenticator.test.ts (9 tests) 292ms
+
+ ❯ test/jwt-authenticator.test.ts 9/9
+
+ Test Files 1 passed (5)
+      Tests 9 passed (9)
+   Start at 17:47:34
+   Duration 910ms
+[?2026l[?2026h[K
+ ❯ test/public-server-security.test.ts 0/5
+
+ Test Files 1 passed (5)
+      Tests 9 passed (14)
+   Start at 17:47:34
+   Duration 1.31s
+[?2026l[?2026h[K
+ ❯ test/public-server-security.test.ts 1/5
+
+ Test Files 1 passed (5)
+      Tests 10 passed (14)
+   Start at 17:47:34
+   Duration 1.52s
+[?2026l[?2026h[K ✓ test/public-server-security.test.ts (5 tests) 215ms
+
+ ❯ test/jwks-key-store.test.ts [queued]
+
+ Test Files 2 passed (5)
+      Tests 14 passed (14)
+   Start at 17:47:34
+   Duration 1.62s
+[?2026l[?2026h[K
+ ❯ test/jwks-key-store.test.ts 0/4
+
+ Test Files 2 passed (5)
+      Tests 14 passed (18)
+   Start at 17:47:34
+   Duration 1.92s
+[?2026l[?2026h[K ✓ test/jwks-key-store.test.ts (4 tests) 39ms
+
+ ❯ test/request-security.test.ts [queued]
+
+ Test Files 3 passed (5)
+      Tests 18 passed (18)
+   Start at 17:47:34
+   Duration 2.02s
+[?2026l[?2026h[K
+ ❯ test/request-security.test.ts 0/3
+
+ Test Files 3 passed (5)
+      Tests 18 passed (21)
+   Start at 17:47:34
+   Duration 2.22s
+[?2026l[?2026h[K ✓ test/request-security.test.ts (3 tests) 34ms
+
+ ❯ test/config.test.ts [queued]
+
+ Test Files 4 passed (5)
+      Tests 21 passed (21)
+   Start at 17:47:34
+   Duration 2.43s
+[?2026l[?2026h[K
+ ❯ test/config.test.ts 0/3
+
+ Test Files 4 passed (5)
+      Tests 21 passed (24)
+   Start at 17:47:34
+   Duration 2.63s
+[?2026l[K ✓ test/config.test.ts (3 tests) 5ms
+
+ Test Files  5 passed (5)
+      Tests  24 passed (24)
+   Start at  17:47:34
+   Duration  2.71s (transform 215ms, setup 0ms, collect 1.55s, tests 585ms, environment 0ms, prepare 154ms)
+
+[?25h    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (init/target/debug/deps/steel_manager_init-beedf6af881d8276)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (init/target/debug/deps/steel_manager_init-52271592e07da346)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/policy_mutations.rs (init/target/debug/deps/policy_mutations-34594adda82647ef)
+
+running 7 tests
+test keeps_security_relevant_variants_constructible_for_mutation_tests ... ok
+test rejects_each_privilege_order_mutation ... ok
+test rejects_descriptor_flag_removal_and_reordering ... ok
+test rejects_each_final_privilege_status_mutation ... ok
+test rejects_non_tmpfs_or_weakened_mount_flags ... ok
+test accepts_only_exact_lowercase_hex_secret_bytes ... ok
+test rejects_secret_or_unclassified_descriptors ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests steel_manager_init
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
++ cargo fmt --manifest-path managed/manager/init/Cargo.toml -- --check
++ cargo clippy --manifest-path managed/manager/init/Cargo.toml --all-targets --all-features -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s

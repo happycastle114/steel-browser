@@ -1,6 +1,13 @@
 import type { FastifyInstance } from "fastify"
 
-export const SHUTDOWN_SIGNALS = ["SIGTERM", "SIGINT"] as const
+export const SHUTDOWN_SIGNAL = {
+  INTERRUPT: "SIGINT",
+  TERMINATE: "SIGTERM",
+} as const
+export const SHUTDOWN_SIGNALS = [
+  SHUTDOWN_SIGNAL.TERMINATE,
+  SHUTDOWN_SIGNAL.INTERRUPT,
+] as const
 export type ShutdownSignal = (typeof SHUTDOWN_SIGNALS)[number]
 
 export const SHUTDOWN_OUTCOME = {

@@ -1,11 +1,19 @@
 import Fastify, { type FastifyInstance } from "fastify"
 import {
+  CREATE_JOURNAL_STATE,
+  CreateTokenSchema,
+  PRIVATE_SUPERVISOR_ERROR_CODE,
+  PRIVATE_SUPERVISOR_ROUTE_ID,
+  WORKER_IDENTITY_HEADER,
+  MANAGED_CREATE_HEADER,
+} from "@happycastle/steel-managed-shared"
+import {
   PublicSessionIdSchema,
+  requirePrivateSupervisorRoute,
   StaticWorkerEndpointSchema,
   UpstreamCreateRequestSchema,
   UpstreamSessionIdSchema,
   UpstreamSessionState,
-  WorkerBootStatus,
   WorkerIdSchema,
   type InstanceId,
   type WorkerProvider,
@@ -15,6 +23,14 @@ import { instanceId, upstreamSessionId } from "./test-support.js"
 
 const HTTP_METHOD = { POST: "POST" } as const
 const CREATE_SESSION_PATH = "/v1/sessions"
+const METADATA_URL = new URL(
+  requirePrivateSupervisorRoute(PRIVATE_SUPERVISOR_ROUTE_ID.META).path,
+  "http://worker.invalid",
+)
+const ACTIVE_CREATES_URL = new URL(
+  requirePrivateSupervisorRoute(PRIVATE_SUPERVISOR_ROUTE_ID.CREATES_ACTIVE).path,
+  "http://worker.invalid",
+)
 
 type LocalWorkerFakeOptions = {
   readonly workerSequence: number
@@ -30,13 +46,13 @@ type LocalWorkerFakeOptions = {
   readonly metadataStatus?: number
   readonly malformedMetadata?: boolean
   readonly releaseApplies?: boolean
-  readonly reportedActiveSessionId?: string
-  readonly activeSessionStatus?: number
+  readonly reportedActiveCreateSessionId?: string
+  readonly activeCreatesStatus?: number
   readonly metadataGate?: Promise<void>
   readonly onMetadata?: () => void
-  readonly sessionListGate?: Promise<void>
-  readonly onSessionList?: () => void
-  readonly sessionListPaddingBytes?: number
+  readonly activeCreatesGate?: Promise<void>
+  readonly onActiveCreates?: () => void
+  readonly activeCreatesPaddingBytes?: number
   readonly gatedCreateSequence?: number
   readonly createResponseGate?: Promise<void>
   readonly onGatedCreate?: () => void
@@ -73,19 +89,21 @@ export class LocalWorkerFake {
   private readonly metadataStatus: number
   private readonly malformedMetadata: boolean
   private readonly releaseApplies: boolean
-  private reportedActiveSessionId: string | undefined
-  private activeSessionStatus: number
+  private reportedActiveCreateSessionId: string | undefined
+  private reportedPendingCreateState: PendingCreateState | undefined
+  private activeCreatesStatus: number
   private metadataGate: Promise<void> | undefined
   private onMetadata: (() => void) | undefined
-  private readonly sessionListGate: Promise<void> | undefined
-  private readonly onSessionList: (() => void) | undefined
-  private readonly sessionListPadding: string | undefined
+  private readonly activeCreatesGate: Promise<void> | undefined
+  private readonly onActiveCreates: (() => void) | undefined
+  private readonly activeCreatesPadding: string | undefined
   private readonly gatedCreateSequence: number | undefined
   private readonly createResponseGate: Promise<void> | undefined
   private readonly onGatedCreate: (() => void) | undefined
   private readonly onCreateResponse: (() => void) | undefined
   private createSequence = 0
   private releaseSequence = 0
+  private lastManagedCreateHeaders: Readonly<Record<string, string | undefined>> | undefined
 
   public constructor(options: LocalWorkerFakeOptions) {
     this.workerId = WorkerIdSchema.parse(`worker-0${options.workerSequence}`)
@@ -112,16 +130,16 @@ export class LocalWorkerFake {
     this.metadataStatus = options.metadataStatus ?? 200
     this.malformedMetadata = options.malformedMetadata ?? false
     this.releaseApplies = options.releaseApplies ?? true
-    this.reportedActiveSessionId = options.reportedActiveSessionId
-    this.activeSessionStatus = options.activeSessionStatus ?? 200
+    this.reportedActiveCreateSessionId = options.reportedActiveCreateSessionId
+    this.activeCreatesStatus = options.activeCreatesStatus ?? 200
     this.metadataGate = options.metadataGate
     this.onMetadata = options.onMetadata
-    this.sessionListGate = options.sessionListGate
-    this.onSessionList = options.onSessionList
-    this.sessionListPadding =
-      options.sessionListPaddingBytes === undefined
+    this.activeCreatesGate = options.activeCreatesGate
+    this.onActiveCreates = options.onActiveCreates
+    this.activeCreatesPadding =
+      options.activeCreatesPaddingBytes === undefined
         ? undefined
-        : "x".repeat(options.sessionListPaddingBytes)
+        : "x".repeat(options.activeCreatesPaddingBytes)
     this.gatedCreateSequence = options.gatedCreateSequence
     this.createResponseGate = options.createResponseGate
     this.onGatedCreate = options.onGatedCreate
@@ -137,10 +155,15 @@ export class LocalWorkerFake {
   public restart(instanceSequence: number): void {
     this.currentInstanceId = instanceId(instanceSequence)
     this.activeSessionId = undefined
+    this.reportedPendingCreateState = undefined
   }
 
-  public reportActiveSessionId(sessionId: string | undefined): void {
-    this.reportedActiveSessionId = sessionId
+  public reportActiveCreateSessionId(sessionId: string | undefined): void {
+    this.reportedActiveCreateSessionId = sessionId
+  }
+
+  public reportPendingCreate(state: PendingCreateState | undefined): void {
+    this.reportedPendingCreateState = state
   }
 
   public gateMetadata(gate: Promise<void> | undefined, onMetadata?: () => void): void {
@@ -156,8 +179,12 @@ export class LocalWorkerFake {
     return this.releaseSequence
   }
 
-  public setActiveSessionStatus(statusCode: number): void {
-    this.activeSessionStatus = statusCode
+  public get managedCreateHeaders(): Readonly<Record<string, string | undefined>> | undefined {
+    return this.lastManagedCreateHeaders
+  }
+
+  public setActiveCreatesStatus(statusCode: number): void {
+    this.activeCreatesStatus = statusCode
   }
 
   public async listen(): Promise<string> {
@@ -172,11 +199,11 @@ export class LocalWorkerFake {
   private registerRoutes(): void {
     this.server.addHook("onSend", async (_request, reply, payload) => {
       if (!this.omitWorkerHeader) {
-        reply.header("x-managed-worker-id", this.headerWorkerId ?? this.workerId)
+        reply.header(WORKER_IDENTITY_HEADER.WORKER_ID, this.headerWorkerId ?? this.workerId)
       }
       if (!this.omitInstanceHeader) {
         reply.header(
-          "x-managed-worker-instance-id",
+          WORKER_IDENTITY_HEADER.INSTANCE_ID,
           this.headerInstanceId ?? this.currentInstanceId,
         )
       }
@@ -187,35 +214,40 @@ export class LocalWorkerFake {
         this.onCreateResponse?.()
       }
     })
-    this.server.get("/v1/managed-worker/meta", async (_request, reply) => {
+    this.server.get(METADATA_URL.pathname, async (_request, reply) => {
       this.onMetadata?.()
       if (this.metadataGate !== undefined) await this.metadataGate
       if (this.malformedMetadata) return reply.code(this.metadataStatus).send("not-json")
       return reply.code(this.metadataStatus).send({
-        workerId: this.reportedWorkerId,
+        browserVersion: "150.0.7871.46",
         instanceId: this.reportedInstanceId ?? this.currentInstanceId,
-        status: WorkerBootStatus.READY,
+        journalVersion: 1,
+        upstreamSha: "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2",
+        workerId: this.reportedWorkerId,
       })
     })
-    this.server.get("/v1/managed-worker/active-session", async (_request, reply) => {
-      this.onSessionList?.()
-      if (this.sessionListGate !== undefined) await this.sessionListGate
-      if (this.activeSessionStatus !== 200) {
-        return reply.code(this.activeSessionStatus).send({ status: UpstreamSessionState.FAILED })
-      }
-      return {
-        workerId: this.reportedWorkerId,
-        instanceId: this.reportedInstanceId ?? this.currentInstanceId,
-        activeSession:
-          this.reportedActiveSessionId === undefined && this.activeSessionId === undefined
-            ? null
-            : {
-                id: this.reportedActiveSessionId ?? this.activeSessionId,
-                status: UpstreamSessionState.LIVE,
-              },
-        padding: this.sessionListPadding,
-      }
-    })
+    this.server.get<{ Querystring: { scope?: string } }>(
+      ACTIVE_CREATES_URL.pathname,
+      async (request, reply) => {
+        this.onActiveCreates?.()
+        if (this.activeCreatesGate !== undefined) await this.activeCreatesGate
+        if (this.activeCreatesStatus !== 200) {
+          return reply.code(this.activeCreatesStatus).send({
+            code: PRIVATE_SUPERVISOR_ERROR_CODE.UPSTREAM_OBSERVATION_UNAVAILABLE,
+          })
+        }
+        if (request.query.scope !== ACTIVE_CREATES_URL.searchParams.get("scope")) {
+          return reply.code(404).send({ code: "NOT_FOUND" })
+        }
+        const sessionId = this.reportedActiveCreateSessionId ?? this.activeSessionId
+        return {
+          creates: this.reportedPendingCreateState === undefined
+            ? sessionId === undefined ? [] : [this.liveCreateRecord(sessionId)]
+            : [this.pendingCreateRecord(this.reportedPendingCreateState)],
+          padding: this.activeCreatesPadding,
+        }
+      },
+    )
     this.server.get("/v1/sessions", async () => {
       return {
         sessions: [
@@ -227,11 +259,18 @@ export class LocalWorkerFake {
       }
     })
     this.server.post("/v1/sessions", async (request, reply) => {
+      this.lastManagedCreateHeaders = Object.fromEntries(
+        Object.values(MANAGED_CREATE_HEADER).map((name) => {
+          const value = request.headers[name]
+          return [name, typeof value === "string" ? value : undefined]
+        }),
+      )
       if (this.createStatus !== 200) return reply.code(this.createStatus).send({ status: "failed" })
       const command = UpstreamCreateRequestSchema.parse(request.body)
       this.createSequence += 1
       const publicSessionId = PublicSessionIdSchema.parse(command.sessionId)
       this.activeSessionId = UpstreamSessionIdSchema.parse(publicSessionId)
+      this.reportedPendingCreateState = undefined
       if (this.createSequence === this.gatedCreateSequence) {
         this.onGatedCreate?.()
         if (this.createResponseGate !== undefined) await this.createResponseGate
@@ -254,4 +293,36 @@ export class LocalWorkerFake {
       },
     )
   }
+
+  private createRecordFields() {
+    return {
+      expiresAt: "2026-07-21T00:10:00.000Z",
+      ownerSha256: "a".repeat(64),
+      requestSha256: "b".repeat(64),
+      token: CreateTokenSchema.parse(`h1_${"c".repeat(64)}`),
+      updatedAt: "2026-07-21T00:00:00.000Z",
+    }
+  }
+
+  private liveCreateRecord(sessionId: string) {
+    return {
+      ...this.createRecordFields(),
+      replay: {
+        bodyTemplate: { id: sessionId, status: UpstreamSessionState.LIVE },
+        headers: { contentType: "application/json; charset=utf-8" },
+        status: 200,
+      },
+      state: CREATE_JOURNAL_STATE.LIVE,
+      upstreamSessionId: sessionId,
+    }
+  }
+
+  private pendingCreateRecord(state: PendingCreateState) {
+    return { ...this.createRecordFields(), state }
+  }
 }
+
+type PendingCreateState =
+  | typeof CREATE_JOURNAL_STATE.ACCEPTED
+  | typeof CREATE_JOURNAL_STATE.UNCERTAIN
+  | typeof CREATE_JOURNAL_STATE.UPSTREAM_PENDING

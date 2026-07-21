@@ -1,0 +1,129 @@
+name: Managed upstream sync
+
+on:
+  schedule:
+    - cron: "23 19 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: managed-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: production
+      - name: Merge the current upstream main into an isolated branch
+        id: merge
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/steel-dev/steel-browser.git
+          git fetch --no-tags upstream main
+          upstream_sha="$(git rev-parse upstream/main)"
+          if git merge-base --is-ancestor "${upstream_sha}" HEAD; then
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          branch="automation/upstream-sync-${upstream_sha:0:12}"
+          git switch -c "${branch}"
+          if ! git merge --no-edit upstream/main; then
+            git merge --abort
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+            echo "conflict=true" >> "${GITHUB_OUTPUT}"
+            echo "upstream_sha=${upstream_sha}" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo "branch=${branch}" >> "${GITHUB_OUTPUT}"
+          echo "changed=true" >> "${GITHUB_OUTPUT}"
+          echo "conflict=false" >> "${GITHUB_OUTPUT}"
+          echo "upstream_sha=${upstream_sha}" >> "${GITHUB_OUTPUT}"
+      - name: Open a conflict issue instead of mutating the production branch
+        if: steps.merge.outputs.conflict == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_SHA: ${{ steps.merge.outputs.upstream_sha }}
+        run: |
+          set -euo pipefail
+          title="Managed upstream sync conflict ${UPSTREAM_SHA:0:12}"
+          existing="$(gh issue list --state open --search "${title} in:title" --json number --jq '.[0].number // empty')"
+          if [ -z "${existing}" ]; then
+            gh issue create \
+              --title "${title}" \
+              --body "The scheduled merge of steel-dev/steel-browser@${UPSTREAM_SHA} into production conflicted. Resolve it on an isolated branch, then refresh the pinned corpus and worker image lock before release."
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
+        with:
+          node-version: 22.23.1
+          cache: npm
+      - name: Install exact Rust toolchain
+        if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
+        run: |
+          rustup toolchain install 1.91.1 --profile minimal
+          rustup override set 1.91.1
+      - name: Install without lifecycle scripts
+        if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
+        run: npm ci --ignore-scripts
+      - name: Hydrate the pinned DuckDB native binding
+        if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
+        run: npm rebuild duckdb --foreground-scripts
+      - name: Enable Chromium sandbox on the ephemeral runner
+        if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
+        run: |
+          set -euo pipefail
+          policy=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          test -r "${policy}"
+          original="$(cat "${policy}")"
+          test "${original}" = "0" || test "${original}" = "1"
+          echo "STEEL_CI_APPARMOR_USERNS_ORIGINAL=${original}" >> "${GITHUB_ENV}"
+          echo 0 | sudo tee "${policy}" >/dev/null
+          test "$(cat "${policy}")" = "0"
+      - name: Run managed compatibility gates
+        id: verify
+        if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
+        continue-on-error: true
+        run: |
+          npm run check:managed
+          npm run test:managed-release
+          npm run verify:upstream-corpus
+      - name: Restore the Ubuntu user-namespace restriction
+        if: always() && steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
+        run: |
+          set -euo pipefail
+          policy=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          test "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}" = "0" || test "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}" = "1"
+          echo "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}" | sudo tee "${policy}" >/dev/null
+          test "$(cat "${policy}")" = "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}"
+      - name: Push the isolated sync branch
+        if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
+        env:
+          BRANCH: ${{ steps.merge.outputs.branch }}
+        run: git push --set-upstream origin "${BRANCH}" --force-with-lease
+      - name: Open or update the upstream sync pull request
+        if: steps.merge.outputs.changed == 'true' && steps.merge.outputs.conflict == 'false'
+        env:
+          BRANCH: ${{ steps.merge.outputs.branch }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_SHA: ${{ steps.merge.outputs.upstream_sha }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          set -euo pipefail
+          title="chore(upstream): sync steel-dev ${UPSTREAM_SHA:0:12}"
+          body="$(printf 'Upstream source: steel-dev/steel-browser@%s\n\nManaged compatibility gates: %s.\n\nThis PR never updates the production branch directly. If the corpus or runtime lock fails, refresh the observed protocol corpus, pinned upstream image digest, browser readback, and release evidence in this PR before merge.' "${UPSTREAM_SHA}" "${VERIFY_OUTCOME}")"
+          existing="$(gh pr list --head "${BRANCH}" --base production --state open --json number --jq '.[0].number // empty')"
+          if [ -z "${existing}" ]; then
+            gh pr create --base production --head "${BRANCH}" --title "${title}" --body "${body}"
+          else
+            gh pr edit "${existing}" --title "${title}" --body "${body}"
+          fi

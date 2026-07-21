@@ -1,0 +1,216 @@
+.capacity {
+  background: var(--surface-primary);
+  border: var(--stroke-hairline) solid var(--border-default);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: var(--space-4);
+}
+
+.capacity__heading {
+  align-items: baseline;
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+}
+
+.capacity__heading span,
+.queue-summary > span,
+.ledger > span {
+  color: var(--text-secondary);
+  font-size: var(--type-caption);
+}
+
+.capacity__workers {
+  display: grid;
+  gap: var(--space-3);
+  grid-column: span 2;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.worker-slot,
+.queue-summary {
+  background: var(--surface-canvas);
+  border: var(--stroke-hairline) solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  padding: var(--space-4);
+}
+
+.worker-slot__heading,
+.queue-summary__title,
+.ledger__heading,
+.overview-panel__heading {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.queue-summary__title {
+  justify-content: flex-start;
+}
+
+.queue-summary__title svg {
+  block-size: 1rem;
+  inline-size: 1rem;
+}
+
+.queue-summary > strong {
+  font-size: var(--type-metric);
+}
+
+.worker-slot__facts,
+.provenance-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.worker-slot__facts div,
+.provenance-list div {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+}
+
+.worker-slot__facts dt,
+.provenance-list dt {
+  color: var(--text-secondary);
+}
+
+.worker-slot__facts dd,
+.provenance-list dd {
+  margin: 0;
+  max-inline-size: 70%;
+  overflow-wrap: anywhere;
+  text-align: end;
+}
+
+.worker-slot__facts dd {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.worker-slot__facts svg {
+  block-size: 0.75rem;
+  inline-size: 0.75rem;
+}
+
+.worker-slot__instance {
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capacity-meter {
+  background: var(--surface-secondary);
+  block-size: var(--space-2);
+  overflow: hidden;
+}
+
+.capacity-meter > span {
+  background: var(--accent-500);
+  block-size: 100%;
+  display: block;
+}
+
+.overview-panel {
+  background: var(--surface-primary);
+  border: var(--stroke-hairline) solid var(--border-default);
+  padding: var(--space-4);
+}
+
+.overview-panel__heading span {
+  color: var(--text-secondary);
+  font-size: var(--type-caption);
+}
+
+.ledger-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+}
+
+.ledger {
+  background: var(--surface-canvas);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.overview-columns {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 1fr);
+}
+
+.event-timeline {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.event-timeline li {
+  align-items: center;
+  border-block-end: var(--stroke-hairline) solid var(--border-subtle);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding-block: var(--space-3);
+}
+
+.event-timeline__marker {
+  background: var(--accent-500);
+  block-size: var(--space-2);
+  border-radius: var(--radius-pill);
+  inline-size: var(--space-2);
+}
+
+.event-timeline li > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.event-timeline li span,
+.event-timeline time {
+  color: var(--text-secondary);
+  font-size: var(--type-caption);
+}
+
+@media (max-width: 61.999rem) {
+  .capacity {
+    grid-template-columns: 1fr;
+  }
+
+  .capacity__workers,
+  .queue-summary {
+    grid-column: 1;
+  }
+
+  .overview-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 35rem) {
+  .capacity__workers {
+    grid-template-columns: 1fr;
+  }
+
+  .event-timeline li {
+    align-items: start;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .event-timeline time {
+    grid-column: 2;
+  }
+}

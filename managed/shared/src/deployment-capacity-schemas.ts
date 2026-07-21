@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-import { withDeepReadonlyOutput } from "./deep-readonly.js"
+import { withDeepFrozenOutput } from "./deep-readonly.js"
 import {
   CAPACITY_PHASE,
   DISK_CAPACITY_STAGE,
@@ -36,7 +36,7 @@ const MemoryCapacityInputBaseSchema = z.discriminatedUnion("phase", [
     phase: z.literal(CAPACITY_PHASE.PRODUCTION_SERIAL),
   }).strict(),
 ])
-export const MemoryCapacityInputSchema = withDeepReadonlyOutput(MemoryCapacityInputBaseSchema)
+export const MemoryCapacityInputSchema = withDeepFrozenOutput(MemoryCapacityInputBaseSchema)
 
 const ThrottlingObservationSchema = z
   .object({
@@ -69,7 +69,7 @@ const CpuCapacityInputBaseSchema = z.discriminatedUnion("phase", [
     phase: z.literal(CAPACITY_PHASE.PRODUCTION_SERIAL),
   }).strict(),
 ])
-export const CpuCapacityInputSchema = withDeepReadonlyOutput(CpuCapacityInputBaseSchema)
+export const CpuCapacityInputSchema = withDeepFrozenOutput(CpuCapacityInputBaseSchema)
 
 const DiskCapacityInputBaseSchema = z.discriminatedUnion("stage", [
   z.object({
@@ -86,7 +86,7 @@ const DiskCapacityInputBaseSchema = z.discriminatedUnion("stage", [
     filesystemBytes: PositiveSafeIntegerSchema,
   }).strict(),
 ])
-export const DiskCapacityInputSchema = withDeepReadonlyOutput(DiskCapacityInputBaseSchema)
+export const DiskCapacityInputSchema = withDeepFrozenOutput(DiskCapacityInputBaseSchema)
 
 const InodeCapacityInputBaseSchema = z.discriminatedUnion("stage", [
   z.object({
@@ -102,7 +102,7 @@ const InodeCapacityInputBaseSchema = z.discriminatedUnion("stage", [
     totalInodes: PositiveSafeIntegerSchema,
   }).strict(),
 ])
-export const InodeCapacityInputSchema = withDeepReadonlyOutput(InodeCapacityInputBaseSchema)
+export const InodeCapacityInputSchema = withDeepFrozenOutput(InodeCapacityInputBaseSchema)
 
 export type MemoryCapacityInput = z.infer<typeof MemoryCapacityInputSchema>
 export type CpuCapacityInput = z.infer<typeof CpuCapacityInputSchema>

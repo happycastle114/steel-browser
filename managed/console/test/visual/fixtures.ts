@@ -1,0 +1,64 @@
+const apiVersion = "2026-07-01"
+const now = "2026-07-21T04:00:00.000Z"
+const liveSessionId = "550e8400-e29b-41d4-a716-446655440000"
+const queuedSessionId = "550e8400-e29b-41d4-a716-446655440010"
+const admissionId = "550e8400-e29b-41d4-a716-446655440020"
+const instanceOne = "550e8400-e29b-41d4-a716-446655440001"
+const instanceTwo = "550e8400-e29b-41d4-a716-446655440002"
+
+const page = { hasMore: false, pageSize: 50, snapshotCursor: "s1" }
+const memoryLedger = { limitBytes: 16_777_216, limitCount: 8, reservedBytes: 2_097_152, reservedCount: 1 }
+const liveSession = { createdAt: now, instanceId: instanceOne, sessionId: liveSessionId, startedAt: now, state: "LIVE", workerId: "worker-00" }
+const queuedSession = { admissionId, createdAt: now, sessionId: queuedSessionId, state: "QUEUED" }
+const admission = { admissionId, createdAt: now, expiresAt: "2026-07-21T04:05:00.000Z", position: 1, state: "QUEUED", updatedAt: now }
+const toolDescriptor = (name: string, mutability: "READ" | "WRITE") => ({ inputSchemaSha256: "a".repeat(64), mutability, name, outputSchemaSha256: "b".repeat(64), sessionRequirement: "EXPLICIT", version: "1.0.0" })
+const tools = [toolDescriptor("steel.browser.navigate", "WRITE"), toolDescriptor("steel.browser.snapshot", "READ")]
+
+export const fixtures = {
+  admission,
+  admissions: { apiVersion, items: [admission], page },
+  capabilities: {
+    apiVersion,
+    limits: { actionCount: 2, actionTimeoutMs: 30_000, binaryBytes: 8_388_608, httpBodyBytes: 1_048_576, httpBodyCount: 16, httpBodyReservedBytes: 1_048_576, httpConnectionCount: 16, httpConnectionReservedBytes: 524_288, httpHeaderBytes: 16_384, resultBytes: 16_777_216, resultCount: 32, textBytes: 1_048_576, webSocketCount: 2, webSocketReservedBytes: 524_288 },
+    mcp: { endpoint: "/mcp", protocolVersion: "2025-11-25", stateless: true },
+    service: { name: "happycastle-steel-managed", version: "1.0.0" },
+    tools,
+  },
+  events: {
+    apiVersion,
+    hasMore: false,
+    items: [
+      { apiVersion, bootId: instanceOne, eventId: "event-2", occurredAt: now, payload: { from: "STARTING", to: "LIVE" }, sequence: "2", sessionId: liveSessionId, type: "SESSION_STATE_CHANGED", workerId: "worker-00" },
+      { apiVersion, bootId: instanceOne, eventId: "event-1", occurredAt: now, payload: { from: "REACHABLE", to: "LIVE" }, sequence: "1", sessionId: liveSessionId, type: "WORKER_STATE_CHANGED", workerId: "worker-00" },
+    ],
+    nextCursor: "e2",
+    snapshotCursor: "e2",
+  },
+  liveSession,
+  liveViewResult: { castWebSocketUrl: `ws://127.0.0.1:4173/v1/sessions/${liveSessionId}/cast`, kind: "live_view", sessionId: liveSessionId, viewerUrl: `http://127.0.0.1:4173/ui/sessions/${liveSessionId}/live` },
+  navigationResult: { completedAt: now, kind: "navigation", sessionId: liveSessionId, title: "Example Domain", url: "https://example.com/" },
+  pool: {
+    apiVersion,
+    counts: { busy: 1, byState: { discovered: 0, draining: 0, idle: 1, live: 1, quarantined: 0, reachable: 0, releasing: 0, reserved: 0, starting: 0, unreachable: 0 }, physical: 2, reconciledIdle: 1, unavailable: 0, usableReachable: 2 },
+    generatedAt: now,
+    handover: { blocking: { admissions: 1, inFlightActions: 0, liveSessions: 1, retainedResults: 0, webSockets: 0 }, mode: "SERVING", safe: false },
+    managerInstanceId: instanceTwo,
+    memory: { action: memoryLedger, baseP95Bytes: 268_435_456, dynamicLimitBytes: 536_870_912, ingressBody: memoryLedger, ingressConnection: memoryLedger, managerLimitBytes: 1_073_741_824, result: memoryLedger, snapshotLimitBytes: 16_777_216, tmpfsLimitBytes: 268_435_456, webSocket: memoryLedger },
+    mode: "SERVING",
+    poolId: "steel-managed",
+    queue: { depth: 1, max: 100, oldestWaitMs: 12_000 },
+  },
+  queuedSession,
+  sessions: { apiVersion, items: [liveSession, queuedSession], page },
+  tools: {
+    apiVersion,
+    limits: { actionCount: 2, actionTimeoutMs: 30_000, binaryBytes: 8_388_608, httpBodyBytes: 1_048_576, httpBodyCount: 16, httpBodyReservedBytes: 1_048_576, httpConnectionCount: 16, httpConnectionReservedBytes: 524_288, httpHeaderBytes: 16_384, resultBytes: 16_777_216, resultCount: 32, textBytes: 1_048_576, webSocketCount: 2, webSocketReservedBytes: 524_288 },
+    mcp: { endpoint: "/mcp", protocolVersion: "2025-11-25", stateless: true },
+    service: { name: "happycastle-steel-managed", version: "1.0.0" },
+    tools: tools.map((tool) => ({ ...tool, inputSchema: { type: "object" }, outputSchema: { type: "object" } })),
+  },
+  version: { apiVersion, browserVersion: "125.0.6422.60", createTokenKeyId: "0123456789abcdef", managedSha: "c".repeat(40), managerDigest: `sha256:${"d".repeat(64)}`, startedAt: now, toolchainLockSha256: "e".repeat(64), upstreamSha: "f".repeat(40), workerDigest: `sha256:${"1".repeat(64)}` },
+  workers: { apiVersion, items: [{ instanceId: instanceOne, lastSeenAt: now, sessionId: liveSessionId, state: "LIVE", stateChangedAt: now, workerId: "worker-00" }, { instanceId: instanceTwo, lastSeenAt: now, state: "IDLE", stateChangedAt: now, workerId: "worker-01" }], page },
+} as const
+
+export { admissionId, liveSessionId }

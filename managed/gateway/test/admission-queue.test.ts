@@ -131,4 +131,23 @@ describe("AdmissionQueue", () => {
     expect(queue.get(ticket.id)?.state).toBe(AdmissionState.EXPIRED)
     expect(queue.activeCount()).toBe(0)
   })
+
+  it("evicts only the oldest terminal record at the configured retention boundary", () => {
+    const queue = new AdmissionQueue<string>({
+      capacity: 2,
+      clock: new FakeClock(),
+      ids: new SequentialIdGenerator(),
+      retainedTerminalCapacity: 1,
+      ticketTtlMilliseconds: 120_000,
+    })
+    const first = queue.enqueue("first")
+    const second = queue.enqueue("second")
+
+    queue.cancel(first.id)
+    queue.cancel(second.id)
+
+    expect(queue.get(first.id)).toBeUndefined()
+    expect(queue.get(second.id)?.state).toBe(AdmissionState.CANCELLED)
+    expect(queue.terminalCount()).toBe(1)
+  })
 })
