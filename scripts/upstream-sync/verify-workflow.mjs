@@ -107,6 +107,18 @@ function verifyObservationRunner(runner) {
   if (/managed\/tests\/upstream|routeId|record\.health|record\.websocket/u.test(runner)) throw new Error("observation runner may not fabricate or copy protocol corpus artifacts")
 }
 
+function verifyBlockedReport(workflow) {
+  const blocked = extractJob(workflow, "report-blocked")
+  const labelCommand = 'gh label create "status: blocked" --repo "${GITHUB_REPOSITORY}" --color "B60205" --description "Upstream sync requires human review" --force'
+  if (!blocked.split("\n").some((line) => line.trim() === labelCommand)) throw new Error("blocked report must idempotently ensure its issue label")
+  const labelIndex = blocked.indexOf(labelCommand)
+  const issueListIndex = blocked.indexOf("gh issue list")
+  const issueCreateIndex = blocked.indexOf("gh issue create")
+  if (labelIndex === -1 || issueListIndex === -1 || issueCreateIndex === -1 || labelIndex > issueListIndex || labelIndex > issueCreateIndex) {
+    throw new Error("blocked report must ensure its issue label before issue read/write operations")
+  }
+}
+
 export function verifyManagedPrGateText(workflow) {
   verifyActions(workflow)
   requireMatch(workflow, /^on:\n\s+pull_request:\n\s+branches:\n\s+- managed\s*$/mu, "managed PR gate must target pull requests to managed")
@@ -133,6 +145,7 @@ export function verifyWorkflowText(workflow, options = {}) {
   verifyCandidateScript(scripts.candidate)
   verifyPublisherScript(scripts.publisher)
   verifyObservationRunner(scripts.runner)
+  verifyBlockedReport(workflow)
   requireMatch(workflow, /^on:\n(?=[\s\S]*^  schedule:\n)(?=[\s\S]*^  workflow_dispatch:\s*$)/mu, "workflow must expose weekly schedule and workflow_dispatch")
   requireMatch(workflow, /^\s*-?\s*cron:\s*['"]\S+\s+\S+\s+\S+\s+\S+\s+\S+['"]\s*$/mu, "workflow schedule must use a five-field cron")
   requireMatch(workflow, /^concurrency:\n\s+group:\s+steel-managed-upstream-sync\n\s+cancel-in-progress:\s+false\s*$/mu, "workflow concurrency must serialize runs")

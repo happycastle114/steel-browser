@@ -68,6 +68,12 @@ test("workflow verifier rejects a write permission on the candidate job", async 
   assert.throws(() => verifyWorkflowText(workflow.replace("      contents: read", "      contents: write")), /candidate job must use read-only contents permission/)
 })
 
+test("workflow verifier rejects a blocked report that does not ensure its label", async () => {
+  const { workflow } = await inputs()
+  const labelCommand = '          gh label create "status: blocked" --repo "${GITHUB_REPOSITORY}" --color "B60205" --description "Upstream sync requires human review" --force\n'
+  assert.throws(() => verifyWorkflowText(workflow.replace(labelCommand, "")), /idempotently ensure its issue label/)
+})
+
 test("workflow verifier rejects unused guard definitions with no candidate call sites", async () => {
   const { workflow, candidateScript } = await inputs()
   assert.throws(() => verifyWorkflowText(workflow, { candidateScript: candidateScript.replace(/^verify_upstream_delta\s*$/gmu, "") }), /candidate must guard upstream-owned paths before and after merge/)

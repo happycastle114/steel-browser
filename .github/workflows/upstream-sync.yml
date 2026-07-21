@@ -134,6 +134,7 @@ jobs:
           before rerunning sync. The workflow never copies an older observed receipt.
           EOF
           )"
+          gh label create "status: blocked" --repo "${GITHUB_REPOSITORY}" --color "B60205" --description "Upstream sync requires human review" --force
           ISSUE_NUMBER="$(gh issue list --repo "${GITHUB_REPOSITORY}" --state open --search "${TITLE} in:title" --json number --jq '.[0].number // empty')"
           if [[ -n "${ISSUE_NUMBER}" ]]; then
             gh issue edit "${ISSUE_NUMBER}" --repo "${GITHUB_REPOSITORY}" --title "${TITLE}" --body "${BODY}"
