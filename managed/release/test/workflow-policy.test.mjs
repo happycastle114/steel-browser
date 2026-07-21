@@ -5,9 +5,22 @@ import { test } from "node:test"
 import yaml from "yaml"
 
 const workflowPaths = [
+  ".github/workflows/managed-pr-gates.yml",
   ".github/workflows/managed-release.yml",
   ".github/workflows/managed-upstream-sync.yml",
 ]
+
+test("publishes the protected managed-branch check contract", async () => {
+  const bytes = await readFile(
+    new URL("../../../.github/workflows/managed-pr-gates.yml", import.meta.url),
+    "utf8",
+  )
+  const workflow = yaml.parse(bytes)
+
+  assert.equal(workflow.name, "Managed pull request gates")
+  assert.deepEqual(workflow.on.pull_request.branches, ["managed"])
+  assert.equal(workflow.jobs.gates.name, "gates")
+})
 
 test("hydrates only DuckDB after script-free installs on exact toolchains", async () => {
   for (const workflowPath of workflowPaths) {
