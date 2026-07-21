@@ -75,25 +75,22 @@ if git merge-base --is-ancestor "${SOURCE_SHA}" "${MANAGED_SHA}"; then
   exit 0
 fi
 
-CAPTURE_EXECUTABLE=""
-if [[ -n "${STEEL_REVIEWED_CAPTURE_EXECUTABLE:-}" ]]; then
-  if ! CAPTURE_EXECUTABLE="$(command -v "${STEEL_REVIEWED_CAPTURE_EXECUTABLE}" 2>/dev/null)"; then
-    CAPTURE_EXECUTABLE=""
-  fi
-fi
-if [[ -z "${CAPTURE_EXECUTABLE}" ]]; then
-  echo "a reviewed Steel runtime capture executable is required; copied corpora are not accepted" >&2
+CAPTURE_DIR="${ARTIFACT_ROOT}/captured/${SOURCE_SHA}"
+CAPTURE_SCRIPT="${ARTIFACT_ROOT}/capture-observation.mjs"
+CAPTURE_RUNNER="${ARTIFACT_ROOT}/observation-runner.mjs"
+CAPTURE_OBSERVER="${ARTIFACT_ROOT}/steel-runtime-observer.mjs"
+CAPTURE_RUNNER_SHA256="$(git hash-object scripts/upstream-sync/observation-runner.mjs)"
+cp scripts/upstream-sync/capture-observation.mjs "${CAPTURE_SCRIPT}"
+cp scripts/upstream-sync/observation-runner.mjs "${CAPTURE_RUNNER}"
+cp scripts/upstream-sync/steel-runtime-observer.mjs "${CAPTURE_OBSERVER}"
+git switch --detach "${SOURCE_SHA}"
+if ! STEEL_OBSERVATION_RUNNER_SHA256="${CAPTURE_RUNNER_SHA256}" node "${CAPTURE_SCRIPT}" \
+  --repository-root "${PWD}" --upstream-sha "${SOURCE_SHA}" \
+  --output-directory "${CAPTURE_DIR}"; then
+  echo "RUNTIME_CAPTURE_BLOCKED: repository-owned Steel/browser observation unavailable" >&2
   write_blocked_classification
   exit 0
 fi
-CAPTURE_DIR="${ARTIFACT_ROOT}/captured/${SOURCE_SHA}"
-CAPTURE_SCRIPT="${ARTIFACT_ROOT}/capture-observation.mjs"
-cp scripts/upstream-sync/capture-observation.mjs "${CAPTURE_SCRIPT}"
-git switch --detach "${SOURCE_SHA}"
-node "${CAPTURE_SCRIPT}" \
-  --repository-root "${PWD}" --upstream-sha "${SOURCE_SHA}" \
-  --output-directory "${CAPTURE_DIR}" --runtime-executable "${CAPTURE_EXECUTABLE}" \
-  --runtime-args-json "${STEEL_REVIEWED_CAPTURE_ARGS_JSON:-[]}"
 git switch --detach "${MANAGED_SHA}"
 
 git config user.name "github-actions[bot]"

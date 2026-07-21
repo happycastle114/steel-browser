@@ -1,9 +1,14 @@
 import assert from "node:assert/strict"
-import { readFile } from "node:fs/promises"
+import { execFile } from "node:child_process"
+import { access, mkdtemp, readFile, rm } from "node:fs/promises"
+import os from "node:os"
 import path from "node:path"
 import test from "node:test"
+import { promisify } from "node:util"
 
 import { verifyManagedPrGateText, verifyWorkflowText } from "./verify-workflow.mjs"
+
+const execFileAsync = promisify(execFile)
 
 const workflowPath = path.resolve(".github/workflows/upstream-sync.yml")
 const managedPrWorkflowPath = path.resolve(".github/workflows/managed-pr-gates.yml")
@@ -104,6 +109,12 @@ test("workflow verifier rejects tokenized gate neutralizers across shell forms",
     "npm run test \\\n|| :",
     "(npm run test)\n|| :",
     "if npm run test; then echo ignored; fi",
+    "if\n  npm run test\nthen\n  echo ignored\nfi",
+    "while\n  npm run test\ndo\n  echo ignored\ndone",
+    "until\n  npm run test\ndo\n  echo ignored\ndone",
+    "(\n  npm run test\n)\n|| :",
+    "{\n  npm run test\n}\n|| :",
+    "! npm run test",
   ]
   for (const neutralizer of neutralizers) {
     assert.throws(
@@ -112,6 +123,19 @@ test("workflow verifier rejects tokenized gate neutralizers across shell forms",
       neutralizer,
     )
   }
+})
+
+test("bash execution oracle confirms fail-open and fail-closed sentinel behavior", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "steel-shell-gate-oracle-"))
+  const sentinel = path.join(root, "sentinel")
+  t.after(() => rm(root, { recursive: true, force: true }))
+  await execFileAsync("bash", ["-euo", "pipefail", "-c", `false || :; touch ${sentinel}`])
+  await access(sentinel)
+  await rm(sentinel)
+  await assert.rejects(execFileAsync("bash", ["-euo", "pipefail", "-c", `false || { exit 1; }; touch ${sentinel}`]))
+  await assert.rejects(access(sentinel))
+  await execFileAsync("bash", ["-euo", "pipefail", "-c", `true; touch ${sentinel}`])
+  assert.equal((await readFile(sentinel)).length, 0)
 })
 
 test("workflow verifier does not count gate text inside another command", async () => {

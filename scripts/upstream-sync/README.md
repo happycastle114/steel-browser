@@ -29,8 +29,8 @@ node scripts/upstream-sync/verify-license.mjs
 ```
 
 `capture-observation.mjs` is the only supported way to create an observation directory. The candidate
-checks out the exact upstream source before invoking it, and it executes
-an explicitly supplied Steel runtime capture command and requires these regular files: `manifest.json`,
+checks out the exact upstream source before invoking a hash-bound, repository-owned observation runner
+and requires these regular files: `manifest.json`,
 `observed-receipt.json`, `rest.ndjson`, `route-matrix.json`, `session-id-verdict.json`,
 `websocket.ndjson`, `runtime-identity.json`, and `observation-provenance.json`. The runtime identity
 pins the upstream SHA, runtime/browser versions, and worker image digest. Provenance records every
@@ -43,16 +43,13 @@ digest in `managed/shared/src/upstream-observed-receipt.ts`. A `FINAL` lock addi
 bytes (there is no caller-supplied digest sidecar). A missing observation produces a blocked run
 instead of a false-green PR.
 
-Capture invocation (the workflow requires `STEEL_REVIEWED_CAPTURE_EXECUTABLE` and executes this
-command; this repository deliberately does not ship a fake runtime wrapper):
+Capture invocation (the workflow supplies no caller-selected executable or runtime JSON):
 
 ```sh
 node scripts/upstream-sync/capture-observation.mjs \
   --repository-root . \
   --upstream-sha <40-character-sha> \
-  --output-directory "$RUNNER_TEMP/steel-upstream-sync/captured/<40-character-sha>" \
-  --runtime-executable "$STEEL_REVIEWED_CAPTURE_EXECUTABLE" \
-  --runtime-args-json "${STEEL_REVIEWED_CAPTURE_ARGS_JSON:-[]}"
+  --output-directory "$RUNNER_TEMP/steel-upstream-sync/captured/<40-character-sha>"
 ```
 
 `classify-upstream.mjs` writes a machine-readable API/browser/dependency/license/migration/scope

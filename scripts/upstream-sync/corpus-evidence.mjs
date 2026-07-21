@@ -34,7 +34,7 @@ export async function assertProvenance(provenance, upstreamSha, artifactTexts, {
   if (provenance === null || typeof provenance !== "object" || Array.isArray(provenance) || provenance.upstreamSha !== upstreamSha) throw new Error("observed observation provenance is not pinned to the requested upstream SHA")
   if (provenance.schemaVersion !== 1 || typeof provenance.gitHead !== "string" || !UPSTREAM_SHA_PATTERN.test(provenance.gitHead)) throw new Error("observation provenance gitHead is invalid")
   assertExactKeys(provenance, ["schemaVersion", "upstreamSha", "gitHead", "captureToolVersion", "runtimeExecutable", "runtimeArgs", "capturedAt", "runtimeIdentitySha256", "artifacts"], "observation provenance")
-  if (typeof provenance.captureToolVersion !== "string" || typeof provenance.runtimeExecutable !== "string" || !Array.isArray(provenance.runtimeArgs) || provenance.runtimeArgs.some((argument) => typeof argument !== "string") || typeof provenance.capturedAt !== "string" || Number.isNaN(Date.parse(provenance.capturedAt)) || !Array.isArray(provenance.artifacts)) throw new Error("observation provenance runtime contract is invalid")
+  if (provenance.runtimeExecutable !== "repository-owned-observation-runner-v1" || typeof provenance.captureToolVersion !== "string" || !Array.isArray(provenance.runtimeArgs) || provenance.runtimeArgs.length !== 0 || typeof provenance.capturedAt !== "string" || Number.isNaN(Date.parse(provenance.capturedAt)) || !Array.isArray(provenance.artifacts)) throw new Error("observation provenance runtime contract is invalid")
   if (strict && repositoryRoot !== undefined) {
     let isGitRepository = true
     try { await execFileAsync("git", ["-C", repositoryRoot, "rev-parse", "--git-dir"]) } catch { isGitRepository = false }

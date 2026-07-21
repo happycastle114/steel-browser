@@ -4,6 +4,7 @@ import { access, lstat, mkdir, readdir, readFile, writeFile } from "node:fs/prom
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
+import { runRepositoryObservation, RuntimeCaptureBlocked } from "./observation-runner.mjs"
 
 const execFileAsync = promisify(execFile)
 const SHA_PATTERN = /^[0-9a-f]{40}$/u
@@ -86,24 +87,17 @@ async function assertCommit(repositoryRoot, upstreamSha) {
 }
 
 /**
- * Execute the explicitly supplied runtime capture command and bind its output
- * to the requested git commit. The runtime receives only environment values;
- * no shell interpolation or caller-provided command string is used.
+ * Execute the repository-owned observation runner and bind its output to the
+ * requested git commit. Tests may inject an in-process runner dependency.
  */
 export async function captureObservation({
   repositoryRoot,
   upstreamSha,
   outputDirectory,
-  runtimeExecutable,
-  runtimeArgs = [],
+  runner = runRepositoryObservation,
 }) {
   assertSha(upstreamSha, "upstream SHA")
-  if (typeof runtimeExecutable !== "string" || runtimeExecutable.trim() === "") {
-    throw new Error("runtime executable is required")
-  }
-  if (!Array.isArray(runtimeArgs) || runtimeArgs.some((argument) => typeof argument !== "string")) {
-    throw new Error("runtime arguments must be an array of strings")
-  }
+  if (typeof runner !== "function") throw new Error("observation runner dependency is invalid")
   const root = path.resolve(repositoryRoot)
   const destination = path.resolve(outputDirectory)
   const gitHead = await assertCommit(root, upstreamSha)
@@ -116,15 +110,12 @@ export async function captureObservation({
     await mkdir(destination, { recursive: true })
   }
 
-  await execFileAsync(runtimeExecutable, runtimeArgs, {
-    cwd: root,
-    env: {
-      ...process.env,
-      STEEL_OBSERVATION_OUTPUT_DIR: destination,
-      STEEL_OBSERVATION_UPSTREAM_SHA: upstreamSha,
-    },
-    maxBuffer: 16 * 1024 * 1024,
-  })
+  try {
+    await runner({ repositoryRoot: root, upstreamSha, outputDirectory: destination })
+  } catch (error) {
+    if (error?.code === "RUNTIME_CAPTURE_BLOCKED") throw error
+    throw new RuntimeCaptureBlocked(`observation runner failed: ${error instanceof Error ? error.message : "unknown failure"}`)
+  }
 
   const postCaptureGitHead = await assertCommit(root, upstreamSha)
   if (postCaptureGitHead !== upstreamSha) throw new Error("runtime capture changed the checked-out upstream SHA")
@@ -150,8 +141,8 @@ export async function captureObservation({
     upstreamSha,
     gitHead,
     captureToolVersion: "steel-managed-observation-v1",
-    runtimeExecutable,
-    runtimeArgs,
+    runtimeExecutable: "repository-owned-observation-runner-v1",
+    runtimeArgs: [],
     capturedAt: new Date().toISOString(),
     runtimeIdentitySha256: sha256(Buffer.from(runtimeIdentityText, "utf8")),
     artifacts,
@@ -169,33 +160,13 @@ async function main() {
   const repositoryRoot = readArgument("--repository-root") ?? process.cwd()
   const upstreamSha = readArgument("--upstream-sha")
   const outputDirectory = readArgument("--output-directory")
-  const runtimeExecutable = readArgument("--runtime-executable")
-  const runtimeArgs = []
-  for (let index = 0; index < args.length; index += 1) {
-    if (args[index] !== "--runtime-arg") continue
-    const value = args[index + 1]
-    if (value === undefined) throw new Error("--runtime-arg requires one value")
-    runtimeArgs.push(value)
-    index += 1
+  if (args.some((argument) => argument.startsWith("--runtime"))) {
+    throw new Error("caller-selected runtime executables are forbidden")
   }
-  const runtimeArgsJson = readArgument("--runtime-args-json")
-  if (runtimeArgsJson !== undefined) {
-    if (runtimeArgs.length > 0) throw new Error("use either repeated --runtime-arg flags or --runtime-args-json")
-    let parsedArgs
-    try {
-      parsedArgs = JSON.parse(runtimeArgsJson)
-    } catch {
-      throw new Error("--runtime-args-json must be valid JSON")
-    }
-    if (!Array.isArray(parsedArgs) || parsedArgs.some((argument) => typeof argument !== "string")) {
-      throw new Error("--runtime-args-json must contain an array of strings")
-    }
-    runtimeArgs.push(...parsedArgs)
+  if (upstreamSha === undefined || outputDirectory === undefined) {
+    throw new Error("usage: capture-observation.mjs --upstream-sha <sha> --output-directory <path>")
   }
-  if (upstreamSha === undefined || outputDirectory === undefined || runtimeExecutable === undefined) {
-    throw new Error("usage: capture-observation.mjs --upstream-sha <sha> --output-directory <path> --runtime-executable <path> [--runtime-arg <arg> ... | --runtime-args-json <json>]")
-  }
-  const result = await captureObservation({ repositoryRoot, upstreamSha, outputDirectory, runtimeExecutable, runtimeArgs })
+  const result = await captureObservation({ repositoryRoot, upstreamSha, outputDirectory })
   console.log(`UPSTREAM_OBSERVATION_CAPTURED ${JSON.stringify(result.provenance)}`)
 }
 

@@ -54,8 +54,6 @@ jobs:
         shell: bash
         env:
           READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          STEEL_REVIEWED_CAPTURE_EXECUTABLE: ${{ vars.STEEL_REVIEWED_CAPTURE_EXECUTABLE }}
-          STEEL_REVIEWED_CAPTURE_ARGS_JSON: ${{ vars.STEEL_REVIEWED_CAPTURE_ARGS_JSON }}
         run: bash scripts/upstream-sync/candidate.sh
 
       - name: Upload immutable candidate evidence

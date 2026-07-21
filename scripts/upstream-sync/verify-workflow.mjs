@@ -22,6 +22,7 @@ function loadScripts(options = {}) {
   return {
     candidate: options.candidateScript ?? readFileSync(path.join(SCRIPT_ROOT, "candidate.sh"), "utf8"),
     publisher: options.publisherScript ?? readFileSync(path.join(SCRIPT_ROOT, "publisher.sh"), "utf8"),
+    runner: options.observationRunner ?? readFileSync(path.join(SCRIPT_ROOT, "observation-runner.mjs"), "utf8"),
   }
 }
 
@@ -57,11 +58,12 @@ function verifyCandidateScript(candidate) {
   requireMatch(candidate, /STAGED_TREE_SHA="\$\(git write-tree\)"/u, "candidate must snapshot the staged generated tree")
   requireMatch(candidate, /COMMITTED_TREE_SHA="\$\(git rev-parse HEAD\^\{tree\}\)"[\s\S]*STAGED_TREE_SHA/u, "candidate must bind the committed tree to the staged generated tree")
   requireMatch(candidate, /if \[\[ -n "\$\(git status --porcelain=v1 --untracked-files=all\)" \]\]; then/u, "candidate clean-tree check is missing")
-  requireMatch(candidate, /STEEL_REVIEWED_CAPTURE_EXECUTABLE/u, "candidate must require a reviewed Steel capture executable")
   requireMatch(candidate, /capture-observation\.mjs/u, "candidate must execute the deterministic observation capture")
-  requireMatch(candidate, /CAPTURE_SCRIPT="\$\{ARTIFACT_ROOT\}\/capture-observation\.mjs"[\s\S]*cp scripts\/upstream-sync\/capture-observation\.mjs "\$\{CAPTURE_SCRIPT\}"/u, "candidate must preserve the capture tool across the source checkout")
+  requireMatch(candidate, /CAPTURE_RUNNER_SHA256="\$\(git hash-object scripts\/upstream-sync\/observation-runner\.mjs\)"/u, "candidate must hash-bind the repository observation runner")
+  requireMatch(candidate, /CAPTURE_SCRIPT="\$\{ARTIFACT_ROOT\}\/capture-observation\.mjs"[\s\S]*cp scripts\/upstream-sync\/capture-observation\.mjs "\$\{CAPTURE_SCRIPT\}"[\s\S]*cp scripts\/upstream-sync\/observation-runner\.mjs "\$\{CAPTURE_RUNNER\}"[\s\S]*cp scripts\/upstream-sync\/steel-runtime-observer\.mjs "\$\{CAPTURE_OBSERVER\}"/u, "candidate must preserve the capture runner across the source checkout")
   requireMatch(candidate, /git switch --detach "\$\{SOURCE_SHA\}"[\s\S]*node "\$\{CAPTURE_SCRIPT\}"/u, "candidate must capture against the exact source checkout")
-  requireMatch(candidate, /copied corpora are not accepted/u, "candidate must reject copied corpus inputs")
+  requireMatch(candidate, /RUNTIME_CAPTURE_BLOCKED/u, "candidate must preserve typed runtime blocking")
+  if (/STEEL_REVIEWED_CAPTURE_EXECUTABLE|runtime-executable|runtime-args-json/u.test(candidate)) throw new Error("candidate may not accept a caller-selected runtime executable")
   if (/OBSERVED_CORPUS_ROOT|upstream-observations/u.test(candidate)) throw new Error("candidate must not consume an ambiguously named copied corpus")
   requireMatch(candidate, /git add -- managed\/upstream\.lock\.json/u, "generated candidate allowlist must stage the managed corpus")
   if (/git add -- \.github\/workflows\/upstream-sync\.yml/u.test(candidate)) throw new Error("workflow file may not be part of generated candidate changes")
@@ -98,6 +100,13 @@ function verifyPublisherScript(publisher) {
   if (/git\s+push[^\n]*refs\/heads\/managed\b/u.test(publisher)) throw new Error("publisher may not push protected managed")
 }
 
+function verifyObservationRunner(runner) {
+  requireMatch(runner, /export async function runRepositoryObservation/u, "observation runner entrypoint is missing")
+  requireMatch(runner, /RUNTIME_CAPTURE_BLOCKED/u, "observation runner must block unavailable runtime capture")
+  requireMatch(runner, /rev-parse.*HEAD/u, "observation runner must bind the checked-out HEAD")
+  if (/managed\/tests\/upstream|routeId|record\.health|record\.websocket/u.test(runner)) throw new Error("observation runner may not fabricate or copy protocol corpus artifacts")
+}
+
 export function verifyManagedPrGateText(workflow) {
   verifyActions(workflow)
   requireMatch(workflow, /^on:\n\s+pull_request:\n\s+branches:\n\s+- managed\s*$/mu, "managed PR gate must target pull requests to managed")
@@ -123,6 +132,7 @@ export function verifyWorkflowText(workflow, options = {}) {
   requireMatch(publisher, /run:\s+bash scripts\/upstream-sync\/publisher\.sh/u, "publisher must invoke the reviewed publisher script")
   verifyCandidateScript(scripts.candidate)
   verifyPublisherScript(scripts.publisher)
+  verifyObservationRunner(scripts.runner)
   requireMatch(workflow, /^on:\n(?=[\s\S]*^  schedule:\n)(?=[\s\S]*^  workflow_dispatch:\s*$)/mu, "workflow must expose weekly schedule and workflow_dispatch")
   requireMatch(workflow, /^\s*-?\s*cron:\s*['"]\S+\s+\S+\s+\S+\s+\S+\s+\S+['"]\s*$/mu, "workflow schedule must use a five-field cron")
   requireMatch(workflow, /^concurrency:\n\s+group:\s+steel-managed-upstream-sync\n\s+cancel-in-progress:\s+false\s*$/mu, "workflow concurrency must serialize runs")
@@ -136,6 +146,7 @@ export function verifyWorkflowText(workflow, options = {}) {
   requireMatch(scripts.candidate, /managed\/shared\/src\/upstream-observed-receipt\.ts/u, "source-pinned receipt update allowlist is missing")
   requireMatch(scripts.candidate, /--observed-corpus-directory/u, "corpus preparation must use captured output")
   requireMatch(scripts.candidate, /classify-upstream\.mjs/u, "upstream classification is missing")
+  if (/STEEL_REVIEWED_CAPTURE_EXECUTABLE|STEEL_REVIEWED_CAPTURE_ARGS_JSON|runtime-executable|runtime-args-json/u.test(`${workflow}\n${scripts.candidate}`)) throw new Error("production capture may not accept caller-selected runtime execution")
   requireMatch(scripts.publisher, /npm run verify:upstream-corpus/u, "corpus compatibility check evidence is missing")
   requireMatch(scripts.publisher, /npm run check:managed/u, "managed check evidence is missing")
   requireMatch(scripts.publisher, /npm run test\b/u, "root test evidence is missing")

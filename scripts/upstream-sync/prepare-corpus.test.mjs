@@ -100,7 +100,7 @@ async function writeObservedProvenance(directory) {
     gitHead: NEW_SHA,
     captureToolVersion: "fixture",
     capturedAt: "2026-01-01T00:00:00.000Z",
-    runtimeExecutable: "fixture",
+    runtimeExecutable: "repository-owned-observation-runner-v1",
     runtimeArgs: [],
     runtimeIdentitySha256: sha256(Buffer.from(runtimeIdentityText, "utf8")),
     artifacts,

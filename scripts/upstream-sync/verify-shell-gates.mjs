@@ -7,7 +7,7 @@ export const GATE_COMMANDS = [
 ]
 
 const SHELL_OPERATORS = new Set([";", "&&", "||", "&", "|", "(", ")", "{", "}"])
-const COMMAND_KEYWORDS = new Set(["if", "then", "else", "do", "!"])
+const COMMAND_KEYWORDS = new Set(["if", "while", "until", "then", "else", "do", "!"])
 const GATE_OUTCOME = Object.freeze({
   ZERO: Symbol("zero"),
   NONZERO: Symbol("nonzero"),
@@ -18,12 +18,17 @@ function tokenizeShell(line) {
   const tokens = []
   let word = ""
   let quote = ""
+  let comment = false
   const flush = () => {
     if (word !== "") tokens.push({ type: "word", value: word }), (word = "")
   }
   for (let index = 0; index < line.length; index += 1) {
     const character = line[index]
     const next = line[index + 1]
+    if (comment) {
+      if (character === "\n") comment = false
+      continue
+    }
     if (quote === "'") {
       if (character === "'") quote = ""
       else word += character
@@ -35,7 +40,10 @@ function tokenizeShell(line) {
       else word += character
       continue
     }
-    if (character === "#" && word === "") break
+    if (character === "#" && word === "") {
+      comment = true
+      continue
+    }
     if (character === "'" || character === '"') {
       quote = character
       continue
@@ -91,6 +99,51 @@ function findGate(tokens) {
   return undefined
 }
 
+function gatePositions(tokens) {
+  const positions = []
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index - 1]?.type === "word" && !COMMAND_KEYWORDS.has(tokens[index - 1].value)) continue
+    const gate = findGate(tokens.slice(index))
+    if (gate?.index === 0) positions.push({ index, length: gate.length })
+  }
+  return positions
+}
+
+function groupClosures(tokens) {
+  const stack = []
+  const closures = new Map()
+  for (let index = 0; index < tokens.length; index += 1) {
+    const value = tokens[index].value
+    if (value === "(" || value === "{") stack.push({ value, index })
+    if ((value === ")" || value === "}") && stack.at(-1)?.value === (value === ")" ? "(" : "{")) {
+      const opener = stack.pop()
+      closures.set(opener.index, index)
+    }
+  }
+  return closures
+}
+
+function segmentBefore(tokens, index) {
+  let start = index - 1
+  while (start >= 0 && !new Set([";", "&&", "||", "&", "|", "then", "else", "do", "(", "{"]).has(tokens[start].value)) start -= 1
+  return tokens.slice(start + 1, index)
+}
+
+function verifyTokenContexts(candidate) {
+  const tokens = tokenizeShell(candidate)
+  const closures = groupClosures(tokens)
+  for (const gate of gatePositions(tokens)) {
+    const segment = segmentBefore(tokens, gate.index)
+    if (segment.some((token) => token.value === "!" || token.value === "if" || token.value === "while" || token.value === "until")) throw new Error("candidate script contains a failure neutralizer")
+    const enclosing = [...closures.entries()].filter(([start, end]) => start < gate.index && gate.index < end).sort((left, right) => right[0] - left[0])[0]
+    if (enclosing === undefined) continue
+    const [, close] = enclosing
+    const operator = tokens[close + 1]?.value
+    if (operator === "&&" || operator === "&" || operator === "|") throw new Error("candidate script contains a failure neutralizer")
+    if (operator === "||" && commandOutcome(tokens.slice(close + 2)) !== GATE_OUTCOME.NONZERO) throw new Error("candidate script contains a failure neutralizer")
+  }
+}
+
 function gateIsNeutralized(line) {
   const tokens = tokenizeShell(line)
   for (let offset = 0; offset < tokens.length; offset += 1) {
@@ -140,6 +193,7 @@ export function hasGateCommand(candidate, command) {
 
 export function verifyFailClosedGates(candidate) {
   const normalized = candidate.replace(/\\\r?\n[ \t]*/gu, " ")
+  verifyTokenContexts(normalized)
   const functionNames = functionGateNames(candidate)
   if (functionNames.size > 0 || normalized.split("\n").some((line) => /(?:^|[;{])\s*(?:if|while|until)\b[^;\n]*(?:npm run (?:check:managed|test|build)|node scripts\/upstream-sync\/verify-license\.mjs|git diff --check)/u.test(line))) {
     throw new Error("candidate script contains a failure neutralizer")
