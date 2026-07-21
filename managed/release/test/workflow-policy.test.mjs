@@ -21,6 +21,19 @@ test("keeps the manager Fastify runtime aligned with the root override", async (
   assert.equal(managerPackage.dependencies.fastify, rootPackage.dependencies.fastify)
 })
 
+test("builds shared contracts before clean-runner API drift checks", async () => {
+  const bytes = await readFile(
+    new URL("../../gateway/package.json", import.meta.url),
+    "utf8",
+  )
+  const gatewayPackage = JSON.parse(bytes)
+
+  assert.equal(
+    gatewayPackage.scripts["precheck:managed-api-drift"],
+    "npm run build -w @happycastle/steel-managed-shared",
+  )
+})
+
 test("publishes the protected managed-branch check contract", async () => {
   const bytes = await readFile(
     new URL("../../../.github/workflows/managed-pr-gates.yml", import.meta.url),
