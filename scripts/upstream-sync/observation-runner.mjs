@@ -44,4 +44,3 @@ export async function runRepositoryObservation({ repositoryRoot, upstreamSha, ou
   for (const name of CORE_ARTIFACTS) await writeFile(`${outputDirectory}/${name}`, artifacts.get(name), "utf8")
   await writeFile(`${outputDirectory}/runtime-identity.json`, `${JSON.stringify({ schemaVersion: 1, upstreamSha, gitHead: head, runtimeVersion: process.version, browserVersion: observation.browserVersion, workerImageDigest: observation.workerImageDigest })}\n`, "utf8")
 }
-

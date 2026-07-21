@@ -46,4 +46,3 @@ export async function observeSteelRuntime({ repositoryRoot }) {
     worker.kill("SIGTERM")
   }
 }
-
