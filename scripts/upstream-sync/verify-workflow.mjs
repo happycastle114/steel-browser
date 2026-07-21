@@ -59,7 +59,7 @@ function verifyCandidateScript(candidate) {
   requireMatch(candidate, /COMMITTED_TREE_SHA="\$\(git rev-parse HEAD\^\{tree\}\)"[\s\S]*STAGED_TREE_SHA/u, "candidate must bind the committed tree to the staged generated tree")
   requireMatch(candidate, /if \[\[ -n "\$\(git status --porcelain=v1 --untracked-files=all\)" \]\]; then/u, "candidate clean-tree check is missing")
   requireMatch(candidate, /capture-observation\.mjs/u, "candidate must execute the deterministic observation capture")
-  requireMatch(candidate, /CAPTURE_RUNNER_SHA256="\$\(git hash-object scripts\/upstream-sync\/observation-runner\.mjs\)"/u, "candidate must hash-bind the repository observation runner")
+  requireMatch(candidate, /CAPTURE_RUNNER_SHA256="\$\(shasum -a 256 scripts\/upstream-sync\/observation-runner\.mjs \| awk '\{print \$1\}'\)"/u, "candidate must hash-bind the repository observation runner with SHA-256")
   requireMatch(candidate, /CAPTURE_SCRIPT="\$\{ARTIFACT_ROOT\}\/capture-observation\.mjs"[\s\S]*cp scripts\/upstream-sync\/capture-observation\.mjs "\$\{CAPTURE_SCRIPT\}"[\s\S]*cp scripts\/upstream-sync\/observation-runner\.mjs "\$\{CAPTURE_RUNNER\}"[\s\S]*cp scripts\/upstream-sync\/steel-runtime-observer\.mjs "\$\{CAPTURE_OBSERVER\}"/u, "candidate must preserve the capture runner across the source checkout")
   requireMatch(candidate, /git switch --detach "\$\{SOURCE_SHA\}"[\s\S]*node "\$\{CAPTURE_SCRIPT\}"/u, "candidate must capture against the exact source checkout")
   requireMatch(candidate, /RUNTIME_CAPTURE_BLOCKED/u, "candidate must preserve typed runtime blocking")
