@@ -72,6 +72,7 @@ function verifyCandidateScript(candidate) {
   const prepareIndex = candidate.indexOf("prepare-corpus.mjs")
   const commitIndex = candidate.indexOf('git commit -m "ci(managed): record observed upstream corpus ${SOURCE_SHA}"')
   const finalVerifierIndex = candidate.indexOf("node scripts/upstream-sync/verify-candidate-commit.mjs")
+  requireMatch(candidate, /git diff --check "\$\{MANAGED_SHA\}\.\.\.HEAD"/u, "candidate must check the full managed-to-candidate range")
   const lastGateIndex = Math.max(...["npm run check:managed", "npm run test", "npm run build", "node scripts/upstream-sync/verify-license.mjs", "git diff --check"].map((gate) => candidate.lastIndexOf(gate)))
   if (mergeIndex === -1 || installIndex === -1 || guards[0] > mergeIndex || guards[1] > installIndex) throw new Error("candidate fork-owned-path guard must run before candidate install")
   if (prepareIndex === -1 || commitIndex === -1 || prepareIndex > commitIndex) throw new Error("generated candidate changes must be prepared before commit")
@@ -95,6 +96,21 @@ function verifyPublisherScript(publisher) {
   requireMatch(publisher, /required checks and immutable upstream-sync refs/u, "publisher PR evidence must describe enforced repository rules")
   if (/gh\s+pr\s+merge\b/u.test(publisher) || /enable-auto-merge/u.test(publisher) || /git\s+rebase\b/u.test(publisher)) throw new Error("publisher may not merge, rebase, or auto-merge")
   if (/git\s+push[^\n]*refs\/heads\/managed\b/u.test(publisher)) throw new Error("publisher may not push protected managed")
+}
+
+export function verifyManagedPrGateText(workflow) {
+  verifyActions(workflow)
+  requireMatch(workflow, /^on:\n\s+pull_request:\n\s+branches:\n\s+- managed\s*$/mu, "managed PR gate must target pull requests to managed")
+  requireMatch(workflow, /node-version:\s*22\.23\.1/u, "managed PR gate must use Node 22.23.1")
+  requireMatch(workflow, /PR_BASE_SHA:\s*\$\{\{ github\.event\.pull_request\.base\.sha \}\}/u, "managed PR gate must bind the pull request base SHA")
+  requireMatch(workflow, /if \[\[ ! "\$\{PR_BASE_SHA\}" =~ \^\[0-9a-f\]\{40\}\$ \]\]; then/u, "managed PR gate must validate the base SHA")
+  requireMatch(workflow, /git fetch --no-tags origin "\$\{PR_BASE_SHA\}"/u, "managed PR gate must fetch the exact base SHA")
+  if (/^\s*git diff --check\s*$/mu.test(workflow)) throw new Error("managed PR gate may not inspect an empty worktree diff")
+  requireMatch(workflow, /git diff --check "\$\{PR_BASE_SHA\}\.\.\.HEAD"/u, "managed PR gate must check the pull request range")
+  for (const gate of ["node scripts/upstream-sync/verify-workflow.mjs", "node --test scripts/upstream-sync/*.test.mjs", "npm run verify:upstream-corpus", "npm run check:managed", "npm run test", "npm run build", "node scripts/upstream-sync/verify-license.mjs"]) {
+    requireMatch(workflow, new RegExp(`^\\s*${gate.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?:\\s|$)`, "mu"), `managed PR gate is missing: ${gate}`)
+  }
+  return { status: "VERIFIED" }
 }
 
 export function verifyWorkflowText(workflow, options = {}) {

@@ -4,11 +4,12 @@ import test from "node:test"
 import { RULESET_CONTRACT, loadRepositoryRulesets, verifyRepositoryRules } from "./verify-repository-rules.mjs"
 
 function ruleset(ref, rules) {
-  return { enforcement: RULESET_CONTRACT.ACTIVE, target: RULESET_CONTRACT.BRANCH, conditions: { ref_name: { include: [ref] } }, rules }
+  return { enforcement: RULESET_CONTRACT.ACTIVE, target: RULESET_CONTRACT.BRANCH, bypass_actors: [], conditions: { ref_name: { include: [ref] } }, rules }
 }
 
 const requiredCheckRule = { type: RULESET_CONTRACT.REQUIRED_STATUS_CHECKS, parameters: { strict_required_status_checks_policy: true, required_status_checks: [{ context: RULESET_CONTRACT.REQUIRED_CHECK }] } }
-const baselineRules = [{ type: RULESET_CONTRACT.DELETION }, { type: RULESET_CONTRACT.NON_FAST_FORWARD }, { type: RULESET_CONTRACT.PULL_REQUEST }]
+const pullRequestRule = { type: RULESET_CONTRACT.PULL_REQUEST, parameters: { allowed_merge_methods: ["merge"], dismiss_stale_reviews_on_push: true, require_code_owner_review: true, require_last_push_approval: false, required_approving_review_count: 1, required_review_thread_resolution: true } }
+const baselineRules = [{ type: RULESET_CONTRACT.DELETION }, { type: RULESET_CONTRACT.NON_FAST_FORWARD }, pullRequestRule]
 
 test("repository rules verifier requires managed checks and immutable candidate refs", () => {
   assert.deepEqual(verifyRepositoryRules([
@@ -27,6 +28,21 @@ test("repository rules verifier rejects a managed ruleset without the required g
     ruleset(RULESET_CONTRACT.CANDIDATE_REF, [...baselineRules.slice(0, 2), { type: RULESET_CONTRACT.UPDATE }]),
   ]), /managed branch ruleset must enforce/)
 })
+
+for (const [label, mutate] of [
+  ["bypass actors", (rules) => ({ ...rules, bypass_actors: [{ actor_id: 7 }] })],
+  ["zero approvals", (rules) => ({ ...rules, rules: rules.rules.map((rule) => rule.type === RULESET_CONTRACT.PULL_REQUEST ? { ...rule, parameters: { ...rule.parameters, required_approving_review_count: 0 } } : rule) })],
+  ["disabled code owner review", (rules) => ({ ...rules, rules: rules.rules.map((rule) => rule.type === RULESET_CONTRACT.PULL_REQUEST ? { ...rule, parameters: { ...rule.parameters, require_code_owner_review: false } } : rule) })],
+  ["disabled thread resolution", (rules) => ({ ...rules, rules: rules.rules.map((rule) => rule.type === RULESET_CONTRACT.PULL_REQUEST ? { ...rule, parameters: { ...rule.parameters, required_review_thread_resolution: false } } : rule) })],
+  ["disabled stale dismissal", (rules) => ({ ...rules, rules: rules.rules.map((rule) => rule.type === RULESET_CONTRACT.PULL_REQUEST ? { ...rule, parameters: { ...rule.parameters, dismiss_stale_reviews_on_push: false } } : rule) })],
+  ["merge method drift", (rules) => ({ ...rules, rules: rules.rules.map((rule) => rule.type === RULESET_CONTRACT.PULL_REQUEST ? { ...rule, parameters: { ...rule.parameters, allowed_merge_methods: ["squash"] } } : rule) })],
+]) {
+  test(`repository rules verifier rejects ${label} drift`, () => {
+    const managed = ruleset(RULESET_CONTRACT.MANAGED_REF, [...baselineRules, requiredCheckRule])
+    const candidate = ruleset(RULESET_CONTRACT.CANDIDATE_REF, [...baselineRules.slice(0, 2), { type: RULESET_CONTRACT.UPDATE }])
+    assert.throws(() => verifyRepositoryRules([mutate(managed), candidate]), /managed branch ruleset must enforce/)
+  })
+}
 
 test("repository rules verifier resolves list entries through detail endpoints", async () => {
   const calls = []

@@ -113,11 +113,14 @@ function assertRoute(route, artifact) {
 
 export function assertRuntimeIdentity(identity, upstreamSha) {
   if (identity === null || typeof identity !== "object" || Array.isArray(identity)) throw new Error("runtime identity must be an object")
-  if (identity.upstreamSha !== upstreamSha) throw new Error("observed runtime identity is not pinned to the requested upstream SHA")
-  assertExactKeys(identity, ["schemaVersion", "upstreamSha", "runtimeVersion", "browserVersion", "workerImageDigest"], "runtime identity")
+  if (identity.upstreamSha !== upstreamSha || identity.gitHead !== upstreamSha) throw new Error("observed runtime identity is not pinned to the requested upstream SHA")
+  assertExactKeys(identity, ["schemaVersion", "upstreamSha", "gitHead", "runtimeVersion", "browserVersion", "workerImageDigest"], "runtime identity")
   if (identity.schemaVersion !== 1 || typeof identity.runtimeVersion !== "string" || identity.runtimeVersion.trim() === "") throw new Error("runtime identity is missing its version contract")
+  if (/^(?:fixture|fake|unknown)(?:[-/]|$)/iu.test(identity.runtimeVersion.trim())) throw new Error("runtime identity runtimeVersion is fabricated")
   if (typeof identity.browserVersion !== "string" || identity.browserVersion.trim() === "") throw new Error("runtime identity is missing browserVersion")
+  if (/^(?:fixture|fake|unknown)(?:[-/]|$)/iu.test(identity.browserVersion.trim())) throw new Error("runtime identity browserVersion is fabricated")
   if (typeof identity.workerImageDigest !== "string" || !IMAGE_DIGEST_PATTERN.test(identity.workerImageDigest)) throw new Error("runtime identity workerImageDigest is not pinned")
+  if (/^sha256:(.)\1{63}$/u.test(identity.workerImageDigest)) throw new Error("runtime identity workerImageDigest is fabricated")
 }
 
 export function assertStrictCoreArtifacts(texts, upstreamSha) {

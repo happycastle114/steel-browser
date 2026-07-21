@@ -32,8 +32,15 @@ jobs:
 
       - name: Run managed pull request gates
         shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
+          if [[ ! "${PR_BASE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "pull request base SHA is not an exact commit" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin "${PR_BASE_SHA}"
           npm ci
           node scripts/upstream-sync/verify-workflow.mjs
           node --test scripts/upstream-sync/*.test.mjs
@@ -42,4 +49,4 @@ jobs:
           npm run test
           npm run build
           node scripts/upstream-sync/verify-license.mjs
-          git diff --check
+          git diff --check "${PR_BASE_SHA}...HEAD"

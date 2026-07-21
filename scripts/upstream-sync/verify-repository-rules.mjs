@@ -16,6 +16,12 @@ export const RULESET_CONTRACT = Object.freeze({
   UPDATE: "update",
   PULL_REQUEST: "pull_request",
   REQUIRED_STATUS_CHECKS: "required_status_checks",
+  ALLOWED_MERGE_METHODS: Object.freeze(["merge"]),
+  REQUIRED_APPROVING_REVIEWS: 1,
+  REQUIRE_CODE_OWNER_REVIEW: true,
+  REQUIRE_REVIEW_THREAD_RESOLUTION: true,
+  DISMISS_STALE_REVIEWS: true,
+  REQUIRE_LAST_PUSH_APPROVAL: false,
 })
 
 function flattenRulesets(value) {
@@ -29,6 +35,23 @@ function hasRule(ruleset, type) {
 
 function hasRef(ruleset, ref) {
   return Array.isArray(ruleset.conditions?.ref_name?.include) && ruleset.conditions.ref_name.include.includes(ref)
+}
+
+function hasNoBypassActors(ruleset) {
+  return Array.isArray(ruleset.bypass_actors) && ruleset.bypass_actors.length === 0
+}
+
+function hasManagedPullRequestPolicy(ruleset) {
+  const rule = ruleset.rules?.find((candidate) => candidate?.type === RULESET_CONTRACT.PULL_REQUEST)
+  const parameters = rule?.parameters
+  if (parameters === undefined || !Array.isArray(parameters.allowed_merge_methods)) return false
+  return parameters.allowed_merge_methods.length === RULESET_CONTRACT.ALLOWED_MERGE_METHODS.length &&
+    parameters.allowed_merge_methods.every((method, index) => method === RULESET_CONTRACT.ALLOWED_MERGE_METHODS[index]) &&
+    parameters.dismiss_stale_reviews_on_push === RULESET_CONTRACT.DISMISS_STALE_REVIEWS &&
+    parameters.require_code_owner_review === RULESET_CONTRACT.REQUIRE_CODE_OWNER_REVIEW &&
+    parameters.required_review_thread_resolution === RULESET_CONTRACT.REQUIRE_REVIEW_THREAD_RESOLUTION &&
+    parameters.required_approving_review_count === RULESET_CONTRACT.REQUIRED_APPROVING_REVIEWS &&
+    parameters.require_last_push_approval === RULESET_CONTRACT.REQUIRE_LAST_PUSH_APPROVAL
 }
 
 function hasManagedRequiredCheck(ruleset) {
@@ -59,8 +82,8 @@ export async function loadRepositoryRulesets(repository, execute = execFileAsync
 
 export function verifyRepositoryRules(rulesetsInput) {
   const rulesets = flattenRulesets(rulesetsInput)
-  requireRuleset(rulesets, (ruleset) => hasRef(ruleset, RULESET_CONTRACT.MANAGED_REF) && hasRule(ruleset, RULESET_CONTRACT.DELETION) && hasRule(ruleset, RULESET_CONTRACT.NON_FAST_FORWARD) && hasRule(ruleset, RULESET_CONTRACT.PULL_REQUEST) && hasManagedRequiredCheck(ruleset), "managed branch ruleset must enforce deletion, non-fast-forward, pull request review, and the managed gate check")
-  requireRuleset(rulesets, (ruleset) => hasRef(ruleset, RULESET_CONTRACT.CANDIDATE_REF) && hasRule(ruleset, RULESET_CONTRACT.DELETION) && hasRule(ruleset, RULESET_CONTRACT.NON_FAST_FORWARD) && hasRule(ruleset, RULESET_CONTRACT.UPDATE), "upstream-sync candidate refs must be protected against deletion, non-fast-forward updates, and unreviewed updates")
+  requireRuleset(rulesets, (ruleset) => hasRef(ruleset, RULESET_CONTRACT.MANAGED_REF) && hasNoBypassActors(ruleset) && hasRule(ruleset, RULESET_CONTRACT.DELETION) && hasRule(ruleset, RULESET_CONTRACT.NON_FAST_FORWARD) && hasManagedPullRequestPolicy(ruleset) && hasManagedRequiredCheck(ruleset), "managed branch ruleset must enforce zero bypass actors, exact pull request review policy, deletion, non-fast-forward, and the managed gate check")
+  requireRuleset(rulesets, (ruleset) => hasRef(ruleset, RULESET_CONTRACT.CANDIDATE_REF) && hasNoBypassActors(ruleset) && hasRule(ruleset, RULESET_CONTRACT.DELETION) && hasRule(ruleset, RULESET_CONTRACT.NON_FAST_FORWARD) && hasRule(ruleset, RULESET_CONTRACT.UPDATE), "upstream-sync candidate refs must be protected against bypass actors, deletion, non-fast-forward updates, and unreviewed updates")
   return { status: "VERIFIED", managedCheck: RULESET_CONTRACT.REQUIRED_CHECK, candidateRef: RULESET_CONTRACT.CANDIDATE_REF }
 }
 

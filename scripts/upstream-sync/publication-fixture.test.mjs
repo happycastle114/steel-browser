@@ -37,7 +37,7 @@ async function writeCorpus(root, sourceSha, mergeSha, managedSha, diffSha256) {
     "route-matrix.json": routeMatrixText,
     "session-id-verdict.json": sessionIdVerdictText,
     "websocket.ndjson": webSocketText,
-    "runtime-identity.json": json({ schemaVersion: 1, upstreamSha: sourceSha, runtimeVersion: "fixture", browserVersion: "fixture", workerImageDigest: `sha256:${"1".repeat(64)}` }),
+    "runtime-identity.json": json({ schemaVersion: 1, upstreamSha: sourceSha, gitHead: sourceSha, runtimeVersion: "steel-browser-runtime-test/22.23.1", browserVersion: "chromium-test/140.0", workerImageDigest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" }),
   }
   files["manifest.json"] = json({ schemaVersion: 1, upstreamSha: sourceSha, sessionIdMode: "CLIENT_SUPPLIED", sourceInventorySha256: "2".repeat(64), sources: [{ path: "api.txt", sha256: sha256("upstream\n") }], artifacts: [
     { path: "rest.ndjson", sha256: sha256(restText), records: 1 },

@@ -61,9 +61,10 @@ async function createObservedCorpus(root) {
   await writeFile(path.join(sourceDirectory, "runtime-identity.json"), json({
     schemaVersion: 1,
     upstreamSha: NEW_SHA,
-    runtimeVersion: "fixture-runtime",
-    browserVersion: "fixture-browser",
-    workerImageDigest: `sha256:${"1".repeat(64)}`,
+    gitHead: NEW_SHA,
+    runtimeVersion: "steel-browser-runtime-test/22.23.1",
+    browserVersion: "chromium-test/140.0",
+    workerImageDigest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   }))
   await writeObservedProvenance(sourceDirectory)
   return sourceDirectory
@@ -197,12 +198,12 @@ test("prepareCorpus rejects observation bytes that drift from captured provenanc
     schemaVersion: 1,
     upstreamSha: NEW_SHA,
     runtimeVersion: "tampered",
-    browserVersion: "fixture-browser",
-    workerImageDigest: `sha256:${"1".repeat(64)}`,
+    browserVersion: "chromium-test/140.0",
+    workerImageDigest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   }))
   await assert.rejects(
     prepareCorpus({ repositoryRoot: root, upstreamSha: NEW_SHA, observedCorpusDirectory: observedDirectory }),
-    /observation provenance artifact hash drift|runtime identity hash drift/,
+    /observation provenance artifact hash drift|runtime identity hash drift|runtime identity is not pinned/,
   )
 })
 

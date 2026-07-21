@@ -6,7 +6,8 @@ export const GATE_COMMANDS = [
   ["git", "diff", "--check"],
 ]
 
-const SHELL_OPERATORS = new Set([";", "&&", "||", "|", "(", ")", "{", "}"])
+const SHELL_OPERATORS = new Set([";", "&&", "||", "&", "|", "(", ")", "{", "}"])
+const COMMAND_KEYWORDS = new Set(["if", "then", "else", "do", "!"])
 const GATE_OUTCOME = Object.freeze({
   ZERO: Symbol("zero"),
   NONZERO: Symbol("nonzero"),
@@ -99,8 +100,11 @@ function gateIsNeutralized(line) {
     const end = gate.index + gate.length
     const next = tokens[end]
     const operator = next?.value === ")" || next?.value === "}" ? tokens[end + 1] : next
-    if (operator?.value === "||" || operator?.value === "&&") {
-      if (commandOutcome(tokens.slice(tokens.indexOf(operator) + 1)) !== GATE_OUTCOME.NONZERO) return true
+    if (operator?.value === "&&" || operator?.value === "&" || operator?.value === "|") return true
+    if (operator?.value === "||") {
+      const branch = tokens.slice(tokens.indexOf(operator) + 1)
+      if ((branch[0]?.value === "{" || branch[0]?.value === "(") && branch.at(-1)?.value !== (branch[0].value === "{" ? "}" : ")")) return false
+      if (commandOutcome(branch) !== GATE_OUTCOME.NONZERO) return true
     }
     offset = end
   }
@@ -129,14 +133,30 @@ function functionCallIsNeutralized(line, names) {
 
 export function hasGateCommand(candidate, command) {
   return candidate.split("\n").some((line) => tokenizeShell(line).some((token, index, tokens) => {
-    if (tokens[index - 1]?.type === "word") return false
+    if (tokens[index - 1]?.type === "word" && !COMMAND_KEYWORDS.has(tokens[index - 1].value)) return false
     return token.value === command[0] && command.every((word, offset) => tokens[index + offset]?.value === word)
   }))
 }
 
 export function verifyFailClosedGates(candidate) {
+  const normalized = candidate.replace(/\\\r?\n[ \t]*/gu, " ")
   const functionNames = functionGateNames(candidate)
-  for (const line of candidate.split("\n")) {
+  if (functionNames.size > 0 || normalized.split("\n").some((line) => /(?:^|[;{])\s*(?:if|while|until)\b[^;\n]*(?:npm run (?:check:managed|test|build)|node scripts\/upstream-sync\/verify-license\.mjs|git diff --check)/u.test(line))) {
+    throw new Error("candidate script contains a failure neutralizer")
+  }
+  const lines = []
+  for (const rawLine of normalized.split("\n")) {
+    const line = rawLine.trim()
+    if (/^(?:\|\||&&|&|\|)\s*/u.test(line) && lines.length > 0) lines[lines.length - 1] += ` ${line}`
+    else lines.push(rawLine)
+  }
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
     if (gateIsNeutralized(line) || functionCallIsNeutralized(line, functionNames)) throw new Error("candidate script contains a failure neutralizer")
+    if (/\|\|\s*\{/u.test(line) && !/\}/u.test(line)) {
+      let compound = line
+      while (index + 1 < lines.length && !/\}/u.test(compound)) compound += ` ; ${lines[++index]}`
+      if (gateIsNeutralized(compound)) throw new Error("candidate script contains a failure neutralizer")
+    }
   }
 }

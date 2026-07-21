@@ -198,7 +198,7 @@ npm run check:managed
 npm run test
 npm run build
 node scripts/upstream-sync/verify-license.mjs
-git diff --check HEAD^ HEAD
+git diff --check "${MANAGED_SHA}...HEAD"
 
 CANDIDATE_COMMIT_SHA="$(git rev-parse HEAD)"
 CANDIDATE_TREE_SHA="$(git rev-parse HEAD^{tree})"

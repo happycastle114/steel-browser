@@ -3,19 +3,36 @@ import { readFile } from "node:fs/promises"
 import path from "node:path"
 import test from "node:test"
 
-import { verifyWorkflowText } from "./verify-workflow.mjs"
+import { verifyManagedPrGateText, verifyWorkflowText } from "./verify-workflow.mjs"
 
 const workflowPath = path.resolve(".github/workflows/upstream-sync.yml")
+const managedPrWorkflowPath = path.resolve(".github/workflows/managed-pr-gates.yml")
 const candidatePath = path.resolve("scripts/upstream-sync/candidate.sh")
 const publisherPath = path.resolve("scripts/upstream-sync/publisher.sh")
 
 async function inputs() {
   return {
     workflow: await readFile(workflowPath, "utf8"),
+    managedPrWorkflow: await readFile(managedPrWorkflowPath, "utf8"),
     candidateScript: await readFile(candidatePath, "utf8"),
     publisherScript: await readFile(publisherPath, "utf8"),
   }
 }
+
+test("managed PR gate binds whitespace checks to the pull request range", async () => {
+  const { managedPrWorkflow } = await inputs()
+  assert.deepEqual(verifyManagedPrGateText(managedPrWorkflow), { status: "VERIFIED" })
+})
+
+test("managed PR gate rejects a tautological empty-worktree diff check", async () => {
+  const { managedPrWorkflow } = await inputs()
+  assert.throws(() => verifyManagedPrGateText(managedPrWorkflow.replace('git diff --check "${PR_BASE_SHA}...HEAD"', "git diff --check")), /empty worktree diff/)
+})
+
+test("managed PR gate requires the exact root test command", async () => {
+  const { managedPrWorkflow } = await inputs()
+  assert.throws(() => verifyManagedPrGateText(managedPrWorkflow.replace(/^\s+npm run test$/mu, "          npm run test:managed")), /missing: npm run test$/)
+})
 
 test("upstream sync workflow satisfies the reviewed contract", async () => {
   assert.deepEqual(verifyWorkflowText((await inputs()).workflow), { status: "VERIFIED" })
@@ -53,7 +70,7 @@ test("workflow verifier rejects unused guard definitions with no candidate call 
 
 test("workflow verifier rejects removal of the actual candidate gates", async () => {
   const { workflow, candidateScript } = await inputs()
-  for (const gate of ["npm run check:managed", "npm run test", "npm run build", "node scripts/upstream-sync/verify-license.mjs", "git diff --check HEAD^ HEAD"]) {
+  for (const gate of ["npm run check:managed", "npm run test", "npm run build", "node scripts/upstream-sync/verify-license.mjs", 'git diff --check "${MANAGED_SHA}...HEAD"']) {
     assert.throws(() => verifyWorkflowText(workflow, { candidateScript: candidateScript.replace(`${gate}\n`, "") }), /candidate gate is missing from the candidate script/, gate)
   }
 })
@@ -75,11 +92,18 @@ test("workflow verifier rejects tokenized gate neutralizers across shell forms",
     "npm run test || exit 0",
     "npm run test || { echo ignored; }",
     "npm run test && echo ignored",
+    "npm run test && false",
+    "npm run test && exit 1",
+    "npm run test | tee /tmp/test.log",
+    "npm run test &",
     "(npm run test) || :",
     "(npm run test) && echo ignored",
     "npm run test; npm run build || :",
     "run_gate() { npm run test; }; run_gate || :",
     "run_gate() {\n  npm run test\n}\nrun_gate && echo ignored",
+    "npm run test \\\n|| :",
+    "(npm run test)\n|| :",
+    "if npm run test; then echo ignored; fi",
   ]
   for (const neutralizer of neutralizers) {
     assert.throws(
@@ -103,8 +127,7 @@ test("workflow verifier preserves explicit fail-closed shell branches", async ()
   const failClosed = [
     "npm run test || exit 1",
     "npm run test || { echo failed >&2; exit 1; }",
-    "npm run test && false",
-    "(npm run test) || { echo failed >&2; exit 1; }",
+    "npm run test || {\n  echo failed >&2\n  exit 1\n}",
   ]
   for (const branch of failClosed) {
     assert.deepEqual(verifyWorkflowText(workflow, { candidateScript: candidateScript.replace("npm run test\n", `${branch}\n`) }), { status: "VERIFIED" }, branch)

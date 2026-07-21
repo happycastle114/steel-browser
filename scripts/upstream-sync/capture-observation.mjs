@@ -51,7 +51,7 @@ async function listRegularFiles(directory) {
   return files.sort()
 }
 
-function parseRuntimeIdentity(text, upstreamSha) {
+export function parseRuntimeIdentity(text, upstreamSha) {
   let identity
   try {
     identity = JSON.parse(text)
@@ -61,17 +61,19 @@ function parseRuntimeIdentity(text, upstreamSha) {
   if (identity === null || typeof identity !== "object" || Array.isArray(identity)) {
     throw new Error("runtime identity must be an object")
   }
-  if (identity.schemaVersion !== 1 || identity.upstreamSha !== upstreamSha) {
+  if (identity.schemaVersion !== 1 || identity.upstreamSha !== upstreamSha || identity.gitHead !== upstreamSha) {
     throw new Error("runtime identity is not pinned to the requested upstream SHA")
   }
   for (const field of ["runtimeVersion", "browserVersion"]) {
     if (typeof identity[field] !== "string" || identity[field].trim() === "") {
       throw new Error(`runtime identity is missing ${field}`)
     }
+    if (/^(?:fixture|fake|unknown)(?:[-/]|$)/iu.test(identity[field].trim())) throw new Error(`runtime identity ${field} is fabricated`)
   }
   if (typeof identity.workerImageDigest !== "string" || !/^sha256:[0-9a-f]{64}$/u.test(identity.workerImageDigest)) {
     throw new Error("runtime identity workerImageDigest is not pinned")
   }
+  if (/^sha256:(.)\1{63}$/u.test(identity.workerImageDigest)) throw new Error("runtime identity workerImageDigest is fabricated")
   return identity
 }
 
@@ -105,6 +107,7 @@ export async function captureObservation({
   const root = path.resolve(repositoryRoot)
   const destination = path.resolve(outputDirectory)
   const gitHead = await assertCommit(root, upstreamSha)
+  if (gitHead !== upstreamSha) throw new Error("capture must run from the exact requested upstream SHA")
   if (await exists(destination)) {
     if ((await lstat(destination)).isSymbolicLink()) throw new Error("observation output directory may not be a symlink")
     const existing = await readdir(destination)
@@ -122,6 +125,9 @@ export async function captureObservation({
     },
     maxBuffer: 16 * 1024 * 1024,
   })
+
+  const postCaptureGitHead = await assertCommit(root, upstreamSha)
+  if (postCaptureGitHead !== upstreamSha) throw new Error("runtime capture changed the checked-out upstream SHA")
 
   const names = await listRegularFiles(destination)
   const allowed = new Set([...OBSERVATION_ARTIFACTS, ...OPTIONAL_ARTIFACTS])
