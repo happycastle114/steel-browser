@@ -70,6 +70,16 @@ test("runs managed workspace tests serially on bounded CI runners", async () => 
   ])
 })
 
+test("runs shared guard fixtures without file-level CPU contention", async () => {
+  const bytes = await readFile(
+    new URL("../../shared/package.json", import.meta.url),
+    "utf8",
+  )
+  const sharedPackage = JSON.parse(bytes)
+
+  assert.equal(sharedPackage.scripts.test, "vitest run --no-file-parallelism")
+})
+
 test("hydrates only DuckDB after script-free installs on exact toolchains", async () => {
   for (const workflowPath of workflowPaths) {
     const bytes = await readFile(new URL(`../../../${workflowPath}`, import.meta.url), "utf8")

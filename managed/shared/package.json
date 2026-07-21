@@ -23,7 +23,7 @@
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "pretest": "npm run build",
-    "test": "vitest run",
+    "test": "vitest run --no-file-parallelism",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
