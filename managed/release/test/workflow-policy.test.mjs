@@ -10,6 +10,17 @@ const workflowPaths = [
   ".github/workflows/managed-upstream-sync.yml",
 ]
 
+test("keeps the manager Fastify runtime aligned with the root override", async () => {
+  const [rootBytes, managerBytes] = await Promise.all([
+    readFile(new URL("../../../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../../manager/package.json", import.meta.url), "utf8"),
+  ])
+  const rootPackage = JSON.parse(rootBytes)
+  const managerPackage = JSON.parse(managerBytes)
+
+  assert.equal(managerPackage.dependencies.fastify, rootPackage.dependencies.fastify)
+})
+
 test("publishes the protected managed-branch check contract", async () => {
   const bytes = await readFile(
     new URL("../../../.github/workflows/managed-pr-gates.yml", import.meta.url),
