@@ -178,6 +178,9 @@ test("promotes one immutable release artifact without rebuilding images", async 
   const validate = steps.find(
     ({ name }) => name === "Validate the explicit promotion request",
   )
+  const verify = steps.find(
+    ({ name }) => name === "Verify the immutable release artifact",
+  )
 
   assert.equal(download.with.repository, "${{ github.repository }}")
   assert.equal(download.with["github-token"], "${{ github.token }}")
@@ -192,6 +195,8 @@ test("promotes one immutable release artifact without rebuilding images", async 
     "${{ runner.temp }}/steel-managed-promotion",
   )
   assert.match(validate.run, /keys == \["releaseRevision"/u)
+  assert.match(verify.run, /blue\/compose\.yml/u)
+  assert.match(verify.run, /green\/compose\.yml/u)
   assert.doesNotMatch(steps.map(({ run = "" }) => run).join("\n"), /docker build/u)
 
   const releaseBytes = await readFile(
