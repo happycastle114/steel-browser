@@ -1,0 +1,77 @@
+name: Managed Steel promotion
+
+on:
+  push:
+    branches: [production]
+    paths:
+      - "deploy/coolify/promotion-request.json"
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: managed-steel-promotion
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+      - name: Validate the explicit promotion request
+        id: request
+        run: |
+          set -euo pipefail
+          request=deploy/coolify/promotion-request.json
+          test "$(jq -cer 'keys == ["releaseRevision","releaseRunId","requestId","routeHost","schemaVersion","targetSlot"]' "${request}")" = "true"
+          test "$(jq -er '.schemaVersion' "${request}")" = "1"
+          request_id="$(jq -er '.requestId | select(type == "string" and test("^[a-z0-9][a-z0-9.-]{0,62}$"))' "${request}")"
+          release_run_id="$(jq -er '.releaseRunId | select(type == "number" and . > 0 and floor == .) | tostring' "${request}")"
+          release_revision="$(jq -er '.releaseRevision | select(type == "string" and test("^[0-9a-f]{40}$"))' "${request}")"
+          route_host="$(jq -er '.routeHost | select(type == "string" and test("^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"))' "${request}")"
+          target_slot="$(jq -er '.targetSlot | select(. == "BLUE" or . == "GREEN")' "${request}")"
+          test -n "${request_id}"
+          {
+            echo "release-run-id=${release_run_id}"
+            echo "release-revision=${release_revision}"
+            echo "route-host=${route_host}"
+            echo "target-slot=${target_slot}"
+          } >> "${GITHUB_OUTPUT}"
+      - uses: actions/download-artifact@v4
+        with:
+          name: steel-managed-${{ steps.request.outputs.release-revision }}
+          path: ${{ runner.temp }}/steel-managed-promotion
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.request.outputs.release-run-id }}
+      - name: Verify the immutable release artifact
+        run: |
+          set -euo pipefail
+          release_root="${RUNNER_TEMP}/steel-managed-promotion"
+          manifest="${release_root}/release-manifest.json"
+          evidence="${release_root}/release-evidence.json"
+          test -s "${manifest}"
+          test -s "${evidence}"
+          test "$(jq -er '.managedRevision' "${manifest}")" = '${{ steps.request.outputs.release-revision }}'
+          expected_evidence_sha="$(jq -er '.releaseEvidenceSha256' "${manifest}")"
+          test "$(sha256sum "${evidence}" | cut -d ' ' -f 1)" = "${expected_evidence_sha}"
+          test -s "${release_root}/compose.blue.yml"
+          test -s "${release_root}/compose.green.yml"
+      - name: Deploy the requested stopped Coolify project
+        env:
+          COOLIFY_API_BASE: ${{ secrets.COOLIFY_API_BASE }}
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+          COOLIFY_BLUE_APPLICATION_UUID: ${{ secrets.COOLIFY_BLUE_APPLICATION_UUID }}
+          COOLIFY_GREEN_APPLICATION_UUID: ${{ secrets.COOLIFY_GREEN_APPLICATION_UUID }}
+          STEEL_MANAGED_CONFIG_JSON: ${{ secrets.STEEL_MANAGED_CONFIG_JSON }}
+          STEEL_MANAGED_CREATE_TOKEN_KEY_HEX: ${{ secrets.STEEL_MANAGED_CREATE_TOKEN_KEY_HEX }}
+          STEEL_MANAGED_RELEASE_DIRECTORY: ${{ runner.temp }}/steel-managed-promotion
+          STEEL_MANAGED_ROUTE_HOST: ${{ steps.request.outputs.route-host }}
+        run: |
+          set -euo pipefail
+          node managed/release/coolify-deploy-cli.mjs --target-slot '${{ steps.request.outputs.target-slot }}'

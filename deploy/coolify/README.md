@@ -92,6 +92,25 @@ it is listed in `operatorServicePrincipals`.
 7. On an explicit `workflow_dispatch`, verify both Coolify applications are stopped, update one
    target, start it, and wait for a finished deployment plus a running application state.
 
+For an already-built release, `.github/workflows/managed-promotion.yml` provides a separate,
+serialized promotion path without rebuilding either image. Update
+`deploy/coolify/promotion-request.json` on `production` with the successful release run ID, its
+exact 40-character source revision, the stopped `BLUE` or `GREEN` slot, and the routed hostname.
+The workflow downloads only the matching immutable release artifact from that run, verifies its
+manifest and evidence digest, and then invokes the same fail-closed Coolify deployment client.
+Changing the promotion request does not trigger the image release workflow.
+
+```json
+{
+  "schemaVersion": 1,
+  "requestId": "steel-production-20260722-01",
+  "releaseRunId": 123456789,
+  "releaseRevision": "0123456789abcdef0123456789abcdef01234567",
+  "targetSlot": "BLUE",
+  "routeHost": "steel.soungmin.tech"
+}
+```
+
 Configure these GitHub Actions secrets without putting their values in the repository:
 
 - `COOLIFY_API_BASE` (for example `https://coolify.example/api/v1`)

@@ -155,3 +155,64 @@ test("hydrates only DuckDB after script-free installs on exact toolchains", asyn
     assert.ok(verifyIndex > hydrateIndex)
   }
 })
+
+test("promotes one immutable release artifact without rebuilding images", async () => {
+  const bytes = await readFile(
+    new URL("../../../.github/workflows/managed-promotion.yml", import.meta.url),
+    "utf8",
+  )
+  const workflow = yaml.parse(bytes)
+
+  assert.equal(workflow.name, "Managed Steel promotion")
+  assert.deepEqual(workflow.on.push.branches, ["production"])
+  assert.deepEqual(workflow.on.push.paths, ["deploy/coolify/promotion-request.json"])
+  assert.deepEqual(workflow.permissions, { actions: "read", contents: "read" })
+  assert.equal(workflow.concurrency["cancel-in-progress"], false)
+  const steps = workflow.jobs.deploy.steps
+  const download = steps.find(
+    ({ uses }) => uses === "actions/download-artifact@v4",
+  )
+  const deploy = steps.find(
+    ({ name }) => name === "Deploy the requested stopped Coolify project",
+  )
+  const validate = steps.find(
+    ({ name }) => name === "Validate the explicit promotion request",
+  )
+
+  assert.equal(download.with.repository, "${{ github.repository }}")
+  assert.equal(download.with["github-token"], "${{ github.token }}")
+  assert.equal(
+    download.with["run-id"],
+    "${{ steps.request.outputs.release-run-id }}",
+  )
+  assert.match(deploy.run, /coolify-deploy-cli\.mjs --target-slot/u)
+  assert.equal(deploy.env.COOLIFY_API_TOKEN, "${{ secrets.COOLIFY_API_TOKEN }}")
+  assert.equal(
+    deploy.env.STEEL_MANAGED_RELEASE_DIRECTORY,
+    "${{ runner.temp }}/steel-managed-promotion",
+  )
+  assert.match(validate.run, /keys == \["releaseRevision"/u)
+  assert.doesNotMatch(steps.map(({ run = "" }) => run).join("\n"), /docker build/u)
+
+  const releaseBytes = await readFile(
+    new URL("../../../.github/workflows/managed-release.yml", import.meta.url),
+    "utf8",
+  )
+  const releaseWorkflow = yaml.parse(releaseBytes)
+  assert.deepEqual(releaseWorkflow.on.push.paths.filter((path) => path.startsWith("deploy/coolify/")), [
+    "deploy/coolify/README.md",
+    "deploy/coolify/compose.blue.yml",
+    "deploy/coolify/compose.green.yml",
+  ])
+})
+
+test("builds the console into the sealed manager image directory", async () => {
+  const [viteBytes, dockerfileBytes] = await Promise.all([
+    readFile(new URL("../../console/vite.config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../manager/image/Dockerfile", import.meta.url), "utf8"),
+  ])
+
+  assert.match(viteBytes, /outDir: "dist"/u)
+  assert.match(dockerfileBytes, /asset-manifest-cli\.js managed\/console\/dist/u)
+  assert.match(dockerfileBytes, /\/workspace\/managed\/console\/dist \/srv\/steel-console/u)
+})

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+shopt -s inherit_errexit
 
 source_revision="${MANAGED_SOURCE_REVISION:?MANAGED_SOURCE_REVISION is required}"
 candidate_repository="${MANAGED_CANDIDATE_REPOSITORY:?MANAGED_CANDIDATE_REPOSITORY is required}"

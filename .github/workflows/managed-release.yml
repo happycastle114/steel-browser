@@ -6,7 +6,9 @@ on:
     paths:
       - ".github/workflows/managed-release.yml"
       - "managed/**"
-      - "deploy/coolify/**"
+      - "deploy/coolify/README.md"
+      - "deploy/coolify/compose.blue.yml"
+      - "deploy/coolify/compose.green.yml"
       - "package.json"
       - "package-lock.json"
   workflow_dispatch:

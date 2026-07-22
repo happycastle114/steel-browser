@@ -6,7 +6,7 @@ export const viteConfig = defineConfig({
   build: {
     assetsDir: "assets",
     emptyOutDir: true,
-    outDir: "build",
+    outDir: "dist",
     sourcemap: false,
   },
   plugins: [react()],

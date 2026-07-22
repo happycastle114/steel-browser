@@ -1,4 +1,5 @@
 export const REPRODUCIBLE_BUILD_BOUNDARY = {
+  FAIL_CLOSED_SUBSHELL: "shopt -s inherit_errexit",
   CLEAN_INDEX: "git diff --cached --quiet --ignore-submodules --",
   CLEAN_WORKTREE: "git diff --quiet --ignore-submodules --",
   GIT_ARCHIVE: 'git archive --format=tar "${source_revision}" | docker buildx build',
