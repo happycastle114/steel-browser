@@ -77,7 +77,7 @@ test("updates only a stopped standby and queues one serialized Coolify deploymen
     "STEEL_MANAGED_ROUTE_HOST",
     "STEEL_MANAGED_WORKER_IMAGE",
   ])
-  assert.equal(environment.every(({ is_buildtime, is_runtime }) => is_buildtime && !is_runtime), true)
+  assert.equal(environment.every(({ is_buildtime, is_runtime }) => is_buildtime && is_runtime), true)
   assert.equal(calls.every(({ init }) => init.headers.Authorization === "Bearer api-token-not-logged"), true)
 })
 

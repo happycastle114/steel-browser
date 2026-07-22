@@ -166,7 +166,11 @@ function buildEnvironment(options) {
     is_literal: true,
     is_multiline: false,
     is_preview: false,
-    is_runtime: false,
+    // Coolify's Docker Compose path renders `${...}` from the runtime `.env`
+    // passed to `docker compose --env-file`. Compose only injects variables that
+    // are explicitly referenced by a service, so enabling this flag does not
+    // expose the manager-only inputs to either worker.
+    is_runtime: true,
     is_shown_once:
       key === "STEEL_MANAGED_CREATE_TOKEN_KEY_HEX" ||
       key === "STEEL_MANAGED_RELEASE_EVIDENCE_JSON",

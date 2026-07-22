@@ -124,10 +124,12 @@ The workflow publishes the manager and worker to GHCR. Either make those package
 read-only GHCR registry in Coolify before deployment. Keep registry credentials in Coolify's
 registry settings; do not add them to Compose or the application environment.
 
-All seven Coolify variables are written as build-time Compose inputs with runtime injection
-disabled. This is deliberate: Compose resolves the manager-only secret/config mounts and explicit
-service environment, while Coolify must not attach its generated runtime env file to either
-worker.
+All seven Coolify variables are available to both Coolify build-time and runtime Compose
+interpolation. Coolify 4.1.x invokes Docker Compose with its runtime `.env` file, so disabling the
+runtime flag removes required `${VARIABLE}` values before Compose can start. Docker Compose does
+not inject that file into a container by itself: the checked-in Compose still exposes only the
+explicit manager config, manager-only secrets, image references, and proxy route. Neither worker
+service references the manager config, create-token key, or release evidence.
 
 The deployment client uses Coolify's official [bulk environment update](https://coolify.io/docs/api-reference/api/applications/update-envs-by-application-uuid),
 [application start](https://coolify.io/docs/api-reference/api/applications/start-application-by-uuid),
