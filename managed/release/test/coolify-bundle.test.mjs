@@ -37,6 +37,9 @@ test("generates isolated blue and green Coolify projects", () => {
     "managed-create-token-key",
     "managed-release-evidence",
   ])
+  assert.equal(blue.services.manager.read_only, false)
+  assert.equal(blue.services["worker-00"].read_only, true)
+  assert.equal(blue.services["worker-01"].read_only, true)
   assert.equal("secrets" in blue.services["worker-00"], false)
 })
 
@@ -52,6 +55,7 @@ test("rejects mutable images, worker exposure, and manager secret drift", () => 
     { ...valid, services: { ...valid.services, "worker-00": { ...valid.services["worker-00"], ports: ["3000:3000"] } } },
     { ...valid, services: { ...valid.services, "worker-01": { ...valid.services["worker-01"], networks: ["coolify", "private"] } } },
     { ...valid, services: { ...valid.services, manager: { ...valid.services.manager, secrets: [] } } },
+    { ...valid, services: { ...valid.services, manager: { ...valid.services.manager, read_only: true } } },
   ]
 
   for (const mutation of mutations) {

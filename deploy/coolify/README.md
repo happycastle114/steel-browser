@@ -20,9 +20,12 @@ Create two Git-based Docker Compose applications from the fork's canonical `prod
 | Steel managed blue | `/deploy/coolify/compose.blue.yml` | stopped |
 | Steel managed green | `/deploy/coolify/compose.green.yml` | stopped |
 
-Set **Connect to predefined network** and disable container-label dollar escaping. The generated
-Compose explicitly attaches only the manager to the external `coolify` network. Do not add a
-domain or port to either worker service.
+Set **Connect to predefined network**, enable **Deploy raw compose**, and disable container-label
+dollar escaping. Coolify 4.1.x otherwise auto-attaches its generated `.env` file to every parsed
+service, which would expose manager-only Compose inputs to the workers. Raw Compose still receives
+the deployment `--env-file` for interpolation but preserves the checked-in per-service environment
+boundary. The generated Compose explicitly attaches only the manager to the external `coolify`
+network. Do not add a domain or port to either worker service.
 
 Coolify treats the Compose file as the source of truth and recognizes `${VARIABLE:?message}` as a
 required value. See the official [Docker Compose deployment guide](https://coolify.io/docs/knowledge-base/docker/compose)
@@ -47,6 +50,13 @@ The create-token key must be identical in blue and green. It is never passed to 
 stored in a generated env file. Docker Compose materializes it as a manager-only file; PID 1
 validates root ownership and mode, copies it into a private tmpfs, drops every capability and
 changes to UID/GID 10001 before starting Node.
+
+Docker Compose cannot materialize an environment-backed secret for a service whose root
+filesystem is marked read-only. The manager therefore keeps `read_only: false` only for the
+root-owned scratch image during its short PID 1 initialization. The long-running Node process
+still runs as UID/GID 10001 with all capabilities dropped, `no-new-privileges`, private secret
+tmpfs, bounded PID/memory limits, and no writable application directory. Both workers remain
+`read_only: true` and never receive either manager secret.
 
 A minimal configuration envelope is:
 
@@ -126,16 +136,20 @@ registry settings; do not add them to Compose or the application environment.
 
 All seven Coolify variables are available to both Coolify build-time and runtime Compose
 interpolation. Coolify 4.1.x invokes Docker Compose with its runtime `.env` file, so disabling the
-runtime flag removes required `${VARIABLE}` values before Compose can start. Docker Compose does
-not inject that file into a container by itself: the checked-in Compose still exposes only the
-explicit manager config, manager-only secrets, image references, and proxy route. Neither worker
-service references the manager config, create-token key, or release evidence.
+runtime flag removes required `${VARIABLE}` values before Compose can start. Its parsed-Compose
+mode also auto-adds that file as `env_file` to every service, so production must use raw-Compose
+mode. The checked-in Compose then exposes only the explicit manager config, manager-only secrets,
+image references, and proxy route. Neither worker service references the manager config,
+create-token key, or release evidence.
 
 The deployment client uses Coolify's official [bulk environment update](https://coolify.io/docs/api-reference/api/applications/update-envs-by-application-uuid),
 [application start](https://coolify.io/docs/api-reference/api/applications/start-application-by-uuid),
 and [deployment readback](https://next.coolify.io/docs/api-reference/api/deployments/get-deployment-by-uuid)
 endpoints. It never prints the API token, create-token key, configuration JSON, or release-evidence
-body.
+body. Raw Compose is a one-time application setting in Coolify 4.1.x; its application update API
+rejects that field, so provision both blue/green slots through the UI before using the automated
+promotion client. A missing raw-mode setting fails closed because the worker rejects manager-only
+environment variables.
 
 The manager intentionally starts in `DRAINING`. After worker reconciliation is healthy, an
 authenticated operator must call `POST /v1/managed/pool/resume` with the current manager instance

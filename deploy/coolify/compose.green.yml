@@ -37,7 +37,7 @@
           "mode": 256
         }
       ],
-      "read_only": true,
+      "read_only": false,
       "tmpfs": [
         "/run/steel:rw,noexec,nosuid,nodev,size=1048576,mode=0700,uid=0,gid=0",
         "/tmp:rw,noexec,nosuid,nodev,size=67108864,mode=1777,uid=10001,gid=10001"

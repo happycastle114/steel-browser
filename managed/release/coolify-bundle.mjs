@@ -132,7 +132,10 @@ function buildManager(image, releaseEvidenceSha256, pool) {
     ],
     environment: { STEEL_MANAGED_CONFIG_JSON: requiredEnvironment.managerConfig },
     secrets: [createTokenSecret, releaseEvidenceSecret],
-    read_only: true,
+    // Docker Compose cannot materialize environment-backed secrets for a
+    // read-only service. The scratch image remains root-owned, and PID 1 drops
+    // to the capability-free runtime UID before starting Node.
+    read_only: false,
     tmpfs: managerTmpfs,
     cap_drop: ["ALL"],
     cap_add: ["CHOWN", "SETGID", "SETPCAP", "SETUID"],

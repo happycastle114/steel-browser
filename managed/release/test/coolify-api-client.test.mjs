@@ -66,6 +66,12 @@ test("updates only a stopped standby and queues one serialized Coolify deploymen
     targetState: CoolifyApplicationRuntimeState.RUNNING,
   })
   assert.equal(calls.length, 9)
+  const applicationCall = calls.find(({ url, init }) =>
+    url.endsWith("/applications/blue") && init.method === "PATCH")
+  assert.deepEqual(JSON.parse(applicationCall.init.body), {
+    git_commit_sha: release.managedRevision,
+    is_container_label_escape_enabled: false,
+  })
   const environmentCall = calls.find(({ url }) => url.endsWith("/envs/bulk"))
   const environment = JSON.parse(environmentCall.init.body).data
   assert.deepEqual(environment.map(({ key }) => key), [
