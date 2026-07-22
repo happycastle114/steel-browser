@@ -15,6 +15,7 @@ COPY managed/shared/package.json ./managed/shared/package.json
 COPY managed/gateway/package.json ./managed/gateway/package.json
 COPY managed/console/package.json ./managed/console/package.json
 COPY managed/worker/package.json ./managed/worker/package.json
+COPY managed/tsconfig.base.json ./managed/tsconfig.base.json
 
 RUN HUSKY=0 npm ci --include=dev
 

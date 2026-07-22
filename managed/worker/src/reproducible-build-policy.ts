@@ -19,6 +19,8 @@ export const REPRODUCIBLE_BUILD_BOUNDARY = {
   AUDIT_CONTEXT: "--build-context \"production-audit-input=${production_audit_dir}\"",
   AUDIT_BUILD_ARGUMENT:
     "--build-arg \"MANAGED_PRODUCTION_AUDIT_RECEIPT_SHA256=${production_audit_receipt_sha256}\"",
+  SOURCE_EPOCH_BUILD_ARGUMENT:
+    '--build-arg "SOURCE_DATE_EPOCH=${source_date_epoch}"',
   RUNTIME_RECEIPT_FIELD:
     "productionAuditReceiptSha256:$productionAuditReceiptSha256",
 } as const
@@ -37,5 +39,15 @@ export function verifyReproducibleBuildScript(source: string): void {
         "reproducible build does not bind the production audit receipt",
       )
     }
+  }
+  if (
+    source.split(REPRODUCIBLE_BUILD_BOUNDARY.SOURCE_EPOCH_BUILD_ARGUMENT)
+      .length -
+      1 !==
+    2
+  ) {
+    throw new ReproducibleBuildPolicyError(
+      "audit and image builds must share the source epoch",
+    )
   }
 }

@@ -38,6 +38,7 @@ git archive --format=tar "${source_revision}" | docker buildx build \
   --build-arg "MANAGED_AUDIT_OBSERVED_AT=${audit_observed_at}" \
   --build-arg "MANAGED_SOURCE_REVISION=${source_revision}" \
   --build-arg "MANAGED_SOURCE_TREE_SHA256=${source_tree_sha256}" \
+  --build-arg "SOURCE_DATE_EPOCH=${source_date_epoch}" \
   --no-cache \
   --output "type=local,dest=${production_audit_dir}" \
   -

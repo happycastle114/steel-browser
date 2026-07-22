@@ -68,6 +68,9 @@ export function verifyManagerDockerfile(source: string): z.infer<typeof Dockerfi
     "COPY --from=production-audit-input /production-dependency-audit.json",
     'dev.happycastle.steel.production-audit.sha256="${MANAGED_PRODUCTION_AUDIT_RECEIPT_SHA256}"',
     "COPY --from=runtime-dependencies /runtime-deps/node_modules /app/node_modules",
+    "COPY managed/tsconfig.base.json ./managed/tsconfig.base.json",
+    "COPY --from=node-build /etc/ssl/certs/ca-certificates.crt /runtime-input/ca-certificates.crt",
+    "install -m 0444 /runtime-input/ca-certificates.crt /runtime-root/etc/ssl/certs/ca-certificates.crt",
     "sha256sum /runtime-root/app/managed/production-dependency-audit.json",
   ]) {
     if (!source.includes(proof)) fail("source and console proof")

@@ -66,6 +66,7 @@ describe("managed worker Dockerfile policy", () => {
     ["missing shared overlay", "COPY --from=build /workspace/managed/shared/build", "# COPY --from=build /workspace/managed/shared/build"],
     ["missing lock overlay", "COPY --from=build /workspace/package-lock.json /app/package-lock.json", "# COPY --from=build /workspace/package-lock.json /app/package-lock.json"],
     ["missing source epoch", "dev.happycastle.steel.source-date-epoch=", "dev.happycastle.steel.source-epoch="],
+    ["missing shared TypeScript config", "COPY managed/tsconfig.base.json ./managed/tsconfig.base.json", "# shared TypeScript config removed"],
     ["sandbox bypass", "ENTRYPOINT", "ENV CHROME_ARGS=--no-sandbox\nENTRYPOINT"],
   ])("rejects the %s mutation", (_name, search, replacement) => {
     // Given

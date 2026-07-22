@@ -14,6 +14,7 @@ export const MANAGER_REPRODUCIBLE_BUILD_BOUNDARY = {
   AUDIT_OUTPUT: "type=local,dest=${production_audit_dir}",
   AUDIT_CONTEXT: '--build-context "production-audit-input=${production_audit_dir}"',
   AUDIT_BUILD_ARGUMENT: '--build-arg "MANAGED_PRODUCTION_AUDIT_RECEIPT_SHA256=${production_audit_receipt_sha256}"',
+  SOURCE_EPOCH_BUILD_ARGUMENT: '--build-arg "SOURCE_DATE_EPOCH=${source_date_epoch}"',
   TWO_ATTEMPTS: 'first="$(build_once first)"\nsecond="$(build_once second)"',
   REPRODUCIBLE_PLATFORM: 'test "${first_platform_digest}" = "${second_platform_digest}"',
   REPRODUCIBLE_CONFIG: 'test "${first_config_digest}" = "${second_config_digest}"',
@@ -37,6 +38,16 @@ export function verifyManagerReproducibleBuildScript(source: string): void {
   ) {
     throw new ManagerReproducibleBuildPolicyError(
       "manager build must use isolated Git archives",
+    )
+  }
+  if (
+    source.split(MANAGER_REPRODUCIBLE_BUILD_BOUNDARY.SOURCE_EPOCH_BUILD_ARGUMENT)
+      .length -
+      1 !==
+    2
+  ) {
+    throw new ManagerReproducibleBuildPolicyError(
+      "manager audit and image builds must share the source epoch",
     )
   }
 }

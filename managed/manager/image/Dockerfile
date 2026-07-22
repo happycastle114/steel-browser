@@ -16,6 +16,7 @@ COPY managed/gateway/package.json ./managed/gateway/package.json
 COPY managed/console/package.json ./managed/console/package.json
 COPY managed/worker/package.json ./managed/worker/package.json
 COPY managed/manager/package.json ./managed/manager/package.json
+COPY managed/tsconfig.base.json ./managed/tsconfig.base.json
 
 RUN npm pkg set scripts.prepare="echo skip-husky" && npm ci --include=dev
 
@@ -93,6 +94,7 @@ FROM docker.io/library/node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704
 ARG MANAGED_PRODUCTION_AUDIT_RECEIPT_SHA256
 
 COPY --from=init-build /workspace/init/target/release/steel-manager-init /runtime-input/steel-manager-init
+COPY --from=node-build /etc/ssl/certs/ca-certificates.crt /runtime-input/ca-certificates.crt
 COPY managed/manager/image/manager-launcher.cjs /runtime-input/steel-managed-manager
 COPY managed/manager/image/healthcheck-launcher.cjs /runtime-input/steel-manager-healthcheck
 COPY --from=production-audit-input /production-dependency-audit.json /runtime-input/production-dependency-audit.json
@@ -113,7 +115,7 @@ RUN set -eu; \
     for executable in /usr/local/bin/node /runtime-input/steel-manager-init; do \
       ldd "${executable}" | awk '{ if ($3 ~ /^\//) print $3; else if ($1 ~ /^\//) print $1 }'; \
     done | sort -u | while IFS= read -r library; do cp --parents "${library}" /runtime-root; done; \
-    cp /etc/ssl/certs/ca-certificates.crt /runtime-root/etc/ssl/certs/ca-certificates.crt; \
+    install -m 0444 /runtime-input/ca-certificates.crt /runtime-root/etc/ssl/certs/ca-certificates.crt; \
     cp /etc/nsswitch.conf /runtime-root/etc/nsswitch.conf; \
     printf 'root:x:0:0:root:/nonexistent:/usr/sbin/nologin\nsteel-managed:x:10001:10001:steel managed:/tmp/home:/usr/sbin/nologin\n' > /runtime-root/etc/passwd; \
     printf 'root:x:0:\nsteel-managed:x:10001:\n' > /runtime-root/etc/group

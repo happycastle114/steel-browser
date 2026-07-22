@@ -100,6 +100,13 @@ export function verifyWorkerDockerfile(source: string): DockerfilePolicyReceipt 
   ) {
     throw new WorkerDockerfilePolicyError("runtime source manifest generation")
   }
+  if (
+    !source.includes(
+      "COPY managed/tsconfig.base.json ./managed/tsconfig.base.json",
+    )
+  ) {
+    throw new WorkerDockerfilePolicyError("shared TypeScript build configuration")
+  }
   for (const auditBoundary of WORKER_DOCKERFILE_OVERLAY.AUDIT_BOUNDARIES) {
     if (!source.includes(auditBoundary)) {
       throw new WorkerDockerfilePolicyError("verified production dependency audit")
