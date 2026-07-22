@@ -112,6 +112,11 @@ export function verifyWorkerDockerfile(source: string): DockerfilePolicyReceipt 
       throw new WorkerDockerfilePolicyError("verified production dependency audit")
     }
   }
+  requireLine(
+    lines,
+    'RUN node --input-type=module -e \'await import("file:///app/managed/shared/build/index.js")\'',
+    "production shared runtime import",
+  )
   if (
     !source.includes('ARG SOURCE_DATE_EPOCH') ||
     !source.includes('SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH}"') ||

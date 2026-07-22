@@ -64,6 +64,7 @@ describe("managed worker Dockerfile policy", () => {
     ["missing production audit digest label", "dev.happycastle.steel.production-audit.sha256=", "dev.happycastle.steel.production-audit.unbound="],
     ["missing recorder overlay", "COPY --from=build /workspace/api/extensions/recorder/dist", "# COPY --from=build /workspace/api/extensions/recorder/dist"],
     ["missing shared overlay", "COPY --from=build /workspace/managed/shared/build", "# COPY --from=build /workspace/managed/shared/build"],
+    ["missing production shared runtime import", "await import(\"file:///app/managed/shared/build/index.js\")", "await import(\"file:///app/managed/shared/build/missing.js\")"],
     ["missing lock overlay", "COPY --from=build /workspace/package-lock.json /app/package-lock.json", "# COPY --from=build /workspace/package-lock.json /app/package-lock.json"],
     ["missing source epoch", "dev.happycastle.steel.source-date-epoch=", "dev.happycastle.steel.source-epoch="],
     ["missing shared TypeScript config", "COPY managed/tsconfig.base.json ./managed/tsconfig.base.json", "# shared TypeScript config removed"],

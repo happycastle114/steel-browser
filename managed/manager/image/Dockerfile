@@ -81,6 +81,12 @@ FROM scratch AS production-audit-export
 
 COPY --from=production-audit /tmp/steel-production-audit.json /production-dependency-audit.json
 
+FROM runtime-dependencies AS runtime-entry-check
+
+COPY --from=node-build /workspace/managed/shared/build /runtime-deps/managed/shared/build
+
+RUN node --input-type=module -e 'await import("file:///runtime-deps/managed/shared/build/index.js")'
+
 FROM docker.io/library/rust:1.91.1-bookworm@sha256:c1e5f19e773b7878c3f7a805dd00a495e747acbdc76fb2337a4ebf0418896b33 AS init-build
 
 WORKDIR /workspace/init
@@ -131,8 +137,8 @@ COPY --from=runtime-dependencies /runtime-deps/node_modules /app/node_modules
 COPY --from=runtime-dependencies /runtime-deps/managed/shared/node_modules /app/managed/shared/node_modules
 COPY --from=runtime-dependencies /runtime-deps/managed/gateway/node_modules /app/managed/gateway/node_modules
 COPY --from=runtime-dependencies /runtime-deps/managed/manager/node_modules /app/managed/manager/node_modules
-COPY --from=node-build /workspace/managed/shared/build /app/managed/shared/build
-COPY --from=node-build /workspace/managed/shared/package.json /app/managed/shared/package.json
+COPY --from=runtime-entry-check /runtime-deps/managed/shared/build /app/managed/shared/build
+COPY --from=runtime-entry-check /runtime-deps/managed/shared/package.json /app/managed/shared/package.json
 COPY --from=node-build /workspace/managed/gateway/build /app/managed/gateway/build
 COPY --from=node-build /workspace/managed/gateway/package.json /app/managed/gateway/package.json
 COPY --from=node-build /workspace/managed/manager/build /app/managed/manager/build

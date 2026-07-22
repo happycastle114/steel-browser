@@ -135,6 +135,7 @@ COPY managed/worker/image/NOTICE /licenses/steel-browser/NOTICE
 COPY managed/worker/image/SOURCE.json /licenses/steel-browser/SOURCE.json
 COPY managed/worker/image/upstream-image.lock.json /licenses/steel-browser/upstream-image.lock.json
 
+RUN node --input-type=module -e 'await import("file:///app/managed/shared/build/index.js")'
 RUN test "$(sha256sum /app/managed/production-dependency-audit.json | cut -d ' ' -f 1)" = "${MANAGED_PRODUCTION_AUDIT_RECEIPT_SHA256}"
 
 FROM scratch AS production

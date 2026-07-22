@@ -33,6 +33,7 @@ describe("managed manager Dockerfile policy", () => {
     ["node managed/security/verify-production-audit.mjs", "node managed/security/missing-production-audit.mjs"],
     ["COPY --from=production-audit-input /production-dependency-audit.json", "# audit receipt removed"],
     ["dev.happycastle.steel.production-audit.sha256=", "dev.happycastle.steel.production-audit.unbound="],
+    ["await import(\"file:///runtime-deps/managed/shared/build/index.js\")", "await import(\"file:///runtime-deps/managed/shared/build/missing.js\")"],
     ["COPY managed/tsconfig.base.json ./managed/tsconfig.base.json", "# shared TypeScript config removed"],
     ["COPY --from=node-build /etc/ssl/certs/ca-certificates.crt", "# CA bundle source removed"],
   ])("rejects a Dockerfile policy mutation", (search, replacement) => {
