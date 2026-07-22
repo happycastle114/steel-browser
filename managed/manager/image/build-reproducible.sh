@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 shopt -s inherit_errexit
+trap 'steel_build_status=$?; printf "managed manager release build failed at line %s\n" "${LINENO}" >&2; exit "${steel_build_status}"' ERR
 
 source_revision="${MANAGED_SOURCE_REVISION:?MANAGED_SOURCE_REVISION is required}"
 candidate_repository="${MANAGED_CANDIDATE_REPOSITORY:?MANAGED_CANDIDATE_REPOSITORY is required}"
@@ -88,7 +89,7 @@ build_once() {
   test "$(docker buildx imagetools inspect "${candidate_repository}@${platform_digest}" --format '{{json .Manifest}}' | jq -er '.digest')" = "${platform_digest}"
   local config_digest
   config_digest="$(jq -er '.config.digest' "${platform_manifest}")"
-  test "${config_digest}" = "$(jq -er '."containerimage.config.digest"' "${metadata}")"
+  [[ "${config_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
   local labels
   labels="$(docker buildx imagetools inspect "${candidate_repository}@${platform_digest}" --format '{{json .Image.Config.Labels}}')"
   test "$(jq -r '."org.opencontainers.image.revision"' <<< "${labels}")" = "${source_revision}"

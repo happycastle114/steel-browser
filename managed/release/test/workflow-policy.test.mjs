@@ -221,3 +221,17 @@ test("builds the console into the sealed manager image directory", async () => {
   assert.match(dockerfileBytes, /asset-manifest-cli\.js managed\/console\/dist/u)
   assert.match(dockerfileBytes, /\/workspace\/managed\/console\/dist \/srv\/steel-console/u)
 })
+
+test("uses the registry platform manifest as the released config digest authority", async () => {
+  for (const scriptPath of [
+    "../../manager/image/build-reproducible.sh",
+    "../../worker/image/build-reproducible.sh",
+  ]) {
+    const bytes = await readFile(new URL(scriptPath, import.meta.url), "utf8")
+
+    assert.match(bytes, /^set -Eeuo pipefail$/mu)
+    assert.match(bytes, /config_digest="\$\(jq -er '\.config\.digest' "\$\{platform_manifest\}"\)"/u)
+    assert.match(bytes, /\[\[ "\$\{config_digest\}" =~ \^sha256:\[0-9a-f\]\{64\}\$ \]\]/u)
+    assert.doesNotMatch(bytes, /containerimage\.config\.digest/u)
+  }
+})

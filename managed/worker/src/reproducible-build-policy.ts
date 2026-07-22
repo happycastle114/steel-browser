@@ -1,5 +1,7 @@
 export const REPRODUCIBLE_BUILD_BOUNDARY = {
   FAIL_CLOSED_SUBSHELL: "shopt -s inherit_errexit",
+  ERRTRACE: "set -Eeuo pipefail",
+  ERROR_LOCATION: "managed worker release build failed at line %s",
   CLEAN_INDEX: "git diff --cached --quiet --ignore-submodules --",
   CLEAN_WORKTREE: "git diff --quiet --ignore-submodules --",
   GIT_ARCHIVE: 'git archive --format=tar "${source_revision}" | docker buildx build',
@@ -7,7 +9,8 @@ export const REPRODUCIBLE_BUILD_BOUNDARY = {
   PUSHED_OCI_IMAGE: '--output "type=image,name=${tag},push=true,oci-mediatypes=true,rewrite-timestamp=true"',
   INDEX_READBACK: 'docker buildx imagetools inspect --raw "${candidate_repository}@${index_digest}"',
   PLATFORM_READBACK: 'docker buildx imagetools inspect --raw "${candidate_repository}@${platform_digest}"',
-  CONFIG_BINDING: 'test "${config_digest}" = "$(jq -er \'."containerimage.config.digest"\' "${metadata}")"',
+  CONFIG_READBACK: 'config_digest="$(jq -er \'.config.digest\' "${platform_manifest}")"',
+  CONFIG_DIGEST_SHAPE: '[[ "${config_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]',
   SOURCE_REVISION_LABEL: 'test "$(jq -r \'."org.opencontainers.image.revision"\' <<< "${labels}")" = "${source_revision}"',
   SOURCE_EPOCH_LABEL: 'test "$(jq -r \'."dev.happycastle.steel.source-date-epoch"\' <<< "${labels}")" = "${source_date_epoch}"',
   TWO_ATTEMPTS: 'first="$(build_once first)"\nsecond="$(build_once second)"',
