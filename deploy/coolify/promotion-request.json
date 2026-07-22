@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "requestId": "steel-production-20260723-01",
+  "releaseRunId": 29888053615,
+  "releaseRevision": "c79e81e14a85906d4681f1a8e0f0d3a408dbb053",
+  "targetSlot": "BLUE",
+  "routeHost": "steel.soungmin.tech"
+}
