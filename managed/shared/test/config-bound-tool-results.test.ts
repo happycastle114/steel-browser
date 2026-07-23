@@ -34,8 +34,8 @@ function sessionResult(host: string) {
       createdAt: "2026-07-20T00:00:00.000Z",
     },
     urls: {
-      websocketUrl: `wss://${host}/v1/sessions/${sessionId}`,
-      debugUrl: `https://${host}/v1/sessions/${sessionId}/debug`,
+      websocketUrl: `wss://${host}/?sessionId=${sessionId}`,
+      debugUrl: `https://${host}/v1/sessions/debug?sessionId=${sessionId}`,
       viewerUrl: `https://${host}/ui/sessions/${sessionId}/live`,
     },
   }

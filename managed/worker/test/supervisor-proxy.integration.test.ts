@@ -221,6 +221,7 @@ describe("production worker supervisor proxy", () => {
     // Given
     const upstream = createServer()
     upstream.on("upgrade", (incoming, socket, head) => {
+      expect(incoming.headers.host).toBe(`127.0.0.1:${address(upstream).port}`)
       expect(incoming.headers["x-managed-forged"]).toBeUndefined()
       expect(incoming.headers["x-steel-managed-forged"]).toBeUndefined()
       socket.write(

@@ -10,15 +10,13 @@ const URL_PROTOCOL = { HTTPS: "https:", WSS: "wss:" } as const
 const UUID_SOURCE = "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 const UUID_V4_SOURCE = "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 const ROUTE_PATTERN = {
-  SESSION: /^\/v1\/sessions\/([^/]+)$/u,
-  SESSION_DEBUG: /^\/v1\/sessions\/([^/]+)\/debug$/u,
   SESSION_VIEWER: /^\/ui\/sessions\/([^/]+)\/live$/u,
   SESSION_CAST: /^\/v1\/sessions\/([^/]+)\/cast$/u,
   RESULT: /^\/v1\/results\/([^/]+)$/u,
 } as const
 const PUBLIC_PATH = {
-  session: (sessionId: SessionId) => `/v1/sessions/${sessionId}`,
-  debug: (sessionId: SessionId) => `/v1/sessions/${sessionId}/debug`,
+  session: (sessionId: SessionId) => `/?sessionId=${sessionId}`,
+  debug: (sessionId: SessionId) => `/v1/sessions/debug?sessionId=${sessionId}`,
   viewer: (sessionId: SessionId) => `/ui/sessions/${sessionId}/live`,
   cast: (sessionId: SessionId) => `/v1/sessions/${sessionId}/cast`,
   result: (resultId: ResultId) => `/v1/results/${resultId}`,
@@ -67,10 +65,10 @@ export type SelectedPublicOrigin = z.infer<typeof SelectedPublicOriginSchema>
 export function createPublicUrlSchemas(originInput: SelectedPublicOrigin) {
   return Object.freeze({
     SessionWebSocketUrlSchema: z.string().url().regex(exactUrlPattern(
-      originInput, URL_PROTOCOL.WSS, `/v1/sessions/${UUID_SOURCE}`,
+      originInput, URL_PROTOCOL.WSS, `/\\?sessionId=${UUID_SOURCE}`,
     )).brand("SessionWebSocketUrl"),
     SessionDebugUrlSchema: z.string().url().regex(exactUrlPattern(
-      originInput, URL_PROTOCOL.HTTPS, `/v1/sessions/${UUID_SOURCE}/debug`,
+      originInput, URL_PROTOCOL.HTTPS, `/v1/sessions/debug\\?sessionId=${UUID_SOURCE}`,
     )).brand("SessionDebugUrl"),
     ViewerUrlSchema: z.string().url().regex(exactUrlPattern(
       originInput, URL_PROTOCOL.HTTPS, `/ui/sessions/${UUID_SOURCE}/live`,
@@ -104,6 +102,11 @@ function bindSessionUrl(value: string, routePattern: RegExp): SessionUrlBinding 
   return { host: url.host, sessionId: SessionIdSchema.parse(routePattern.exec(url.pathname)?.[1]) }
 }
 
+function bindSessionQueryUrl(value: string): SessionUrlBinding {
+  const url = new URL(value)
+  return { host: url.host, sessionId: SessionIdSchema.parse(url.searchParams.get("sessionId")) }
+}
+
 export function parseResultDownloadUrlId(resultDownloadUrlInput: ResultDownloadUrl): ResultId {
   const url = new URL(resultDownloadUrlInput)
   return ResultIdSchema.parse(ROUTE_PATTERN.RESULT.exec(url.pathname)?.[1])
@@ -126,9 +129,9 @@ export function parseSessionUrlBinding(urls: Readonly<{
   readonly debugUrl?: SessionDebugUrl | undefined
   readonly viewerUrl?: ViewerUrl | undefined
 }>): SessionUrlBinding {
-  const websocket = bindSessionUrl(urls.websocketUrl, ROUTE_PATTERN.SESSION)
+  const websocket = bindSessionQueryUrl(urls.websocketUrl)
   const bindings = [
-    urls.debugUrl === undefined ? undefined : bindSessionUrl(urls.debugUrl, ROUTE_PATTERN.SESSION_DEBUG),
+    urls.debugUrl === undefined ? undefined : bindSessionQueryUrl(urls.debugUrl),
     urls.viewerUrl === undefined ? undefined : bindSessionUrl(urls.viewerUrl, ROUTE_PATTERN.SESSION_VIEWER),
   ]
   if (bindings.some((binding) => binding !== undefined &&

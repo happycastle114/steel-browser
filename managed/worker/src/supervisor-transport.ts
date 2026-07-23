@@ -13,6 +13,7 @@ import {
 } from "./config.js"
 
 const INTERNAL_HEADER_PREFIX = ["x-managed-", "x-steel-managed-"] as const
+const UPSTREAM_AUTHORITY_HEADER = "host"
 const PROXY_ERROR_STATUS = 502
 
 type SupervisorUpgradeConnection = {
@@ -58,7 +59,11 @@ function isInternalHeader(name: string): boolean {
 export function sanitizeProxyHeaders(headers: IncomingHttpHeaders): OutgoingHttpHeaders {
   const sanitized: OutgoingHttpHeaders = {}
   for (const [name, value] of Object.entries(headers)) {
-    if (!isInternalHeader(name) && value !== undefined) {
+    if (
+      name.toLowerCase() !== UPSTREAM_AUTHORITY_HEADER &&
+      !isInternalHeader(name) &&
+      value !== undefined
+    ) {
       sanitized[name] = value
     }
   }

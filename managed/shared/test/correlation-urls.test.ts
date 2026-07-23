@@ -171,8 +171,8 @@ describe("typed same-origin public URLs", () => {
     const urls = buildSessionUrls(origin, sessionId)
     // Then: every secure facade URL has one separator and the same session identity.
     expect(urls).toEqual({
-      websocketUrl: `wss://steel.soungmin.kr/v1/sessions/${sessionId}`,
-      debugUrl: `https://steel.soungmin.kr/v1/sessions/${sessionId}/debug`,
+      websocketUrl: `wss://steel.soungmin.kr/?sessionId=${sessionId}`,
+      debugUrl: `https://steel.soungmin.kr/v1/sessions/debug?sessionId=${sessionId}`,
       viewerUrl: `https://steel.soungmin.kr/ui/sessions/${sessionId}/live`,
     })
     expect(Object.values(urls).every((value) => !new URL(value).pathname.startsWith("//"))).toBe(true)
@@ -221,9 +221,9 @@ describe("typed same-origin public URLs", () => {
     // Given: otherwise secure URLs that diverge from the websocket Host or session.
     const otherSessionId = "418f56c8-6f7a-4c45-9e5d-77adff18f7ac"
     const cases = [
-      sessionResultInput({ debugUrl: `https://steel-candidate.soungmin.kr/v1/sessions/${sessionId}/debug` }),
+      sessionResultInput({ debugUrl: `https://steel-candidate.soungmin.kr/v1/sessions/debug?sessionId=${sessionId}` }),
       sessionResultInput({ viewerUrl: `https://steel.soungmin.kr/ui/sessions/${otherSessionId}/live` }),
-      sessionResultInput({ websocketUrl: `wss://steel.soungmin.kr/v1/sessions/${otherSessionId}` }),
+      sessionResultInput({ websocketUrl: `wss://steel.soungmin.kr/?sessionId=${otherSessionId}` }),
     ]
     // When: each alias crosses the static SessionResult boundary.
     const results = cases.map((input) => SessionResultSchema.safeParse(input).success)
