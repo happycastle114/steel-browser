@@ -31,6 +31,7 @@ test("generates isolated blue and green Coolify projects", () => {
   assert.deepEqual(blue.services["worker-00"].networks, ["private"])
   assert.deepEqual(blue.services["worker-01"].networks, ["private"])
   assert.deepEqual(blue.services.manager.networks, ["coolify", "private"])
+  assert.deepEqual(blue.networks.private, {})
   assert.equal("ports" in blue.services.manager, false)
   assert.equal("ports" in blue.services["worker-00"], false)
   assert.deepEqual(blue.services.manager.secrets.map(({ source }) => source), [
@@ -54,6 +55,7 @@ test("rejects mutable images, worker exposure, and manager secret drift", () => 
     { ...valid, services: { ...valid.services, manager: { ...valid.services.manager, image: "manager:latest" } } },
     { ...valid, services: { ...valid.services, "worker-00": { ...valid.services["worker-00"], ports: ["3000:3000"] } } },
     { ...valid, services: { ...valid.services, "worker-01": { ...valid.services["worker-01"], networks: ["coolify", "private"] } } },
+    { ...valid, networks: { ...valid.networks, private: { internal: true } } },
     { ...valid, services: { ...valid.services, manager: { ...valid.services.manager, secrets: [] } } },
     { ...valid, services: { ...valid.services, manager: { ...valid.services.manager, read_only: true } } },
   ]

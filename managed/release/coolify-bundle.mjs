@@ -81,7 +81,7 @@ export function buildCoolifyCompose(input) {
     services,
     networks: {
       coolify: { external: true, name: "coolify" },
-      private: { internal: true },
+      private: {},
     },
     secrets: {
       "managed-create-token-key": { environment: "STEEL_MANAGED_CREATE_TOKEN_KEY_HEX" },
@@ -125,7 +125,7 @@ export function verifyCoolifyCompose(
   requireDigestImage(workerZero.image, "worker image")
   if (!isDeepStrictEqual(compose.networks, {
     coolify: { external: true, name: "coolify" },
-    private: { internal: true },
+    private: {},
   })) throw new TypeError("Coolify network drift")
   if (!isDeepStrictEqual(compose.secrets, {
     "managed-create-token-key": { environment: "STEEL_MANAGED_CREATE_TOKEN_KEY_HEX" },

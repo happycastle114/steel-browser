@@ -4,7 +4,8 @@ This directory is the production source boundary for the managed Steel fork. It 
 generated Docker Compose documents, one for `managed-blue-pool` and one for
 `managed-green-pool`. Only one project may run at a time. Workers have no public network, host
 port, Docker socket, capability, or manager secret; only the manager joins the Coolify proxy
-network.
+network. The worker bridge retains Docker's default outbound connectivity so Chromium can browse,
+but no worker joins the proxy network or publishes a port.
 
 Both non-root workers use `chromium-seccomp.json`, the Apache-2.0 Playwright Chromium sandbox
 profile pinned to upstream commit `ae935a43d9e376e4759548f6b3c6905c7b282333` and SHA-256
