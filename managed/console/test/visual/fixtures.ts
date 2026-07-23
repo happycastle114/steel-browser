@@ -1,3 +1,11 @@
+import {
+  TOOL_MUTABILITY,
+  TOOL_NAME,
+  TOOL_NAMES,
+  TOOL_SESSION_REQUIREMENT,
+  type ToolName,
+} from "@happycastle/steel-managed-shared/browser"
+
 const apiVersion = "2026-07-01"
 const now = "2026-07-21T04:00:00.000Z"
 const liveSessionId = "550e8400-e29b-41d4-a716-446655440000"
@@ -11,8 +19,36 @@ const memoryLedger = { limitBytes: 16_777_216, limitCount: 8, reservedBytes: 2_0
 const liveSession = { createdAt: now, instanceId: instanceOne, sessionId: liveSessionId, startedAt: now, state: "LIVE", workerId: "worker-00" }
 const queuedSession = { admissionId, createdAt: now, sessionId: queuedSessionId, state: "QUEUED" }
 const admission = { admissionId, createdAt: now, expiresAt: "2026-07-21T04:05:00.000Z", position: 1, state: "QUEUED", updatedAt: now }
-const toolDescriptor = (name: string, mutability: "READ" | "WRITE") => ({ inputSchemaSha256: "a".repeat(64), mutability, name, outputSchemaSha256: "b".repeat(64), sessionRequirement: "EXPLICIT", version: "1.0.0" })
-const tools = [toolDescriptor("steel.browser.navigate", "WRITE"), toolDescriptor("steel.browser.snapshot", "READ")]
+const readTools = new Set<ToolName>([
+  TOOL_NAME.SESSION_LIST,
+  TOOL_NAME.SESSION_GET,
+  TOOL_NAME.ADMISSION_STATUS,
+  TOOL_NAME.BROWSER_SNAPSHOT,
+  TOOL_NAME.BROWSER_SCREENSHOT,
+  TOOL_NAME.BROWSER_SCRAPE,
+  TOOL_NAME.BROWSER_LIVE_VIEW,
+])
+const sessionTools = new Set<ToolName>([
+  TOOL_NAME.SESSION_GET,
+  TOOL_NAME.SESSION_RELEASE,
+  TOOL_NAME.BROWSER_NAVIGATE,
+  TOOL_NAME.BROWSER_SNAPSHOT,
+  TOOL_NAME.BROWSER_SCREENSHOT,
+  TOOL_NAME.BROWSER_SCRAPE,
+  TOOL_NAME.BROWSER_CLICK,
+  TOOL_NAME.BROWSER_TYPE,
+  TOOL_NAME.BROWSER_KEY,
+  TOOL_NAME.BROWSER_LIVE_VIEW,
+])
+const toolDescriptor = (name: ToolName) => ({
+  inputSchemaSha256: "a".repeat(64),
+  mutability: readTools.has(name) ? TOOL_MUTABILITY.READ : TOOL_MUTABILITY.WRITE,
+  name,
+  outputSchemaSha256: "b".repeat(64),
+  sessionRequirement: sessionTools.has(name) ? TOOL_SESSION_REQUIREMENT.EXPLICIT : TOOL_SESSION_REQUIREMENT.NONE,
+  version: "1.0.0",
+})
+const tools = TOOL_NAMES.map(toolDescriptor)
 
 export const fixtures = {
   admission,
