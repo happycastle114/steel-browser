@@ -26,10 +26,16 @@ function EventRow({ event }: Readonly<{ readonly event: ManagedEvent }>) {
   return (
     <li>
       <span className="event-timeline__marker" />
-      <div><strong>{eventSummary(event)}</strong><span>{event.sessionId ? `Session ${shortIdentifier(event.sessionId)}` : event.workerId ? `Worker ${event.workerId}` : "Manager"}</span></div>
+      <div><strong>{eventSummary(event)}</strong><span>{eventSubject(event)}</span></div>
       <time dateTime={event.occurredAt}>{formatTimestamp(event.occurredAt)}</time>
     </li>
   )
+}
+
+function eventSubject(event: ManagedEvent): string {
+  if ("sessionId" in event) return `Session ${shortIdentifier(event.sessionId)}`
+  if ("workerId" in event) return `Worker ${event.workerId}`
+  return "Manager"
 }
 
 function eventSummary(event: ManagedEvent): string {
