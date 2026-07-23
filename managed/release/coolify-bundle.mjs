@@ -1,5 +1,7 @@
 import { isDeepStrictEqual } from "node:util"
 
+import { CHROMIUM_SECCOMP_PROFILE } from "./chromium-seccomp-profile.mjs"
+
 export const CoolifyPoolSlot = Object.freeze({
   BLUE: "BLUE",
   GREEN: "GREEN",
@@ -169,7 +171,10 @@ function buildWorker(image, workerId) {
     read_only: true,
     tmpfs: workerTmpfs,
     cap_drop: ["ALL"],
-    security_opt: ["no-new-privileges:true"],
+    security_opt: [
+      "no-new-privileges:true",
+      `seccomp=${CHROMIUM_SECCOMP_PROFILE.deploymentPath}`,
+    ],
     pids_limit: 512,
     shm_size: "512m",
     mem_limit: "2560m",

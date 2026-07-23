@@ -9,6 +9,7 @@ on:
       - "deploy/coolify/README.md"
       - "deploy/coolify/compose.blue.yml"
       - "deploy/coolify/compose.green.yml"
+      - "deploy/coolify/chromium-seccomp.json"
       - "package.json"
       - "package-lock.json"
   workflow_dispatch:

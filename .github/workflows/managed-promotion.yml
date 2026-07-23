@@ -60,8 +60,11 @@ jobs:
           test "$(jq -er '.managedRevision' "${manifest}")" = '${{ steps.request.outputs.release-revision }}'
           expected_evidence_sha="$(jq -er '.releaseEvidenceSha256' "${manifest}")"
           test "$(sha256sum "${evidence}" | cut -d ' ' -f 1)" = "${expected_evidence_sha}"
+          expected_seccomp_sha="$(jq -er '.chromiumSeccompProfileSha256' "${manifest}")"
           test -s "${release_root}/blue/compose.yml"
           test -s "${release_root}/green/compose.yml"
+          test "$(sha256sum "${release_root}/blue/chromium-seccomp.json" | cut -d ' ' -f 1)" = "${expected_seccomp_sha}"
+          test "$(sha256sum "${release_root}/green/chromium-seccomp.json" | cut -d ' ' -f 1)" = "${expected_seccomp_sha}"
       - name: Deploy the requested stopped Coolify project
         env:
           COOLIFY_API_BASE: ${{ secrets.COOLIFY_API_BASE }}

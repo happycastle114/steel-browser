@@ -6,6 +6,10 @@ import { pathToFileURL } from "node:url"
 
 import { deployCoolifyRelease } from "./coolify-api-client.mjs"
 import { CoolifyPoolSlot } from "./coolify-bundle.mjs"
+import {
+  CHROMIUM_SECCOMP_PROFILE,
+  verifyChromiumSeccompProfileBytes,
+} from "./chromium-seccomp-profile.mjs"
 
 const DeployEnvironmentKey = Object.freeze({
   API_BASE: "COOLIFY_API_BASE",
@@ -21,11 +25,21 @@ const DeployEnvironmentKey = Object.freeze({
 export async function runCoolifyDeployCli(arguments_, environment, fetcher = fetch) {
   const targetSlot = parseArguments(arguments_)
   const values = readEnvironment(environment)
-  const [manifestBytes, releaseEvidence] = await Promise.all([
+  const bundleSlot = targetSlot.toLowerCase()
+  const [manifestBytes, releaseEvidence, seccompProfileBytes] = await Promise.all([
     readFile(path.join(values.releaseDirectory, "release-manifest.json"), "utf8"),
     readFile(path.join(values.releaseDirectory, "release-evidence.json"), "utf8"),
+    readFile(path.join(
+      values.releaseDirectory,
+      bundleSlot,
+      CHROMIUM_SECCOMP_PROFILE.deploymentPath,
+    )),
   ])
   const manifest = parseManifest(manifestBytes)
+  const seccompProfile = verifyChromiumSeccompProfileBytes(seccompProfileBytes)
+  if (manifest.chromiumSeccompProfileSha256 !== seccompProfile.sha256) {
+    throw new TypeError("release manifest Chromium seccomp profile digest mismatch")
+  }
   const isBlue = targetSlot === CoolifyPoolSlot.BLUE
   const receipt = await deployCoolifyRelease({
     apiBase: values.apiBase,

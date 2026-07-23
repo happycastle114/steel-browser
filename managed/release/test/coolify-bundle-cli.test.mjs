@@ -5,6 +5,10 @@ import path from "node:path"
 import { after, test } from "node:test"
 
 import { runCoolifyBundleCli } from "../coolify-bundle-cli.mjs"
+import {
+  CHROMIUM_SECCOMP_PROFILE,
+  verifyChromiumSeccompProfileBytes,
+} from "../chromium-seccomp-profile.mjs"
 
 const directory = await mkdtemp(path.join(tmpdir(), "steel-coolify-bundle-"))
 after(async () => rm(directory, { force: true, recursive: true }))
@@ -51,9 +55,16 @@ test("writes a secret-free digest-pinned Coolify release bundle", async () => {
   const manifest = JSON.parse(await readFile(path.join(output, "release-manifest.json"), "utf8"))
   const blue = JSON.parse(await readFile(path.join(output, "blue", "compose.yml"), "utf8"))
   const evidence = await readFile(path.join(output, "release-evidence.json"), "utf8")
+  const blueSeccompProfile = await readFile(path.join(output, "blue", "chromium-seccomp.json"))
+  const greenSeccompProfile = await readFile(path.join(output, "green", "chromium-seccomp.json"))
   assert.equal(manifest.schemaVersion, 1)
   assert.equal(manifest.managerImage, `ghcr.io/example/manager@${digest("1")}`)
+  assert.equal(manifest.chromiumSeccompProfileSha256, CHROMIUM_SECCOMP_PROFILE.sha256)
   assert.equal(blue.services.manager.image, manifest.managerImage)
   assert.equal(evidence.includes("STEEL_MANAGED_CREATE_TOKEN_KEY_HEX"), false)
   assert.match(manifest.releaseEvidenceSha256, /^[0-9a-f]{64}$/u)
+  assert.deepEqual(verifyChromiumSeccompProfileBytes(blueSeccompProfile), {
+    sha256: CHROMIUM_SECCOMP_PROFILE.sha256,
+  })
+  assert.deepEqual(greenSeccompProfile, blueSeccompProfile)
 })

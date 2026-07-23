@@ -11,6 +11,10 @@ import {
   serializeCoolifyCompose,
 } from "./coolify-bundle.mjs"
 import {
+  CHROMIUM_SECCOMP_PROFILE,
+  verifyChromiumSeccompProfileBytes,
+} from "./chromium-seccomp-profile.mjs"
+import {
   buildReleaseEvidence,
   serializeReleaseEvidence,
 } from "./release-evidence.mjs"
@@ -26,12 +30,14 @@ const CliFlag = Object.freeze({
 
 export async function runCoolifyBundleCli(arguments_) {
   const options = parseArguments(arguments_)
-  const [managerBytes, workerBytes, upstreamBytes, toolchainBytes] = await Promise.all([
+  const [managerBytes, workerBytes, upstreamBytes, toolchainBytes, seccompProfileBytes] = await Promise.all([
     readFile(options.managerReceipt),
     readFile(options.workerReceipt),
     readFile(options.upstreamLock),
     readFile(options.toolchainLock),
+    readFile(new URL("../../deploy/coolify/chromium-seccomp.json", import.meta.url)),
   ])
+  const seccompProfile = verifyChromiumSeccompProfileBytes(seccompProfileBytes)
   const managerReceipt = parseJson(managerBytes, "manager receipt")
   const workerReceipt = parseJson(workerBytes, "worker receipt")
   const upstreamLock = parseJson(upstreamBytes, "upstream lock")
@@ -57,6 +63,7 @@ export async function runCoolifyBundleCli(arguments_) {
   const green = buildCoolifyCompose({ ...composeInput, poolSlot: CoolifyPoolSlot.GREEN })
   const manifest = {
     schemaVersion: 1,
+    chromiumSeccompProfileSha256: seccompProfile.sha256,
     managedRevision: evidence.body.source.managedRevision,
     managerImage: evidence.body.managerImage.ref,
     releaseEvidenceSha256,
@@ -74,6 +81,16 @@ export async function runCoolifyBundleCli(arguments_) {
     writeFile(path.join(options.output, "release-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`),
     writeFile(path.join(blueDirectory, "compose.yml"), serializeCoolifyCompose(blue)),
     writeFile(path.join(greenDirectory, "compose.yml"), serializeCoolifyCompose(green)),
+    writeFile(
+      path.join(blueDirectory, CHROMIUM_SECCOMP_PROFILE.deploymentPath),
+      seccompProfileBytes,
+      { mode: 0o644 },
+    ),
+    writeFile(
+      path.join(greenDirectory, CHROMIUM_SECCOMP_PROFILE.deploymentPath),
+      seccompProfileBytes,
+      { mode: 0o644 },
+    ),
   ])
 }
 

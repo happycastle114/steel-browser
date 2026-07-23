@@ -6,6 +6,13 @@ generated Docker Compose documents, one for `managed-blue-pool` and one for
 port, Docker socket, capability, or manager secret; only the manager joins the Coolify proxy
 network.
 
+Both non-root workers use `chromium-seccomp.json`, the Apache-2.0 Playwright Chromium sandbox
+profile pinned to upstream commit `ae935a43d9e376e4759548f6b3c6905c7b282333` and SHA-256
+`cc3e61cabda6bbc1e53e54d27ba4d55a9d3be829b6dd1a596f4a7b31b1cc7849`. It keeps Docker's
+deny-by-default seccomp policy while allowing only the `clone`, `setns`, and `unshare` calls
+Chromium needs to create its user namespace. Do not replace it with `seccomp=unconfined`,
+`privileged`, capabilities, or a sandbox-disabling browser flag.
+
 The files contain JSON syntax because JSON is valid YAML and gives deterministic generated
 bytes. `managed/release/coolify-source-compose.mjs` is the source generator and
 `npm run test:managed-release` proves that both checked-in documents materialize into the exact
@@ -56,7 +63,8 @@ filesystem is marked read-only. The manager therefore keeps `read_only: false` o
 root-owned scratch image during its short PID 1 initialization. The long-running Node process
 still runs as UID/GID 10001 with all capabilities dropped, `no-new-privileges`, private secret
 tmpfs, bounded PID/memory limits, and no writable application directory. Both workers remain
-`read_only: true` and never receive either manager secret.
+`read_only: true`, use the digest-pinned Chromium seccomp profile, and never receive either
+manager secret.
 
 A minimal configuration envelope is:
 
@@ -102,7 +110,8 @@ remain bounded users.
 4. Push SBOM/provenance-bearing images, read back OCI index/platform/config digests, and reject a
    non-reproducible pair.
 5. Run Chromium from the exact worker digest and bind its version into release evidence.
-6. Generate `release-evidence.json`, the release manifest, and exact blue/green Compose artifacts.
+6. Verify and copy the pinned Chromium seccomp profile, then generate `release-evidence.json`,
+   the release manifest, and self-contained blue/green Compose artifacts.
 7. On an explicit `workflow_dispatch`, verify both Coolify applications are stopped, update one
    target, start it, and wait for a finished deployment plus a running application state.
 

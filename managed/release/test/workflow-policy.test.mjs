@@ -197,6 +197,8 @@ test("promotes one immutable release artifact without rebuilding images", async 
   assert.match(validate.run, /keys == \["releaseRevision"/u)
   assert.match(verify.run, /blue\/compose\.yml/u)
   assert.match(verify.run, /green\/compose\.yml/u)
+  assert.match(verify.run, /blue\/chromium-seccomp\.json/u)
+  assert.match(verify.run, /green\/chromium-seccomp\.json/u)
   assert.doesNotMatch(steps.map(({ run = "" }) => run).join("\n"), /docker build/u)
 
   const releaseBytes = await readFile(
@@ -208,6 +210,7 @@ test("promotes one immutable release artifact without rebuilding images", async 
     "deploy/coolify/README.md",
     "deploy/coolify/compose.blue.yml",
     "deploy/coolify/compose.green.yml",
+    "deploy/coolify/chromium-seccomp.json",
   ])
 })
 
