@@ -3,8 +3,11 @@ import { readFile, stat } from "node:fs/promises"
 import { extname, resolve } from "node:path"
 import { WebSocketServer } from "ws"
 
-const port = 4173
-const buildRoot = resolve(process.cwd(), "build")
+const port = Number(process.env["STEEL_CONSOLE_TEST_PORT"] ?? "4173")
+if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+  throw new TypeError("STEEL_CONSOLE_TEST_PORT must be a valid TCP port")
+}
+const buildRoot = resolve(process.cwd(), "dist")
 const indexPath = resolve(buildRoot, "index.html")
 const contentTypes = new Map<string, string>([
   [".css", "text/css; charset=utf-8"],
