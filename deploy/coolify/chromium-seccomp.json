@@ -63,6 +63,16 @@
 			"excludes": {}
 		},
 		{
+			"comment": "Allow Chromium user-namespace chroot",
+			"names": [
+				"chroot"
+			],
+			"action": "SCMP_ACT_ALLOW",
+			"args": [],
+			"includes": {},
+			"excludes": {}
+		},
+		{
 			"names": [
 				"accept",
 				"accept4",

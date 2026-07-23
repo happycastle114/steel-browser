@@ -2,13 +2,14 @@ import { createHash } from "node:crypto"
 
 export const CHROMIUM_SECCOMP_PROFILE = Object.freeze({
   bundleDeploymentPath: "./chromium-seccomp.json",
-  sha256: "cc3e61cabda6bbc1e53e54d27ba4d55a9d3be829b6dd1a596f4a7b31b1cc7849",
+  sha256: "7e636d3b8806379924a87f7fee66fa55da23a467817fd4ea08daae397106f074",
   sourceDeploymentPath: "./deploy/coolify/chromium-seccomp.json",
   sourceRevision: "ae935a43d9e376e4759548f6b3c6905c7b282333",
   sourceUrl: "https://github.com/microsoft/playwright/blob/ae935a43d9e376e4759548f6b3c6905c7b282333/utils/docker/seccomp_profile.json",
 })
 
 const USER_NAMESPACE_SYSCALLS = Object.freeze(["clone", "setns", "unshare"])
+const USER_NAMESPACE_CHROOT_SYSCALLS = Object.freeze(["chroot"])
 
 export function verifyChromiumSeccompProfileBytes(bytes) {
   const actualSha256 = createHash("sha256").update(bytes).digest("hex")
@@ -41,6 +42,24 @@ export function verifyChromiumSeccompProfileBytes(bytes) {
     !isEmptyRecord(namespaceRule.excludes)
   ) {
     throw new TypeError("Chromium seccomp user-namespace permission drift")
+  }
+  const chrootRules = profile.syscalls.filter((entry) =>
+    isRecord(entry) && entry.comment === "Allow Chromium user-namespace chroot",
+  )
+  if (chrootRules.length !== 1) {
+    throw new TypeError("Chromium seccomp user-namespace chroot rule drift")
+  }
+  const [chrootRule] = chrootRules
+  if (
+    chrootRule.action !== "SCMP_ACT_ALLOW" ||
+    !Array.isArray(chrootRule.names) ||
+    !sameStrings(chrootRule.names, USER_NAMESPACE_CHROOT_SYSCALLS) ||
+    !Array.isArray(chrootRule.args) ||
+    chrootRule.args.length !== 0 ||
+    !isEmptyRecord(chrootRule.includes) ||
+    !isEmptyRecord(chrootRule.excludes)
+  ) {
+    throw new TypeError("Chromium seccomp user-namespace chroot permission drift")
   }
   return Object.freeze({ sha256: actualSha256 })
 }

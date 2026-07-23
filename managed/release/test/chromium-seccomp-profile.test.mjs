@@ -26,6 +26,26 @@ test("pins the official Playwright Chromium sandbox profile by digest", async ()
   assert.match(CHROMIUM_SECCOMP_PROFILE.sourceUrl, new RegExp(CHROMIUM_SECCOMP_PROFILE.sourceRevision, "u"))
 })
 
+test("permits Chromium's namespace chroot without granting a container capability", async () => {
+  const profile = JSON.parse(await readFile(
+    new URL("../../../deploy/coolify/chromium-seccomp.json", import.meta.url),
+    "utf8",
+  ))
+  const rules = profile.syscalls.filter((entry) =>
+    entry.comment === "Allow Chromium user-namespace chroot",
+  )
+
+  assert.equal(rules.length, 1)
+  assert.deepEqual(rules[0], {
+    action: "SCMP_ACT_ALLOW",
+    args: [],
+    comment: "Allow Chromium user-namespace chroot",
+    excludes: {},
+    includes: {},
+    names: ["chroot"],
+  })
+})
+
 test("applies the sandbox profile only to private non-root workers", () => {
   const compose = buildCoolifyCompose({
     managerImage,

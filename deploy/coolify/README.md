@@ -9,9 +9,12 @@ but no worker joins the proxy network or publishes a port.
 
 Both non-root workers use `chromium-seccomp.json`, the Apache-2.0 Playwright Chromium sandbox
 profile pinned to upstream commit `ae935a43d9e376e4759548f6b3c6905c7b282333` and SHA-256
-`cc3e61cabda6bbc1e53e54d27ba4d55a9d3be829b6dd1a596f4a7b31b1cc7849`. It keeps Docker's
-deny-by-default seccomp policy while allowing only the `clone`, `setns`, and `unshare` calls
-Chromium needs to create its user namespace. Do not replace it with `seccomp=unconfined`,
+`7e636d3b8806379924a87f7fee66fa55da23a467817fd4ea08daae397106f074`. It keeps Docker's
+deny-by-default seccomp policy while allowing the `clone`, `setns`, and `unshare` calls Chromium
+needs to create its user namespace plus the `chroot` syscall Chromium executes after entering
+that namespace. Docker resolves capability-conditioned seccomp rules before Chromium gains
+namespace-local capabilities, so the syscall must be admitted independently; the kernel still
+requires the capability inside the new user namespace. Do not replace it with `seccomp=unconfined`,
 `privileged`, capabilities, `--no-sandbox`, or `--disable-namespace-sandbox`.
 
 Ubuntu's host-level AppArmor user-namespace restriction can otherwise force Chromium away from
