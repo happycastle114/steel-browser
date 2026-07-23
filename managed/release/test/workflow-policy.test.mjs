@@ -222,6 +222,19 @@ test("builds the console into the sealed manager image directory", async () => {
   assert.match(dockerfileBytes, /\/workspace\/managed\/console\/dist \/srv\/steel-console/u)
 })
 
+test("copies the console AI dependency into the sealed manager build stage", async () => {
+  const dockerfileBytes = await readFile(
+    new URL("../../manager/image/Dockerfile", import.meta.url),
+    "utf8",
+  )
+
+  assert.match(
+    dockerfileBytes,
+    /COPY managed\/ai-client\/package\.json \.\/managed\/ai-client\/package\.json/u,
+  )
+  assert.match(dockerfileBytes, /COPY managed\/ai-client \.\/managed\/ai-client/u)
+})
+
 test("uses the registry platform manifest as the released config digest authority", async () => {
   for (const scriptPath of [
     "../../manager/image/build-reproducible.sh",
