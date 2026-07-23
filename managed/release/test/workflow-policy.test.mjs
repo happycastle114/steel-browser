@@ -10,6 +10,17 @@ const workflowPaths = [
   ".github/workflows/managed-upstream-sync.yml",
 ]
 
+test("serializes releases within the current concurrency epoch", async () => {
+  const bytes = await readFile(
+    new URL("../../../.github/workflows/managed-release.yml", import.meta.url),
+    "utf8",
+  )
+  const workflow = yaml.parse(bytes)
+
+  assert.equal(workflow.concurrency.group, "managed-steel-release-v2")
+  assert.equal(workflow.concurrency["cancel-in-progress"], false)
+})
+
 test("keeps the manager Fastify runtime aligned with the root override", async () => {
   const [rootBytes, managerBytes] = await Promise.all([
     readFile(new URL("../../../package.json", import.meta.url), "utf8"),
