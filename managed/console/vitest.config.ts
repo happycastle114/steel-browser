@@ -9,6 +9,7 @@ export const vitestConfig = defineConfig({
       provider: "v8",
     },
     environment: "jsdom",
+    environmentOptions: { jsdom: { url: "https://steel.soungmin.tech/ui/" } },
     exclude: ["test/visual/**", "node_modules/**"],
     setupFiles: ["./test/setup.ts"],
   },
