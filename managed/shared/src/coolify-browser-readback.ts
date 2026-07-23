@@ -29,6 +29,7 @@ export const COOLIFY_BROWSER_READBACK_CONTRACT = {
     CDP_PORT_PREFIX: "--remote-debugging-port=",
     NO_SANDBOX: "--no-sandbox",
     DISABLE_SETUID_SANDBOX: "--disable-setuid-sandbox",
+    DISABLE_NAMESPACE_SANDBOX: "--disable-namespace-sandbox",
   },
   NETWORK: {
     SUPERVISOR_PORT: 3_000,
@@ -175,7 +176,10 @@ const ReceiptBaseSchema = z.object({
   evidence: z.object({ environment: z.literal(contract.ENVIRONMENT), status: z.literal(contract.STATUS), capturedAt: IsoTimeSchema }).strict(),
 }).strict().superRefine((receipt, context) => {
   const exactOutput = `Chromium ${receipt.browser.version}`
-  const forbidden = [contract.BROWSER_ARGUMENT.NO_SANDBOX, contract.BROWSER_ARGUMENT.DISABLE_SETUID_SANDBOX]
+  const forbidden = [
+    contract.BROWSER_ARGUMENT.NO_SANDBOX,
+    contract.BROWSER_ARGUMENT.DISABLE_NAMESPACE_SANDBOX,
+  ]
   const cdpPortArguments = receipt.browser.arguments.filter((argument) => argument.startsWith(contract.BROWSER_ARGUMENT.CDP_PORT_PREFIX))
   const session = receipt.lifecycle.created.sessionId
   const writableBytes = receipt.resources.runMaxBytes + receipt.resources.tmpMaxBytes + receipt.resources.profileMaxBytes + receipt.resources.shmMaxBytes
@@ -196,7 +200,7 @@ const ReceiptBaseSchema = z.object({
     context.addIssue({ code: z.ZodIssueCode.custom, message: "browser output does not bind the version", path: ["browser", "versionOutput"] })
   if (receipt.browser.cdpProduct.slice(receipt.browser.cdpProduct.indexOf("/") + 1) !== receipt.browser.version)
     context.addIssue({ code: z.ZodIssueCode.custom, message: "CDP product does not bind the version", path: ["browser", "cdpProduct"] })
-  if (!receipt.browser.arguments.includes(contract.BROWSER_ARGUMENT.HEADLESS) || cdpPortArguments.length !== 1 || !cdpPortArguments.includes(contract.BROWSER_ARGUMENT.EPHEMERAL_CDP) || forbidden.some((argument) => receipt.browser.arguments.some((actual) => actual === argument || actual.startsWith(`${argument}=`))))
+  if (!receipt.browser.arguments.includes(contract.BROWSER_ARGUMENT.HEADLESS) || !receipt.browser.arguments.includes(contract.BROWSER_ARGUMENT.DISABLE_SETUID_SANDBOX) || cdpPortArguments.length !== 1 || !cdpPortArguments.includes(contract.BROWSER_ARGUMENT.EPHEMERAL_CDP) || forbidden.some((argument) => receipt.browser.arguments.some((actual) => actual === argument || actual.startsWith(`${argument}=`))))
     context.addIssue({ code: z.ZodIssueCode.custom, message: "browser arguments do not prove sandboxed ephemeral CDP", path: ["browser", "arguments"] })
   if (receipt.lifecycle.cdpObserved.sessionId !== session || receipt.lifecycle.released.sessionId !== session || receipt.lifecycle.idle.workerId !== receipt.identity.workerId || receipt.lifecycle.idle.instanceId !== receipt.identity.instanceId)
     context.addIssue({ code: z.ZodIssueCode.custom, message: "lifecycle identity proof is inconsistent", path: ["lifecycle"] })

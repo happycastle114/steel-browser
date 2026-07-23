@@ -216,7 +216,7 @@ describe("upstream process environment", () => {
     expect(upstream).toMatchObject({
       CDP_DOMAIN: "127.0.0.1:3000",
       CDP_REDIRECT_PORT: "3000",
-      CHROME_ARGS: "--remote-debugging-address=127.0.0.1 --remote-debugging-port=0",
+      CHROME_ARGS: "--disable-setuid-sandbox --remote-debugging-address=127.0.0.1 --remote-debugging-port=0",
       CHROME_USER_DATA_DIR: "/var/lib/steel/profile",
       HOST: "127.0.0.1",
       FILTER_CHROME_ARGS: "--remote-debugging-address=127.0.0.1 --remote-debugging-port=9222",
@@ -225,5 +225,6 @@ describe("upstream process environment", () => {
     expect(upstream["MANAGED_WORKER_ID"]).toBeUndefined()
     expect(upstream["STEEL_MANAGED_CREATE_TOKEN_KEY_HEX"]).toBeUndefined()
     expect(upstream["CHROME_ARGS"]).not.toContain("--no-sandbox")
+    expect(upstream["CHROME_ARGS"]).not.toContain("--disable-namespace-sandbox")
   })
 })

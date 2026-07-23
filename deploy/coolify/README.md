@@ -12,7 +12,7 @@ profile pinned to upstream commit `ae935a43d9e376e4759548f6b3c6905c7b282333` and
 `cc3e61cabda6bbc1e53e54d27ba4d55a9d3be829b6dd1a596f4a7b31b1cc7849`. It keeps Docker's
 deny-by-default seccomp policy while allowing only the `clone`, `setns`, and `unshare` calls
 Chromium needs to create its user namespace. Do not replace it with `seccomp=unconfined`,
-`privileged`, capabilities, or a sandbox-disabling browser flag.
+`privileged`, capabilities, `--no-sandbox`, or `--disable-namespace-sandbox`.
 
 Ubuntu's host-level AppArmor user-namespace restriction can otherwise force Chromium away from
 its namespace sandbox and into the SUID fallback. Coolify application bundles cannot install a
@@ -21,6 +21,13 @@ namespace. They remain numeric non-root, read-only, capability-free, `no-new-pri
 by the pinned seccomp profile, and isolated on the private network. A host-loaded AppArmor profile
 that grants only Chromium's required `userns` permission is the preferred future replacement when
 Coolify supports provisioning it as part of the server configuration.
+
+The worker passes Chromium's documented `--disable-setuid-sandbox` selector because
+`no-new-privileges` intentionally prevents the legacy root-owned SUID helper from elevating and
+performing `chroot`. This does not select Chromium's `--no-sandbox` mode: the modern user-namespace
+layer remains required, and Chromium's process-specific seccomp-BPF layer remains enabled. Release
+and Coolify readback gates require that exact selector, reject both whole-sandbox and namespace-
+sandbox disablement, and verify the browser process is still in seccomp mode 2.
 
 Coolify runs Compose with the repository root as `--project-directory`. The checked-in source
 templates therefore use `./deploy/coolify/chromium-seccomp.json`; standalone release bundles

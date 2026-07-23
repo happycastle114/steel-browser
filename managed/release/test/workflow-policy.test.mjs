@@ -137,8 +137,9 @@ test("launches Chromium under the exact worker security boundary before release"
   assert.match(readbackStep.run, /--security-opt apparmor=unconfined/u)
   assert.match(readbackStep.run, /--security-opt no-new-privileges:true/u)
   assert.match(readbackStep.run, /--security-opt "seccomp=\$\{GITHUB_WORKSPACE\}\/deploy\/coolify\/chromium-seccomp\.json"/u)
+  assert.match(readbackStep.run, /--disable-setuid-sandbox/u)
   assert.match(readbackStep.run, /--dump-dom about:blank/u)
-  assert.doesNotMatch(readbackStep.run, /--no-sandbox|--disable-setuid-sandbox/u)
+  assert.doesNotMatch(readbackStep.run, /--no-sandbox|--disable-namespace-sandbox/u)
 })
 
 test("threads the private DBus session into every Chromium verification", async () => {

@@ -31,7 +31,7 @@ export function buildUpstreamEnvironment(
     ...upstream,
     CDP_DOMAIN: `${MANAGED_WORKER_RUNTIME.UPSTREAM_HOST}:${MANAGED_WORKER_RUNTIME.PORT}`,
     CDP_REDIRECT_PORT: String(MANAGED_WORKER_RUNTIME.PORT),
-    CHROME_ARGS: "--remote-debugging-address=127.0.0.1 --remote-debugging-port=0",
+    CHROME_ARGS: "--disable-setuid-sandbox --remote-debugging-address=127.0.0.1 --remote-debugging-port=0",
     CHROME_EXECUTABLE_PATH: "/usr/bin/chromium",
     CHROME_HEADLESS: "true",
     CHROME_USER_DATA_DIR: "/var/lib/steel/profile",

@@ -60,7 +60,11 @@ function receipt() {
       versionCommand: CONTRACT.VERSION_COMMAND,
       versionOutput: "Chromium 999.1.2.3",
       version: "999.1.2.3",
-      arguments: [CONTRACT.BROWSER_ARGUMENT.HEADLESS, CONTRACT.BROWSER_ARGUMENT.EPHEMERAL_CDP],
+      arguments: [
+        CONTRACT.BROWSER_ARGUMENT.HEADLESS,
+        CONTRACT.BROWSER_ARGUMENT.DISABLE_SETUID_SANDBOX,
+        CONTRACT.BROWSER_ARGUMENT.EPHEMERAL_CDP,
+      ],
       dbusAddress: "unix:path=/run/steel/runtime/bus",
       headless: true,
       xvfbProcessCount: 0,
