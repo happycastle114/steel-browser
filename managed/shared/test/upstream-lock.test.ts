@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import committedLockInput from "../../upstream.lock.json"
 import { LOCK_STAGE, parseUpstreamLock } from "../src/upstream-lock.js"
 
-const UPSTREAM_SHA = "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2"
+const UPSTREAM_SHA = "5880b48c1af107219ff3d904edbb8f6b76bea9b6"
 const DIGEST = "a".repeat(64)
 
 const bootstrapLock = {

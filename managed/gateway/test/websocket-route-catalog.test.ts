@@ -53,7 +53,7 @@ describe("public WebSocket route catalog", () => {
   it("equals every runtime-relevant field in the pinned five-route corpus", () => {
     // Given
     const matrixPath = fileURLToPath(new URL(
-      "../../tests/upstream/c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2/route-matrix.json",
+      "../../tests/upstream/5880b48c1af107219ff3d904edbb8f6b76bea9b6/route-matrix.json",
       import.meta.url,
     ))
     const matrix = RouteMatrixSchema.parse(JSON.parse(readFileSync(matrixPath, "utf8")))

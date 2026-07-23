@@ -10,6 +10,7 @@ export const OBSERVED_RECEIPT_PATH = "observed-receipt.json"
 // Generation reads this source-owned anchor but never rewrites it.
 const RECEIPT_SHA256_BY_UPSTREAM_SHA: ReadonlyMap<string, string> = new Map([
   ["c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2", "476d73479c68aa30e77124c217db62f62bab93025fcae7511798f79b6a6df484"],
+  ["5880b48c1af107219ff3d904edbb8f6b76bea9b6", "daa739408222efbdc2cebc1c9711721cb21b16dc547528fffec8faf5d6cf3ce3"],
 ])
 
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u)

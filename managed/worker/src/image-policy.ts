@@ -7,8 +7,8 @@ export const MANAGED_WORKER_IMAGE_INPUT = {
   BUILDER_IMAGE:
     "docker.io/library/node:22.23.1-bookworm@sha256:5647be709086c696ff32edaaf1c70cd26d1da6ab2b39c32f3c7b4c4a31957e37",
   UPSTREAM_IMAGE:
-    "ghcr.io/steel-dev/steel-browser@sha256:1c988dc8a8eda687648d1c94e10e8b8627343977119f09aa34a6adf345ba104d",
-  UPSTREAM_REVISION: "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2",
+    "ghcr.io/steel-dev/steel-browser@sha256:b0a3253a96a11e861ccfbb61ccb6679b801b94070ddf5463c29f4df97395d85d",
+  UPSTREAM_REVISION: "5880b48c1af107219ff3d904edbb8f6b76bea9b6",
 } as const
 
 export const MANAGED_WORKER_RUNTIME = {
@@ -47,23 +47,23 @@ const UpstreamImageLockSchema = z
       })
       .strict()
       .readonly(),
-    createdDate: z.literal("2026-07-06"),
+    createdDate: z.literal("2026-07-20"),
     indexDigest: z.literal(
-      "sha256:1c988dc8a8eda687648d1c94e10e8b8627343977119f09aa34a6adf345ba104d",
+      "sha256:b0a3253a96a11e861ccfbb61ccb6679b801b94070ddf5463c29f4df97395d85d",
     ),
-    packageVersion: z.literal("1004247379"),
+    packageVersion: z.literal("1049559672"),
     platforms: z
       .object({
         "linux/amd64": z
           .object({
             attestationDigest: z.literal(
-              "sha256:83e60224db0f37ee2f16d0fbffeee6d81bcc3c500e884c7f560008244609d2de",
+              "sha256:8587d4e2cba62e329c5f16f24d4712fb91f4e9f98d2099c0f8cef9942df8e699",
             ),
             configDigest: z.literal(
-              "sha256:397f07eee40d08d1dc3bb6a6a34647a6e7eaa91f5432a9573c08ceabc5cc8815",
+              "sha256:54538299b643d23519917be6b04b1595f33589ef08bcdc01d0fa55aba33fdb13",
             ),
             subjectDigest: z.literal(
-              "sha256:556402b20a178fb373b0b247f24d5be6fb3e3cf8d31ce7d25387f0e7a0247535",
+              "sha256:6c68ae1e2edb89f0a5f1a916cf7f2374e7f0972d565bb3d216b4eb6fc2276c1e",
             ),
           })
           .strict()
@@ -71,13 +71,13 @@ const UpstreamImageLockSchema = z
         "linux/arm64": z
           .object({
             attestationDigest: z.literal(
-              "sha256:c3d6bc38042bdd90cf46e202200c9b505e174b5070b3db70948408dce9c7a4d7",
+              "sha256:15b47f745a8cc634d2f36381434b2b44fa77e15581571ca079ea8541628e014c",
             ),
             configDigest: z.literal(
-              "sha256:1913e642c9d9550131bd1a14ed06913c63a9cb41261ee95b2104fd45cd186409",
+              "sha256:6ecbabba845d289a21d9c50ea77c6bb5d3e5eb99f973cd2cdca1e04072795236",
             ),
             subjectDigest: z.literal(
-              "sha256:89fbce4260b09264d4e49771de6d304bba683e9c462b7a4ffc417b48c0a58646",
+              "sha256:f7d72884fb1ba2e534e983679db53d9f720e67d7cf2d2e24d35084a43228e554",
             ),
           })
           .strict()
@@ -87,7 +87,7 @@ const UpstreamImageLockSchema = z
       .readonly(),
     provenance: z
       .object({
-        githubActionsRunId: z.literal("28784462621"),
+        githubActionsRunId: z.literal("29774838732"),
         ref: z.literal("refs/heads/main"),
         repository: z.literal("https://github.com/steel-dev/steel-browser"),
         revision: z.literal(MANAGED_WORKER_IMAGE_INPUT.UPSTREAM_REVISION),

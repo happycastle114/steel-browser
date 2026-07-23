@@ -20,9 +20,9 @@ export const RUNTIME_SCOPE_SOURCE_PATH = {
   OVERLAY_DESCRIPTOR: "managed/overlay/descriptor.json",
   UPSTREAM_LOCK: "managed/upstream.lock.json",
   PROTOCOL_CORPUS:
-    "managed/tests/upstream/c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2/manifest.json",
+    "managed/tests/upstream/5880b48c1af107219ff3d904edbb8f6b76bea9b6/manifest.json",
   SESSION_ID_VERDICT:
-    "managed/tests/upstream/c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2/session-id-verdict.json",
+    "managed/tests/upstream/5880b48c1af107219ff3d904edbb8f6b76bea9b6/session-id-verdict.json",
   LICENSE: "LICENSE",
   BROWSER_INPUT: "Dockerfile",
 } as const

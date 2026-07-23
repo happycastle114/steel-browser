@@ -24,7 +24,7 @@ describe("managed worker Dockerfile policy", () => {
       runtimePort: 3000,
       sourceOverlay: true,
       upstreamImage:
-        "ghcr.io/steel-dev/steel-browser@sha256:1c988dc8a8eda687648d1c94e10e8b8627343977119f09aa34a6adf345ba104d",
+        "ghcr.io/steel-dev/steel-browser@sha256:b0a3253a96a11e861ccfbb61ccb6679b801b94070ddf5463c29f4df97395d85d",
       user: "10001:10001",
     })
   })

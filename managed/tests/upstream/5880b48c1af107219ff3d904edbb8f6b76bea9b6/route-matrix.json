@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "upstreamSha": "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2",
+  "upstreamSha": "5880b48c1af107219ff3d904edbb8f6b76bea9b6",
   "runtimeProfile": { "nodeEnv": "development", "logStorageEnabled": true },
   "routes": [
     { "protocol": "REST", "id": "rest.action.scrape", "method": "POST", "path": "/v1/scrape", "source": "api/src/modules/actions/actions.routes.ts", "runtimeCondition": "ALWAYS", "affinity": "UNSCOPED_ACTIVE_SESSION", "lifecycle": "ACTION", "mutating": true, "implicitHead": false, "expected": { "statuses": [200, 500], "contentTypes": ["application/json; charset=utf-8"], "headers": ["content-type"], "urlFields": [] } },

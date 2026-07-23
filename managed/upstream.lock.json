@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "lockStage": "CORPUS_LOCKED",
   "upstreamRepository": "steel-dev/steel-browser",
-  "upstreamSha": "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2",
-  "protocolCorpusSha256": "894a353443fddb123650f1e5056bcfa9a089100cd5b1838668711ad0d258a919",
-  "sessionIdVerdictSha256": "2f5d5fae8ee00725beee4dce6962be79652c167d3bbcbc38333c6d64054257c3"
+  "upstreamSha": "5880b48c1af107219ff3d904edbb8f6b76bea9b6",
+  "protocolCorpusSha256": "f0c246bebbbde0d466c4dafd13c34f19f2fc95fda9d48da3503a5a654302195d",
+  "sessionIdVerdictSha256": "0989fbe75d88b4862173cd8129dd34a698b760b6019db5a13c6da9ec4aa7d57f"
 }

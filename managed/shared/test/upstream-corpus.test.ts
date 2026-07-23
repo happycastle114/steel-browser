@@ -20,7 +20,7 @@ import {
 } from "../src/upstream-corpus-verifier.js"
 import { LOCK_STAGE, parseUpstreamLock } from "../src/upstream-lock.js"
 
-const PINNED_UPSTREAM_SHA = "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2"
+const PINNED_UPSTREAM_SHA = "5880b48c1af107219ff3d904edbb8f6b76bea9b6"
 const CORPUS_DIRECTORY = fileURLToPath(
   new URL(`../../tests/upstream/${PINNED_UPSTREAM_SHA}/`, import.meta.url),
 )

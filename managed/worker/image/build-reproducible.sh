@@ -99,7 +99,7 @@ build_once() {
   labels="$(docker buildx imagetools inspect "${candidate_repository}@${platform_digest}" --format '{{json .Image.Config.Labels}}')"
   test "$(jq -r '."org.opencontainers.image.revision"' <<< "${labels}")" = "${source_revision}"
   test "$(jq -r '."dev.happycastle.steel.source-date-epoch"' <<< "${labels}")" = "${source_date_epoch}"
-  test "$(jq -r '."dev.happycastle.steel.upstream.revision"' <<< "${labels}")" = "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2"
+  test "$(jq -r '."dev.happycastle.steel.upstream.revision"' <<< "${labels}")" = "5880b48c1af107219ff3d904edbb8f6b76bea9b6"
   test "$(jq -r '."dev.happycastle.steel.production-audit.sha256"' <<< "${labels}")" = "${production_audit_receipt_sha256}"
   jq -n \
     --arg configDigest "${config_digest}" \
@@ -121,7 +121,7 @@ candidate_index_digest="$(jq -r '.indexDigest' <<< "${second}")"
 
 jq -n \
   --argjson attestationDigests "$(jq -c '.attestationDigests' <<< "${second}")" \
-  --arg baseImage "ghcr.io/steel-dev/steel-browser@sha256:1c988dc8a8eda687648d1c94e10e8b8627343977119f09aa34a6adf345ba104d" \
+  --arg baseImage "ghcr.io/steel-dev/steel-browser@sha256:b0a3253a96a11e861ccfbb61ccb6679b801b94070ddf5463c29f4df97395d85d" \
   --arg candidateConfigDigest "${second_config_digest}" \
   --arg candidateImage "${candidate_repository}@${candidate_index_digest}" \
   --arg candidateIndexDigest "${candidate_index_digest}" \

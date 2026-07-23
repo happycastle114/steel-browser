@@ -4,8 +4,8 @@
   "fork": "https://github.com/happycastle114/steel-browser",
   "upstream": {
     "repository": "https://github.com/steel-dev/steel-browser",
-    "revision": "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2",
-    "image": "ghcr.io/steel-dev/steel-browser@sha256:1c988dc8a8eda687648d1c94e10e8b8627343977119f09aa34a6adf345ba104d",
+    "revision": "5880b48c1af107219ff3d904edbb8f6b76bea9b6",
+    "image": "ghcr.io/steel-dev/steel-browser@sha256:b0a3253a96a11e861ccfbb61ccb6679b801b94070ddf5463c29f4df97395d85d",
     "browserVersion": null,
     "browserVersionProof": "RUNTIME_READBACK_REQUIRED",
     "registryReceipt": "upstream-image.lock.json"

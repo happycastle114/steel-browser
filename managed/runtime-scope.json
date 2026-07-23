@@ -28,19 +28,19 @@
   "sourceContracts": {
     "overlayDescriptor": {
       "path": "managed/overlay/descriptor.json",
-      "sha256": "95eb472ee707350df905d1078a28bd33d315c69e1577210c16744a3f57f842ff"
+      "sha256": "bfec077311d2658d26988f3f3d88529a4127d438a9387710bd4b0b8f81613029"
     },
     "upstreamLock": {
       "path": "managed/upstream.lock.json",
-      "sha256": "f9e4fc9dac14ff3d5944d936d19c03767b44d6f1757b4ba9b5cf6b8abc79654a"
+      "sha256": "4a95deb10ebbda253c969e8c6d0d7ecca502fb0d21ca319ce28ae10df79358d1"
     },
     "protocolCorpus": {
-      "path": "managed/tests/upstream/c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2/manifest.json",
-      "sha256": "894a353443fddb123650f1e5056bcfa9a089100cd5b1838668711ad0d258a919"
+      "path": "managed/tests/upstream/5880b48c1af107219ff3d904edbb8f6b76bea9b6/manifest.json",
+      "sha256": "f0c246bebbbde0d466c4dafd13c34f19f2fc95fda9d48da3503a5a654302195d"
     },
     "sessionIdVerdict": {
-      "path": "managed/tests/upstream/c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2/session-id-verdict.json",
-      "sha256": "2f5d5fae8ee00725beee4dce6962be79652c167d3bbcbc38333c6d64054257c3"
+      "path": "managed/tests/upstream/5880b48c1af107219ff3d904edbb8f6b76bea9b6/session-id-verdict.json",
+      "sha256": "0989fbe75d88b4862173cd8129dd34a698b760b6019db5a13c6da9ec4aa7d57f"
     },
     "license": {
       "path": "LICENSE",

@@ -222,7 +222,7 @@ export class LocalWorkerFake {
         browserVersion: "150.0.7871.46",
         instanceId: this.reportedInstanceId ?? this.currentInstanceId,
         journalVersion: 1,
-        upstreamSha: "c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2",
+        upstreamSha: "5880b48c1af107219ff3d904edbb8f6b76bea9b6",
         workerId: this.reportedWorkerId,
       })
     })

@@ -82,7 +82,7 @@ FROM scratch AS production-audit-export
 
 COPY --from=production-audit /tmp/steel-production-audit.json /production-dependency-audit.json
 
-FROM ghcr.io/steel-dev/steel-browser@sha256:1c988dc8a8eda687648d1c94e10e8b8627343977119f09aa34a6adf345ba104d AS upstream
+FROM ghcr.io/steel-dev/steel-browser@sha256:b0a3253a96a11e861ccfbb61ccb6679b801b94070ddf5463c29f4df97395d85d AS upstream
 
 FROM upstream AS prepared
 
@@ -155,8 +155,8 @@ LABEL org.opencontainers.image.title="Happycastle Steel managed worker" \
       org.opencontainers.image.revision="${MANAGED_SOURCE_REVISION}" \
       dev.happycastle.steel.source-date-epoch="${SOURCE_DATE_EPOCH}" \
       dev.happycastle.steel.production-audit.sha256="${MANAGED_PRODUCTION_AUDIT_RECEIPT_SHA256}" \
-      org.opencontainers.image.base.name="ghcr.io/steel-dev/steel-browser@sha256:1c988dc8a8eda687648d1c94e10e8b8627343977119f09aa34a6adf345ba104d" \
-      dev.happycastle.steel.upstream.revision="c0f226b8e3b16d0bc2c76a222863d4db6f1aa8f2" \
+      org.opencontainers.image.base.name="ghcr.io/steel-dev/steel-browser@sha256:b0a3253a96a11e861ccfbb61ccb6679b801b94070ddf5463c29f4df97395d85d" \
+      dev.happycastle.steel.upstream.revision="5880b48c1af107219ff3d904edbb8f6b76bea9b6" \
       dev.happycastle.steel.browser.version-proof="RUNTIME_READBACK_REQUIRED" \
       dev.happycastle.steel.worker.memory-current-max="671088640" \
       dev.happycastle.steel.worker.memory-limit="2684354560" \
