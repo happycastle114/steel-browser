@@ -75,6 +75,7 @@ export async function createProductionManagerRuntime(
       keyStore: new JwksKeyStore({ clock, fetcher }),
       maxTokenTtlSeconds: configReceipt.config.controlPlane.accessMaxTokenTtlSeconds,
       operatorServicePrincipals: configReceipt.config.controlPlane.operatorServicePrincipals,
+      operatorUserEmails: configReceipt.config.controlPlane.operatorUserEmails,
       skewSeconds: CONTROL_PLANE_FIXED.accessClockSkewSeconds,
     })
     workerClient = new WorkerHttpAdapter({
