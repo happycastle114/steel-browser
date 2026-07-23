@@ -6,8 +6,20 @@ import { resolve } from "node:path"
 import { fixtures, liveSessionId } from "./fixtures.js"
 
 const evidenceRoot = resolve(process.cwd(), "../../.omo/evidence/steel-console-ui")
+const testPort = Number(process.env["STEEL_CONSOLE_TEST_PORT"] ?? "4173")
+if (!Number.isInteger(testPort) || testPort < 1 || testPort > 65_535) {
+  throw new TypeError("STEEL_CONSOLE_TEST_PORT must be a valid TCP port")
+}
+const testServerOrigin = `http://127.0.0.1:${testPort}`
+const resultId = "550e8400-e29b-41d4-a716-446655440030"
+const requestId = "550e8400-e29b-41d4-a716-446655440031"
+const correlationId = "550e8400-e29b-41d4-a716-446655440032"
 
-test.beforeEach(async ({ page }) => installApiFixtures(page))
+test.beforeEach(async ({ page }) => {
+  await installStaticFixtures(page)
+  await installApiFixtures(page)
+  await installSocketFixture(page)
+})
 
 test("managed console renders contract-shaped overview, sessions, and integrations", async ({ page }, testInfo) => {
   await page.goto("")
@@ -135,6 +147,7 @@ test("invalid links, Korean copy, reduced motion, and 200 percent zoom remain re
 })
 
 async function installApiFixtures(page: Page) {
+  let retainedResult: unknown
   await page.route("**/v1/**", async (route) => {
     const request = route.request()
     const path = new URL(request.url()).pathname
@@ -149,18 +162,57 @@ async function installApiFixtures(page: Page) {
     if (path === "/v1/tools") return json(route, fixtures.tools)
     if (path === "/v1/actions") {
       const body: unknown = request.postDataJSON()
+      const origin = new URL(request.url()).origin
       if (readActionToolName(body) === "steel.browser.live_view") {
-        const origin = new URL(request.url()).origin
-        return json(route, {
+        retainedResult = {
           castWebSocketUrl: `${origin.replace(/^http/u, "ws")}/v1/sessions/${liveSessionId}/cast`,
           kind: "live_view",
           sessionId: liveSessionId,
           viewerUrl: `${origin}/ui/sessions/${liveSessionId}/live`,
-        })
+        }
+      } else {
+        retainedResult = fixtures.navigationResult
       }
-      return json(route, fixtures.navigationResult)
+      return json(route, {
+        apiVersion: "2026-07-01",
+        correlationId,
+        requestId,
+        resultId,
+        retryAfterSeconds: 1,
+        state: "ACCEPTED",
+      }, 202, { location: `${origin}/v1/results/${resultId}`, "retry-after": "1" })
+    }
+    if (path === `/v1/results/${resultId}` && retainedResult !== undefined) {
+      return json(route, {
+        apiVersion: "2026-07-01",
+        correlationId,
+        requestId,
+        result: retainedResult,
+        resultId,
+        state: "COMPLETED",
+      })
     }
     return route.fulfill({ status: 404 })
+  })
+}
+
+async function installStaticFixtures(page: Page) {
+  await page.route(/^https:\/\/steel\.soungmin\.tech\/ui(?:\/.*)?$/u, async (route) => {
+    const publicUrl = new URL(route.request().url())
+    const localUrl = new URL(`${publicUrl.pathname}${publicUrl.search}`, testServerOrigin)
+    const response = await route.fetch({ url: localUrl.href })
+    await route.fulfill({ response })
+  })
+}
+
+async function installSocketFixture(page: Page) {
+  await page.routeWebSocket(/^wss:\/\/steel\.soungmin\.tech\/v1\/sessions\/[^/]+\/cast(?:\?[^#]*)?$/u, (socket) => {
+    if (new URL(socket.url()).searchParams.get("tabInfo") === "true") {
+      socket.send(JSON.stringify({ firstTabId: "page-main", tabs: [{ favicon: null, id: "page-main", title: "Steel browser test", url: "https://example.com/" }], type: "tabList" }))
+      return
+    }
+    socket.send(JSON.stringify({ data: jpegFrame, favicon: null, pageId: "page-main", title: "Steel browser test", url: "https://example.com/" }))
+    socket.onMessage(() => void socket.close({ code: 1_000, reason: "input received" }))
   })
 }
 
@@ -172,7 +224,7 @@ function readActionToolName(body: unknown): string | undefined {
   return typeof name === "string" ? name : undefined
 }
 
-const json = (route: Route, body: unknown) => route.fulfill({ body: JSON.stringify(body), contentType: "application/json", status: 200 })
+const json = (route: Route, body: unknown, status = 200, headers: Readonly<Record<string, string>> = {}) => route.fulfill({ body: JSON.stringify(body), contentType: "application/json", headers, status })
 
 async function assertAccessible(page: Page, project: string, scenario: string) {
   const results = await new AxeBuilder({ page }).analyze()
@@ -185,3 +237,5 @@ async function assertAccessible(page: Page, project: string, scenario: string) {
 async function assertNoHorizontalOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
 }
+
+const jpegFrame = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABAf/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPxB//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPxB//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxB//9k="
