@@ -1,6 +1,10 @@
+import {
+  CONTROL_PLANE_FIXED,
+  deriveWebSocketReservationBytes,
+} from "@happycastle/steel-managed-shared"
 import { z } from "zod"
 
-export const WEB_SOCKET_FIXED_OVERHEAD_BYTES = 1_048_576
+export const WEB_SOCKET_FIXED_OVERHEAD_BYTES = CONTROL_PLANE_FIXED.webSocketOverheadBytes
 
 const ReservationOptionsSchema = z
   .object({
@@ -38,10 +42,10 @@ export class WebSocketReservationLedger {
     const options = ReservationOptionsSchema.parse(input)
     this.limitBytes = options.limitBytes
     this.limitCount = options.limitCount
-    this.reservationBytes =
-      (2 * options.messageBytes) +
-      (2 * options.bufferBytes) +
-      WEB_SOCKET_FIXED_OVERHEAD_BYTES
+    this.reservationBytes = deriveWebSocketReservationBytes({
+      messageBytes: options.messageBytes,
+      bufferBytes: options.bufferBytes,
+    })
   }
 
   public tryReserve(): WebSocketReservationLease | undefined {

@@ -38,7 +38,12 @@ describe("centralized control-plane configuration", () => {
     expect(budget.ingressConnectionMax).toBeGreaterThanOrEqual(32)
     expect(budget.ingressBodyMax).toBeGreaterThanOrEqual(2)
     expect(budget.actionMax).toBeGreaterThanOrEqual(1)
-    expect(budget.webSocketMax).toBeGreaterThanOrEqual(2)
+    expect(budget.webSocketReservationBytes).toBe(
+      (2 * CONTROL_PLANE_DEFAULTS.webSocketMessageBytes) +
+      (2 * CONTROL_PLANE_DEFAULTS.webSocketBufferBytes) +
+      CONTROL_PLANE_FIXED.webSocketOverheadBytes,
+    )
+    expect(budget.webSocketMax).toBe(2)
     expect(budget.resultReservationBytes).toBe(CONTROL_PLANE_DEFAULTS.aiBinaryBytes)
     expect(budget.resultCountLimit).toBe(CONTROL_PLANE_DEFAULTS.aiResultMax)
   })
@@ -97,7 +102,7 @@ describe("centralized control-plane configuration", () => {
     ["activeWorkerCount", 1],
     ["activeWorkerCount", 3],
     ["coldStandbyProjectCount", 0],
-    ["managerMemoryMiB", 511],
+    ["managerMemoryMiB", 1_023],
     ["managerMemoryMiB", 2049],
     ["queueMax", 0],
     ["queueMax", 1001],

@@ -42,6 +42,11 @@ export type ManagerMemoryInputs = Readonly<{
   readonly webSocketBufferBytes: number
 }>
 
+export type WebSocketReservationInputs = Readonly<{
+  readonly messageBytes: number
+  readonly bufferBytes: number
+}>
+
 const ManagerMemoryInputsSchema = z.object({
   managerMemoryMiB: z.number().int().min(CONFIGURABLE_NUMERIC_BOUNDS.managerMemoryMiB.minimum).max(CONFIGURABLE_NUMERIC_BOUNDS.managerMemoryMiB.maximum),
   httpHeaderBytes: z.number().int().positive().safe(),
@@ -51,6 +56,20 @@ const ManagerMemoryInputsSchema = z.object({
   webSocketMessageBytes: z.number().int().positive().safe(),
   webSocketBufferBytes: z.number().int().positive().safe(),
 }).strict()
+
+const WebSocketReservationInputsSchema = z.object({
+  messageBytes: z.number().int().positive().safe(),
+  bufferBytes: z.number().int().positive().safe(),
+}).strict()
+
+export function deriveWebSocketReservationBytes(inputs: WebSocketReservationInputs): number {
+  const parsed = WebSocketReservationInputsSchema.parse(inputs)
+  return (
+    (2 * parsed.messageBytes) +
+    (2 * parsed.bufferBytes) +
+    CONTROL_PLANE_FIXED.webSocketOverheadBytes
+  )
+}
 
 export function deriveManagerMemoryBudget(inputs: ManagerMemoryInputs): ManagerMemoryBudget {
   const parsed = ManagerMemoryInputsSchema.parse(inputs)
@@ -69,7 +88,10 @@ export function deriveParsedManagerMemoryBudget(parsed: z.output<typeof ManagerM
   const httpConnectionReservationBytes = parsed.httpHeaderBytes + CONTROL_PLANE_FIXED.httpConnectionOverheadBytes
   const httpBodyReservationBytes = 4 * parsed.httpBodyBytes + CONTROL_PLANE_FIXED.httpBodyOverheadBytes
   const actionReservationBytes = 2 * parsed.aiBinaryBytes + parsed.httpBodyBytes + CONTROL_PLANE_FIXED.actionOverheadBytes
-  const webSocketReservationBytes = parsed.webSocketMessageBytes + parsed.webSocketBufferBytes + CONTROL_PLANE_FIXED.webSocketOverheadBytes
+  const webSocketReservationBytes = deriveWebSocketReservationBytes({
+    messageBytes: parsed.webSocketMessageBytes,
+    bufferBytes: parsed.webSocketBufferBytes,
+  })
   return {
     managerLimitBytes,
     dynamicLimitBytes,

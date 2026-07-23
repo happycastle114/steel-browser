@@ -22,7 +22,7 @@ const validInput = {
 }
 
 const EXPECTED_BOUNDS = {
-  managerMemoryMiB: { minimum: 512, maximum: 2_048 }, managerCpuLimit: { minimum: 0.5, maximum: 4 },
+  managerMemoryMiB: { minimum: 1_024, maximum: 2_048 }, managerCpuLimit: { minimum: 0.5, maximum: 4 },
   workerMemoryMiB: { minimum: 1_536, maximum: 8_192 }, workerMemoryReservationMiB: { minimum: 768, maximum: 8_192 },
   workerCpuLimit: { minimum: 1, maximum: 8 }, workerShmMiB: { minimum: 512, maximum: 4_096 },
   queueMax: { minimum: 1, maximum: 1_000 }, ticketTtlMs: { minimum: 10_000, maximum: 600_000 },

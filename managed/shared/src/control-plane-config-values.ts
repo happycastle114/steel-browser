@@ -4,7 +4,7 @@ import { MANAGED_DEPLOYMENT_CONFIG } from "./deployment-topology.js"
 export const MEBIBYTE_BYTES = 1_048_576
 
 export const CONTROL_PLANE_DEFAULTS = {
-  managerMemoryMiB: 768,
+  managerMemoryMiB: 1_024,
   managerCpuLimit: 1,
   workerMemoryMiB: 2_048,
   workerMemoryReservationMiB: 1_024,
@@ -75,7 +75,7 @@ export const CONTROL_PLANE_FIXED = {
 } as const
 
 export const CONFIGURABLE_NUMERIC_BOUNDS = {
-  managerMemoryMiB: { minimum: 512, maximum: 2_048 },
+  managerMemoryMiB: { minimum: 1_024, maximum: 2_048 },
   managerCpuLimit: { minimum: 0.5, maximum: 4 },
   workerMemoryMiB: { minimum: 1_536, maximum: 8_192 },
   workerMemoryReservationMiB: { minimum: 768, maximum: 8_192 },
