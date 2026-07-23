@@ -118,6 +118,16 @@ jobs:
           MANAGED_IMAGE_PLATFORM="linux/amd64" \
           managed/worker/image/build-reproducible.sh
           echo "STEEL_RELEASE_ROOT=${release_root}" >> "${GITHUB_ENV}"
+      - name: Enable Chromium sandbox on the ephemeral runner
+        run: |
+          set -euo pipefail
+          policy=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          test -r "${policy}"
+          original="$(cat "${policy}")"
+          test "${original}" = "0" || test "${original}" = "1"
+          echo "STEEL_CI_APPARMOR_USERNS_ORIGINAL=${original}" >> "${GITHUB_ENV}"
+          echo 0 | sudo tee "${policy}" >/dev/null
+          test "$(cat "${policy}")" = "0"
       - name: Read back Chromium and generate digest-pinned Coolify bundles
         run: |
           set -euo pipefail
@@ -152,6 +162,14 @@ jobs:
             --upstream-lock managed/upstream.lock.json \
             --worker-receipt "${receipts}/worker-runtime-strategy.json"
           cp -R "${receipts}" "${STEEL_RELEASE_ROOT}/bundle/receipts"
+      - name: Restore the Ubuntu user-namespace restriction
+        if: always()
+        run: |
+          set -euo pipefail
+          policy=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+          test "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}" = "0" || test "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}" = "1"
+          echo "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}" | sudo tee "${policy}" >/dev/null
+          test "$(cat "${policy}")" = "${STEEL_CI_APPARMOR_USERNS_ORIGINAL}"
       - name: Upload release evidence and Compose bundles
         uses: actions/upload-artifact@v4
         with:

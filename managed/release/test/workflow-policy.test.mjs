@@ -114,7 +114,22 @@ test("launches Chromium under the exact worker security boundary before release"
   const readbackStep = workflow.jobs.release.steps.find(
     ({ name }) => name === "Read back Chromium and generate digest-pinned Coolify bundles",
   )
+  const releaseSteps = workflow.jobs.release.steps
+  const enableIndex = releaseSteps.findIndex(
+    ({ name }) => name === "Enable Chromium sandbox on the ephemeral runner",
+  )
+  const readbackIndex = releaseSteps.indexOf(readbackStep)
+  const restoreIndex = releaseSteps.findIndex(
+    ({ name }) => name === "Restore the Ubuntu user-namespace restriction",
+  )
 
+  assert.ok(enableIndex >= 0)
+  assert.ok(readbackIndex > enableIndex)
+  assert.ok(restoreIndex > readbackIndex)
+  assert.match(releaseSteps[enableIndex].run, /apparmor_restrict_unprivileged_userns/u)
+  assert.match(releaseSteps[enableIndex].run, /echo 0 \| sudo tee/u)
+  assert.equal(releaseSteps[restoreIndex].if, "always()")
+  assert.match(releaseSteps[restoreIndex].run, /STEEL_CI_APPARMOR_USERNS_ORIGINAL/u)
   assert.match(readbackStep.run, /--user 10001:10001/u)
   assert.match(readbackStep.run, /--read-only/u)
   assert.match(readbackStep.run, /--network none/u)
