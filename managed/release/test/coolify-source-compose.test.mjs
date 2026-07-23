@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises"
 import { test } from "node:test"
 
 import {
+  CoolifyComposeProfileLocation,
   CoolifyPoolSlot,
   verifyCoolifyCompose,
 } from "../coolify-bundle.mjs"
@@ -28,7 +29,16 @@ test("source templates materialize into exact verified release Compose", async (
       releaseEvidenceSha256,
       workerImage,
     })
-    assert.equal(verifyCoolifyCompose(materialized).poolId, expected["x-steel-managed"].poolId)
+    assert.equal(
+      verifyCoolifyCompose(materialized, CoolifyComposeProfileLocation.SOURCE).poolId,
+      expected["x-steel-managed"].poolId,
+    )
+    for (const workerId of ["worker-00", "worker-01"]) {
+      assert.deepEqual(checkedIn.services[workerId].security_opt, [
+        "no-new-privileges:true",
+        "seccomp=./deploy/coolify/chromium-seccomp.json",
+      ])
+    }
   }
 })
 

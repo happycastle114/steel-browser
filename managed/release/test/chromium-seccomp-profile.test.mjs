@@ -31,7 +31,7 @@ test("applies the sandbox profile only to private non-root workers", () => {
   })
   const expected = [
     "no-new-privileges:true",
-    `seccomp=${CHROMIUM_SECCOMP_PROFILE.deploymentPath}`,
+    `seccomp=${CHROMIUM_SECCOMP_PROFILE.bundleDeploymentPath}`,
   ]
 
   assert.deepEqual(compose.services["worker-00"].security_opt, expected)

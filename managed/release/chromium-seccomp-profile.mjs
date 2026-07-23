@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto"
 
 export const CHROMIUM_SECCOMP_PROFILE = Object.freeze({
-  deploymentPath: "./chromium-seccomp.json",
+  bundleDeploymentPath: "./chromium-seccomp.json",
   sha256: "cc3e61cabda6bbc1e53e54d27ba4d55a9d3be829b6dd1a596f4a7b31b1cc7849",
+  sourceDeploymentPath: "./deploy/coolify/chromium-seccomp.json",
   sourceRevision: "ae935a43d9e376e4759548f6b3c6905c7b282333",
   sourceUrl: "https://github.com/microsoft/playwright/blob/ae935a43d9e376e4759548f6b3c6905c7b282333/utils/docker/seccomp_profile.json",
 })

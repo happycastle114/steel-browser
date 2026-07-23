@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util"
 
 import {
+  CoolifyComposeProfileLocation,
   CoolifyPoolSlot,
   buildCoolifyCompose,
   verifyCoolifyCompose,
@@ -19,7 +20,11 @@ const fixture = Object.freeze({
 })
 
 export function buildCoolifySourceCompose(poolSlot) {
-  const compose = structuredClone(buildCoolifyCompose({ ...fixture, poolSlot }))
+  const compose = structuredClone(buildCoolifyCompose({
+    ...fixture,
+    poolSlot,
+    profileLocation: CoolifyComposeProfileLocation.SOURCE,
+  }))
   compose.services.manager.image = CoolifySourceVariable.MANAGER_IMAGE
   compose.services["worker-00"].image = CoolifySourceVariable.WORKER_IMAGE
   compose.services["worker-01"].image = CoolifySourceVariable.WORKER_IMAGE
@@ -48,7 +53,7 @@ export function materializeCoolifySourceCompose(source, release) {
     compose.services.manager.command,
     release.releaseEvidenceSha256,
   )
-  verifyCoolifyCompose(compose)
+  verifyCoolifyCompose(compose, CoolifyComposeProfileLocation.SOURCE)
   return compose
 }
 

@@ -7,6 +7,11 @@ export const CoolifyPoolSlot = Object.freeze({
   GREEN: "GREEN",
 })
 
+export const CoolifyComposeProfileLocation = Object.freeze({
+  BUNDLE: "BUNDLE",
+  SOURCE: "SOURCE",
+})
+
 const poolBySlot = Object.freeze({
   [CoolifyPoolSlot.BLUE]: Object.freeze({
     poolId: "managed-blue-pool",
@@ -52,13 +57,15 @@ const managerTmpfs = Object.freeze([
 
 export function buildCoolifyCompose(input) {
   const pool = requirePool(input.poolSlot)
+  const profileLocation = input.profileLocation ?? CoolifyComposeProfileLocation.BUNDLE
+  const seccompProfilePath = requireSeccompProfilePath(profileLocation)
   requireDigestImage(input.managerImage, "manager image")
   requireDigestImage(input.workerImage, "worker image")
   requireSha256(input.releaseEvidenceSha256, "release evidence")
   const services = {
     manager: buildManager(input.managerImage, input.releaseEvidenceSha256, pool),
-    "worker-00": buildWorker(input.workerImage, "worker-00"),
-    "worker-01": buildWorker(input.workerImage, "worker-01"),
+    "worker-00": buildWorker(input.workerImage, "worker-00", seccompProfilePath),
+    "worker-01": buildWorker(input.workerImage, "worker-01", seccompProfilePath),
   }
   const compose = {
     "x-steel-managed": {
@@ -76,7 +83,7 @@ export function buildCoolifyCompose(input) {
       "managed-release-evidence": { environment: "STEEL_MANAGED_RELEASE_EVIDENCE_JSON" },
     },
   }
-  verifyCoolifyCompose(compose)
+  verifyCoolifyCompose(compose, profileLocation)
   return compose
 }
 
@@ -85,12 +92,16 @@ export function serializeCoolifyCompose(compose) {
   return `${JSON.stringify(compose, null, 2)}\n`
 }
 
-export function verifyCoolifyCompose(compose) {
+export function verifyCoolifyCompose(
+  compose,
+  profileLocation = CoolifyComposeProfileLocation.BUNDLE,
+) {
   if (!isRecord(compose) || !isRecord(compose.services) || !isRecord(compose["x-steel-managed"])) {
     throw new TypeError("invalid Coolify Compose document")
   }
   const metadata = compose["x-steel-managed"]
   const pool = requirePool(metadata.poolSlot)
+  const seccompProfilePath = requireSeccompProfilePath(profileLocation)
   if (metadata.poolId !== pool.poolId || metadata.schemaVersion !== 1) {
     throw new TypeError("Coolify pool metadata drift")
   }
@@ -103,8 +114,8 @@ export function verifyCoolifyCompose(compose) {
   const workerOne = requireService(compose.services["worker-01"])
   requireDigestImage(manager.image, "manager image")
   verifyManager(manager, pool)
-  verifyWorker(workerZero, "worker-00")
-  verifyWorker(workerOne, "worker-01")
+  verifyWorker(workerZero, "worker-00", seccompProfilePath)
+  verifyWorker(workerOne, "worker-01", seccompProfilePath)
   if (workerZero.image !== workerOne.image) throw new TypeError("worker image drift")
   requireDigestImage(workerZero.image, "worker image")
   if (!isDeepStrictEqual(compose.networks, {
@@ -163,7 +174,7 @@ function buildManager(image, releaseEvidenceSha256, pool) {
   }
 }
 
-function buildWorker(image, workerId) {
+function buildWorker(image, workerId, seccompProfilePath) {
   return {
     image,
     environment: { MANAGED_WORKER_ID: workerId },
@@ -173,7 +184,7 @@ function buildWorker(image, workerId) {
     cap_drop: ["ALL"],
     security_opt: [
       "no-new-privileges:true",
-      `seccomp=${CHROMIUM_SECCOMP_PROFILE.deploymentPath}`,
+      `seccomp=${seccompProfilePath}`,
     ],
     pids_limit: 512,
     shm_size: "512m",
@@ -197,11 +208,11 @@ function verifyManager(manager, pool) {
   if (!isDeepStrictEqual(manager, expected)) throw new TypeError("manager service drift")
 }
 
-function verifyWorker(worker, workerId) {
+function verifyWorker(worker, workerId, seccompProfilePath) {
   if ("ports" in worker || "expose" in worker || "secrets" in worker || "privileged" in worker) {
     throw new TypeError("worker isolation drift")
   }
-  if (!isDeepStrictEqual(worker, buildWorker(worker.image, workerId))) {
+  if (!isDeepStrictEqual(worker, buildWorker(worker.image, workerId, seccompProfilePath))) {
     throw new TypeError("worker service drift")
   }
 }
@@ -220,6 +231,16 @@ function requirePool(slot) {
   const pool = poolBySlot[slot]
   if (pool === undefined) throw new TypeError("invalid Coolify pool slot")
   return pool
+}
+
+function requireSeccompProfilePath(location) {
+  const paths = {
+    [CoolifyComposeProfileLocation.BUNDLE]: CHROMIUM_SECCOMP_PROFILE.bundleDeploymentPath,
+    [CoolifyComposeProfileLocation.SOURCE]: CHROMIUM_SECCOMP_PROFILE.sourceDeploymentPath,
+  }
+  const profilePath = paths[location]
+  if (profilePath === undefined) throw new TypeError("invalid Coolify Compose profile location")
+  return profilePath
 }
 
 function requireService(value) {

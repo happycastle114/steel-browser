@@ -82,12 +82,12 @@ export async function runCoolifyBundleCli(arguments_) {
     writeFile(path.join(blueDirectory, "compose.yml"), serializeCoolifyCompose(blue)),
     writeFile(path.join(greenDirectory, "compose.yml"), serializeCoolifyCompose(green)),
     writeFile(
-      path.join(blueDirectory, CHROMIUM_SECCOMP_PROFILE.deploymentPath),
+      path.join(blueDirectory, CHROMIUM_SECCOMP_PROFILE.bundleDeploymentPath),
       seccompProfileBytes,
       { mode: 0o644 },
     ),
     writeFile(
-      path.join(greenDirectory, CHROMIUM_SECCOMP_PROFILE.deploymentPath),
+      path.join(greenDirectory, CHROMIUM_SECCOMP_PROFILE.bundleDeploymentPath),
       seccompProfileBytes,
       { mode: 0o644 },
     ),

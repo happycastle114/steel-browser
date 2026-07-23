@@ -13,6 +13,11 @@ deny-by-default seccomp policy while allowing only the `clone`, `setns`, and `un
 Chromium needs to create its user namespace. Do not replace it with `seccomp=unconfined`,
 `privileged`, capabilities, or a sandbox-disabling browser flag.
 
+Coolify runs Compose with the repository root as `--project-directory`. The checked-in source
+templates therefore use `./deploy/coolify/chromium-seccomp.json`; standalone release bundles
+keep the verified profile beside their `compose.yml`. These paths are separate typed deployment
+locations so a source deployment cannot silently resolve the bundle-relative path.
+
 The files contain JSON syntax because JSON is valid YAML and gives deterministic generated
 bytes. `managed/release/coolify-source-compose.mjs` is the source generator and
 `npm run test:managed-release` proves that both checked-in documents materialize into the exact

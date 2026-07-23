@@ -32,7 +32,7 @@ export async function runCoolifyDeployCli(arguments_, environment, fetcher = fet
     readFile(path.join(
       values.releaseDirectory,
       bundleSlot,
-      CHROMIUM_SECCOMP_PROFILE.deploymentPath,
+      CHROMIUM_SECCOMP_PROFILE.bundleDeploymentPath,
     )),
   ])
   const manifest = parseManifest(manifestBytes)
