@@ -1,1 +1,11 @@
-m«ëˆ§½©buªàºg§¶Š^Êz;(KæÚ±î¸Ø[é¢Šwâ•ê(º×â•æÛ­æ¤n·š‘éÜ¡×¢ëiºÛ©Š{h–)Ş²‡åzx-†{¦×^r‡^uç(uè§¦ëa…éiv+)•¬­†+&zËè¢›­Šznµø¥y×Ÿjém~ŠìµØ§¢‹­¦ëhºÚnµø¥y×Ÿjém~ŠìµÚ.
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "steel_managed": {
+      "type": "remote",
+      "url": "https://steel.soungmin.tech/mcp",
+      "enabled": true,
+      "timeout": 75000
+    }
+  }
+}
