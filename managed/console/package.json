@@ -16,6 +16,7 @@
     "react-doctor": "react-doctor --json"
   },
   "dependencies": {
+    "@happycastle/steel-managed-ai-client": "0.0.0",
     "@happycastle/steel-managed-shared": "0.0.0",
     "@tanstack/react-query": "5.101.3",
     "ky": "2.0.2",
