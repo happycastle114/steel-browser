@@ -26,7 +26,7 @@ COPY managed/console ./managed/console
 COPY managed/manager ./managed/manager
 
 RUN test "$(node --version)" = "v22.23.1" && \
-    npm run build -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-manager && \
+    npm run build -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-ai-client -w @happycastle/steel-managed-manager && \
     npm run build -w @happycastle/steel-managed-console && \
     node managed/manager/build/ui/asset-manifest-cli.js managed/console/dist && \
     ! grep -R -E '(_showcase|fixtures/|\.map($|"))' managed/console/dist && \
