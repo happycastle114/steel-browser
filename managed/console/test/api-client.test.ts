@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 import { ApiFailureKind, MutationCertainty, createManagedApi } from "../src/api/client.js"
 import { CONTROL_PLANE_API_VERSION, SessionIdSchema } from "../src/api/schema-primitives.js"
 import { ActionKind } from "../src/domain/vocabulary.js"
+import { fixtures } from "./visual/fixtures.js"
 
 const versionFixture = {
   apiVersion: CONTROL_PLANE_API_VERSION,
@@ -45,6 +46,9 @@ describe("createManagedApi", () => {
 
   it("wraps browser actions in the canonical AI action envelope with explicit session affinity", async () => {
     const sessionId = SessionIdSchema.parse("550e8400-e29b-41d4-a716-446655440000")
+    const resultId = "550e8400-e29b-41d4-a716-446655440030"
+    const requestId = "550e8400-e29b-41d4-a716-446655440031"
+    const correlationId = "550e8400-e29b-41d4-a716-446655440032"
     const resultFixture = {
       actionId: "550e8400-e29b-41d4-a716-446655440001",
       completedAt: "2026-07-21T04:00:01.000Z",
@@ -53,11 +57,17 @@ describe("createManagedApi", () => {
     }
     let body: unknown
     const mockFetch = vi.fn<typeof fetch>().mockImplementation(async (input) => {
-      body = input instanceof Request ? await input.clone().json() : undefined
-      return new Response(JSON.stringify(resultFixture), {
-        headers: { "content-type": "application/json" },
-        status: 200,
-      })
+      const request = input instanceof Request ? input : new Request(input)
+      const path = new URL(request.url).pathname
+      if (path === "/v1/capabilities") return response(fixtures.capabilities)
+      if (path === "/v1/actions") {
+        body = await request.clone().json()
+        return response({ apiVersion: CONTROL_PLANE_API_VERSION, correlationId, requestId, resultId, retryAfterSeconds: 1, state: "ACCEPTED" }, 202, {
+          location: `${globalThis.location.origin}/v1/results/${resultId}`,
+          "retry-after": "1",
+        })
+      }
+      return response({ apiVersion: CONTROL_PLANE_API_VERSION, correlationId, requestId, result: resultFixture, resultId, state: "COMPLETED" })
     })
     const api = createManagedApi(ky.create({ fetch: mockFetch, retry: 0 }))
 
@@ -98,13 +108,25 @@ describe("createManagedApi", () => {
 
   it("rejects a live-view result that is not bound to the requested public session", async () => {
     const sessionId = SessionIdSchema.parse("550e8400-e29b-41d4-a716-446655440000")
+    const resultId = "550e8400-e29b-41d4-a716-446655440030"
+    const requestId = "550e8400-e29b-41d4-a716-446655440031"
+    const correlationId = "550e8400-e29b-41d4-a716-446655440032"
     const mismatched = {
       castWebSocketUrl: "ws://localhost/v1/sessions/550e8400-e29b-41d4-a716-446655440099/cast",
       kind: "live_view",
       sessionId,
       viewerUrl: "http://localhost/ui/sessions/550e8400-e29b-41d4-a716-446655440099/live",
     }
-    const mockFetch = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(mismatched), { headers: { "content-type": "application/json" }, status: 200 }))
+    const mockFetch = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const request = input instanceof Request ? input : new Request(input)
+      const path = new URL(request.url).pathname
+      if (path === "/v1/capabilities") return response(fixtures.capabilities)
+      if (path === "/v1/actions") return response({ apiVersion: CONTROL_PLANE_API_VERSION, correlationId, requestId, resultId, retryAfterSeconds: 1, state: "ACCEPTED" }, 202, {
+        location: `${globalThis.location.origin}/v1/results/${resultId}`,
+        "retry-after": "1",
+      })
+      return response({ apiVersion: CONTROL_PLANE_API_VERSION, correlationId, requestId, result: mismatched, resultId, state: "COMPLETED" })
+    })
     const api = createManagedApi(ky.create({ fetch: mockFetch, retry: 0 }))
 
     await expect(api.liveView(sessionId)).rejects.toMatchObject({ kind: ApiFailureKind.PROTOCOL })
@@ -129,3 +151,7 @@ describe("createManagedApi", () => {
     await expect(rejected.createSession("console:550e8400-e29b-41d4-a716-446655440099")).rejects.toMatchObject({ mutationCertainty: MutationCertainty.REJECTED })
   })
 })
+
+function response(body: unknown, status = 200, headers: Readonly<Record<string, string>> = {}): Response {
+  return new Response(JSON.stringify(body), { headers: { "content-type": "application/json", ...headers }, status })
+}
