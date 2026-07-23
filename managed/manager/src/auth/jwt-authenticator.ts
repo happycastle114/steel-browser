@@ -20,6 +20,7 @@ const ClaimsSchema = z
   .object({
     aud: z.union([z.string().min(1), z.array(z.string().min(1)).min(1).max(16)]),
     common_name: z.string().min(1).max(256).optional(),
+    email: z.string().email().max(254).transform((value) => value.toLowerCase()).optional(),
     exp: z.number().int().nonnegative().safe(),
     iat: z.number().int().nonnegative().safe(),
     iss: z.string().url(),
@@ -37,6 +38,7 @@ type AuthenticatorOptions = {
   readonly keyStore: JwksKeyStore
   readonly maxTokenTtlSeconds: number
   readonly operatorServicePrincipals: readonly string[]
+  readonly operatorUserEmails?: readonly string[]
   readonly skewSeconds: number
 }
 
@@ -53,6 +55,7 @@ export type AuthenticationHeaders = Readonly<
 export class AccessJwtAuthenticator {
   private readonly audiences: ReadonlySet<string>
   private readonly operatorServicePrincipals: ReadonlySet<string>
+  private readonly operatorUserEmails: ReadonlySet<string>
 
   public constructor(private readonly options: AuthenticatorOptions) {
     this.audiences = new Set(options.audiences)
@@ -60,6 +63,7 @@ export class AccessJwtAuthenticator {
       throw new RangeError("Access audiences must be non-empty and unique")
     }
     this.operatorServicePrincipals = new Set(options.operatorServicePrincipals)
+    this.operatorUserEmails = new Set(options.operatorUserEmails ?? [])
   }
 
   public async authenticate(headers: AuthenticationHeaders): Promise<AuthenticatedPrincipal> {
@@ -134,7 +138,9 @@ export class AccessJwtAuthenticator {
     return {
       id: PrincipalIdSchema.parse(`${PRINCIPAL_KIND.USER}:${claims.sub}`),
       kind: PRINCIPAL_KIND.USER,
-      role: PRINCIPAL_ROLE.USER,
+      role: claims.email !== undefined && this.operatorUserEmails.has(claims.email)
+        ? PRINCIPAL_ROLE.OPERATOR
+        : PRINCIPAL_ROLE.USER,
     }
   }
 }
