@@ -13,6 +13,7 @@ COPY ui/package.json ./ui/package.json
 COPY repl/package.json ./repl/package.json
 COPY managed/shared/package.json ./managed/shared/package.json
 COPY managed/gateway/package.json ./managed/gateway/package.json
+COPY managed/ai-client/package.json ./managed/ai-client/package.json
 COPY managed/console/package.json ./managed/console/package.json
 COPY managed/worker/package.json ./managed/worker/package.json
 COPY managed/manager/package.json ./managed/manager/package.json
@@ -22,6 +23,7 @@ RUN npm pkg set scripts.prepare="echo skip-husky" && npm ci --include=dev
 
 COPY managed/shared ./managed/shared
 COPY managed/gateway ./managed/gateway
+COPY managed/ai-client ./managed/ai-client
 COPY managed/console ./managed/console
 COPY managed/manager ./managed/manager
 
