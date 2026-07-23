@@ -14,7 +14,7 @@
   "scripts": {
     "build": "npm run build -w api -w ui && npm run build:managed",
     "build:managed": "npm run build -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-operations-client -w @happycastle/steel-managed-gateway -w @happycastle/steel-managed-ai-client -w @happycastle/steel-managed-console -w @happycastle/steel-managed-worker -w @happycastle/steel-managed-manager",
-    "build:managed-dependencies": "npm run build -w @happycastle/steel-managed-shared",
+    "build:managed-dependencies": "npm run build -w @happycastle/steel-managed-shared -w @happycastle/steel-managed-ai-client",
     "check:managed-shared-type-safety": "tsx managed/shared/src/type-safety-guard-cli.ts",
     "check:raw-state-comparisons": "tsx managed/shared/src/raw-state-comparison-cli.ts",
     "check:managed": "npm run check:managed-shared-type-safety && npm run check:raw-state-comparisons && npm run check:managed-api-drift && npm run check:managed-operations-browser && npm run typecheck:managed && npm run test:managed",
