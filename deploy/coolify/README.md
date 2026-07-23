@@ -68,7 +68,8 @@ A minimal configuration envelope is:
     "accessIssuer": "https://YOUR_TEAM.cloudflareaccess.com",
     "accessAudience": "YOUR_ACCESS_APPLICATION_AUDIENCE",
     "additionalAccessAudiences": ["YOUR_MCP_ACCESS_APPLICATION_AUDIENCE"],
-    "operatorServicePrincipals": ["steel-managed-operator"]
+    "operatorServicePrincipals": ["steel-managed-operator"],
+    "operatorUserEmails": ["owner@example.com"]
   },
   "publicEndpoints": [
     {
@@ -87,8 +88,9 @@ A minimal configuration envelope is:
 
 Cloudflare Access must protect both hosts and forward its signed
 `Cf-Access-Jwt-Assertion`. The configured service-token common name becomes an operator only when
-it is listed in `operatorServicePrincipals`. Managed OAuth human identities remain bounded users;
-pool drain and resume operations require one of those explicitly configured service principals.
+it is listed in `operatorServicePrincipals`. A human identity becomes an operator only when its
+normalized Access email is listed in `operatorUserEmails`; all other Managed OAuth identities
+remain bounded users.
 
 ## Release and deployment
 
