@@ -50,6 +50,28 @@ describe("Cloudflare Access JWT authenticator", () => {
     })
   })
 
+  it("maps only configured Access user emails to OPERATOR", async () => {
+    // Given: a valid Access user token with an allowlisted email and stable subject.
+    const clock = new MutableClock(1_800_000_000_000)
+    const key = signingFixture("key-human-operator")
+    const authenticator = authenticatorWith(clock, key.jwk)
+    const token = signedJwt({
+      kid: key.jwk.kid,
+      privateKey: key.privateKey,
+      claims: { email: "Operator@Example.com", sub: "access-user-id" },
+    })
+
+    // When: the Access assertion is authenticated.
+    const principal = await authenticator.authenticate({ "cf-access-jwt-assertion": token })
+
+    // Then: the normalized allowlisted email receives OPERATOR without changing identity.
+    expect(principal).toEqual({
+      id: "USER:access-user-id",
+      kind: PRINCIPAL_KIND.USER,
+      role: PRINCIPAL_ROLE.OPERATOR,
+    })
+  })
+
   it("accepts an assertion for an additional configured Access application", async () => {
     // Given: Managed OAuth uses a dedicated Access application audience.
     const clock = new MutableClock(1_800_000_000_000)
@@ -122,6 +144,7 @@ function authenticatorWith(clock: MutableClock, jwk: ReturnType<typeof signingFi
     keyStore,
     maxTokenTtlSeconds: 86_400,
     operatorServicePrincipals: ["operator-service"],
+    operatorUserEmails: ["operator@example.com"],
     skewSeconds: 60,
   })
 }
