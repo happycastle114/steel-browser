@@ -1,3 +1,17 @@
+import {
+  AiClientApiError,
+  AiClientProtocolError,
+  SteelManagedAiClient,
+  type AiFetch,
+} from "@happycastle/steel-managed-ai-client"
+import {
+  AI_ACTION_REQUEST_SCHEMA,
+  AI_ASYNC_OUTCOME_STATE,
+  TOOL_NAME,
+  TOOL_VERSION,
+  type AiActionRequest,
+  type ManagedToolResult,
+} from "@happycastle/steel-managed-shared/browser"
 import ky, { HTTPError, TimeoutError, type KyInstance } from "ky"
 import { z } from "zod"
 
@@ -146,6 +160,8 @@ async function parseJson<Schema extends z.ZodTypeAny>(request: Promise<Response>
 
 function classifyFailure(error: unknown): Error {
   if (error instanceof ManagedApiError) return error
+  if (error instanceof AiClientApiError) return httpFailure(error.status)
+  if (error instanceof AiClientProtocolError) return new ManagedApiError({ kind: ApiFailureKind.PROTOCOL, message: error.message })
   if (error instanceof HTTPError) return httpFailure(error.response.status)
   if (error instanceof z.ZodError) return new ManagedApiError({ kind: ApiFailureKind.PROTOCOL, message: "Manager response did not match the public contract." })
   if (error instanceof TimeoutError || error instanceof TypeError) return new ManagedApiError({ kind: ApiFailureKind.NETWORK, message: "The manager could not be reached." })
@@ -182,28 +198,68 @@ function actionArguments(input: BrowserActionInput) {
 }
 
 async function postAction(http: KyInstance, untrustedInput: BrowserActionInput): Promise<ActionResult> {
-  const input = BrowserActionInputSchema.parse(untrustedInput)
-  const result = await parseJson(http.post(endpoint(ApiPath.ACTIONS), {
-    json: { apiVersion: CONTROL_PLANE_API_VERSION, arguments: actionArguments(input), tool: { name: input.kind, version: "1.0.0" } },
-  }), ActionResultSchema)
-  if (result.sessionId !== input.sessionId) throw identityFailure("Action result did not bind to the requested session.")
-  return result
+  try {
+    const input = BrowserActionInputSchema.parse(untrustedInput)
+    const request = AI_ACTION_REQUEST_SCHEMA.parse({
+      apiVersion: CONTROL_PLANE_API_VERSION,
+      arguments: actionArguments(input),
+      tool: { name: input.kind, version: TOOL_VERSION },
+    })
+    const result = ActionResultSchema.parse(await executeManagedAction(http, request))
+    if (result.sessionId !== input.sessionId) throw identityFailure("Action result did not bind to the requested session.")
+    return result
+  } catch (error) {
+    throw classifyFailure(error)
+  }
 }
 
 async function postLiveView(http: KyInstance, sessionId: SessionId): Promise<LiveViewResult> {
-  const result = await parseJson(http.post(endpoint(ApiPath.ACTIONS), {
-    json: { apiVersion: CONTROL_PLANE_API_VERSION, arguments: { sessionId }, tool: { name: "steel.browser.live_view", version: "1.0.0" } },
-  }), LiveViewResultSchema)
-  const viewerUrl = new URL(result.viewerUrl)
-  const castUrl = new URL(result.castWebSocketUrl)
-  const castOrigin = castUrl.origin.replace(/^ws/u, "http")
-  const invalidBinding = result.sessionId !== sessionId || viewerUrl.origin !== globalThis.location.origin || castOrigin !== globalThis.location.origin ||
-    viewerUrl.pathname !== ApiResourcePath.VIEWER(sessionId) || castUrl.pathname !== ApiResourcePath.CAST(sessionId) ||
-    viewerUrl.search !== "" || viewerUrl.hash !== "" || castUrl.search !== "" || castUrl.hash !== ""
-  if (invalidBinding) {
-    throw new ManagedApiError({ kind: ApiFailureKind.PROTOCOL, message: "Live-view URLs did not bind to the current public origin." })
+  try {
+    const request = AI_ACTION_REQUEST_SCHEMA.parse({
+      apiVersion: CONTROL_PLANE_API_VERSION,
+      arguments: { sessionId },
+      tool: { name: TOOL_NAME.BROWSER_LIVE_VIEW, version: TOOL_VERSION },
+    })
+    const result = LiveViewResultSchema.parse(await executeManagedAction(http, request))
+    const viewerUrl = new URL(result.viewerUrl)
+    const castUrl = new URL(result.castWebSocketUrl)
+    const castOrigin = castUrl.origin.replace(/^ws/u, "http")
+    const invalidBinding = result.sessionId !== sessionId || viewerUrl.origin !== globalThis.location.origin || castOrigin !== globalThis.location.origin ||
+      viewerUrl.pathname !== ApiResourcePath.VIEWER(sessionId) || castUrl.pathname !== ApiResourcePath.CAST(sessionId) ||
+      viewerUrl.search !== "" || viewerUrl.hash !== "" || castUrl.search !== "" || castUrl.hash !== ""
+    if (invalidBinding) {
+      throw new ManagedApiError({ kind: ApiFailureKind.PROTOCOL, message: "Live-view URLs did not bind to the current public origin." })
+    }
+    return result
+  } catch (error) {
+    throw classifyFailure(error)
   }
-  return result
+}
+
+async function executeManagedAction(http: KyInstance, request: AiActionRequest): Promise<ManagedToolResult> {
+  const client = new SteelManagedAiClient({ baseUrl: globalThis.location.origin, fetch: aiFetch(http) })
+  const capabilities = await client.capabilities()
+  const accepted = await client.submitAction(request)
+  const deadline = Date.now() + capabilities.limits.actionTimeoutMs
+  for (;;) {
+    const outcome = await client.getResult({ expectedAction: request, resultId: accepted.resultId })
+    if (outcome.state === AI_ASYNC_OUTCOME_STATE.COMPLETED) return outcome.result
+    const delayMs = outcome.retryAfterSeconds * 1_000
+    if (Date.now() + delayMs > deadline) {
+      throw new AiClientProtocolError("Managed AI action did not complete before the configured timeout")
+    }
+    await new Promise<void>((resolve) => globalThis.setTimeout(resolve, delayMs))
+  }
+}
+
+function aiFetch(http: KyInstance): AiFetch {
+  return async (url, request) => http(url, {
+    ...(request.body === undefined ? {} : { body: request.body }),
+    credentials: request.credentials,
+    headers: request.headers,
+    method: request.method,
+    throwHttpErrors: false,
+  })
 }
 
 function assertAdmissionIdentity(requested: AdmissionId, admission: Admission): Admission {
