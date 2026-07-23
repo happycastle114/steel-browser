@@ -149,7 +149,16 @@ async function installApiFixtures(page: Page) {
     if (path === "/v1/tools") return json(route, fixtures.tools)
     if (path === "/v1/actions") {
       const body: unknown = request.postDataJSON()
-      return json(route, readActionToolName(body) === "steel.browser.live_view" ? fixtures.liveViewResult : fixtures.navigationResult)
+      if (readActionToolName(body) === "steel.browser.live_view") {
+        const origin = new URL(request.url()).origin
+        return json(route, {
+          castWebSocketUrl: `${origin.replace(/^http/u, "ws")}/v1/sessions/${liveSessionId}/cast`,
+          kind: "live_view",
+          sessionId: liveSessionId,
+          viewerUrl: `${origin}/ui/sessions/${liveSessionId}/live`,
+        })
+      }
+      return json(route, fixtures.navigationResult)
     }
     return route.fulfill({ status: 404 })
   })
