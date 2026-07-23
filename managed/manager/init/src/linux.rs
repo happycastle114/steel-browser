@@ -37,21 +37,30 @@ impl Drop for DestinationCleanup {
 }
 
 pub fn run() -> anyhow::Result<()> {
-    let manager = validate_manager_argv(env::args_os().skip(1))?;
+    let manager =
+        validate_manager_argv(env::args_os().skip(1)).context("validating manager command")?;
     ensure!(getpid().as_raw() == 1, "init must be PID 1");
     ensure!(
         getuid().is_root() && getgid().as_raw() == 0,
         "init must start as root"
     );
-    require_source_directory(SOURCE_DIRECTORY)?;
-    require_source_directory(RELEASE_EVIDENCE_SOURCE_DIRECTORY)?;
-    require_destination_mount()?;
-    let cleanup = copy_secret()?;
-    copy_release_evidence(manager.release_evidence_sha256())?;
-    validate_fd_scan(&scan_descriptors()?)?;
-    drop_privileges()?;
-    validate_proc_status(&fs::read_to_string("/proc/self/status")?)?;
-    validate_fd_scan(&scan_descriptors()?)?;
+    require_source_directory(SOURCE_DIRECTORY)
+        .context("validating create-token secret source directory")?;
+    require_source_directory(RELEASE_EVIDENCE_SOURCE_DIRECTORY)
+        .context("validating release-evidence source directory")?;
+    require_destination_mount().context("preparing manager runtime tmpfs")?;
+    let cleanup = copy_secret().context("materializing create-token secret")?;
+    copy_release_evidence(manager.release_evidence_sha256())
+        .context("materializing release evidence")?;
+    validate_fd_scan(&scan_descriptors().context("scanning init descriptors before drop")?)
+        .context("validating init descriptors before drop")?;
+    drop_privileges().context("dropping manager init privileges")?;
+    validate_proc_status(
+        &fs::read_to_string("/proc/self/status").context("reading final process status")?,
+    )
+    .context("validating final process status")?;
+    validate_fd_scan(&scan_descriptors().context("scanning init descriptors after drop")?)
+        .context("validating init descriptors after drop")?;
     let error = Command::new(manager.program())
         .args(manager.arguments())
         .exec();
@@ -60,7 +69,8 @@ pub fn run() -> anyhow::Result<()> {
 }
 
 fn require_source_directory(path: &str) -> anyhow::Result<()> {
-    let metadata = fs::symlink_metadata(path)?;
+    let metadata = fs::symlink_metadata(path)
+        .with_context(|| format!("reading source directory metadata for {path}"))?;
     ensure!(
         metadata.is_dir(),
         "secret source directory must be a directory"
@@ -77,21 +87,26 @@ fn require_source_directory(path: &str) -> anyhow::Result<()> {
 }
 
 fn require_destination_mount() -> anyhow::Result<()> {
-    let mountinfo = fs::read_to_string("/proc/self/mountinfo")?;
-    validate_mountinfo(&mountinfo)?;
-    let metadata = fs::symlink_metadata(TARGET_DIRECTORY)?;
+    let mountinfo =
+        fs::read_to_string("/proc/self/mountinfo").context("reading manager mount table")?;
+    validate_mountinfo(&mountinfo).context("validating manager runtime tmpfs mount")?;
+    let metadata =
+        fs::symlink_metadata(TARGET_DIRECTORY).context("reading manager runtime tmpfs metadata")?;
     ensure!(metadata.is_dir(), "secret destination must be a directory");
     nix::unistd::chown(
         Path::new(TARGET_DIRECTORY),
         Some(Uid::from_raw(MANAGER_UID)),
         Some(Gid::from_raw(MANAGER_GID)),
-    )?;
-    fs::set_permissions(TARGET_DIRECTORY, fs::Permissions::from_mode(0o700))?;
+    )
+    .context("changing manager runtime tmpfs ownership")?;
+    fs::set_permissions(TARGET_DIRECTORY, fs::Permissions::from_mode(0o700))
+        .context("setting manager runtime tmpfs mode")?;
     Ok(())
 }
 
 fn copy_secret() -> anyhow::Result<DestinationCleanup> {
-    let mut source = open_secret_source(Path::new(SOURCE_PATH))?;
+    let mut source =
+        open_secret_source(Path::new(SOURCE_PATH)).context("opening create-token secret source")?;
     ensure!(
         source.as_raw_fd() == 3,
         "source secret descriptor must be 3"
@@ -105,7 +120,8 @@ fn copy_secret() -> anyhow::Result<DestinationCleanup> {
     );
     validate_secret(&bytes[..SECRET_LENGTH])?;
 
-    let mut destination = create_secret_destination(Path::new(TARGET_PATH))?;
+    let mut destination = create_secret_destination(Path::new(TARGET_PATH))
+        .context("creating create-token secret destination")?;
     let cleanup = DestinationCleanup;
     ensure!(
         destination.as_raw_fd() == 4,
@@ -115,11 +131,19 @@ fn copy_secret() -> anyhow::Result<DestinationCleanup> {
         &destination,
         Some(Uid::from_raw(MANAGER_UID)),
         Some(Gid::from_raw(MANAGER_GID)),
-    )?;
-    fchmod(&destination, Mode::S_IRUSR)?;
-    destination.write_all(&bytes[..SECRET_LENGTH])?;
-    destination.sync_all()?;
-    File::open(TARGET_DIRECTORY)?.sync_all()?;
+    )
+    .context("changing create-token secret ownership")?;
+    fchmod(&destination, Mode::S_IRUSR).context("setting create-token secret mode")?;
+    destination
+        .write_all(&bytes[..SECRET_LENGTH])
+        .context("writing create-token secret")?;
+    destination
+        .sync_all()
+        .context("syncing create-token secret")?;
+    File::open(TARGET_DIRECTORY)
+        .context("opening manager runtime directory for create-token sync")?
+        .sync_all()
+        .context("syncing manager runtime directory after create-token write")?;
     require_manager_regular(&destination)?;
     drop(destination);
     drop(source);
@@ -129,7 +153,8 @@ fn copy_secret() -> anyhow::Result<DestinationCleanup> {
 }
 
 fn copy_release_evidence(expected_sha256: &[u8; 32]) -> anyhow::Result<()> {
-    let mut source = open_secret_source(Path::new(RELEASE_EVIDENCE_SOURCE_PATH))?;
+    let mut source = open_secret_source(Path::new(RELEASE_EVIDENCE_SOURCE_PATH))
+        .context("opening release-evidence source")?;
     ensure!(
         source.as_raw_fd() == 3,
         "release evidence source descriptor must be 3"
@@ -142,7 +167,8 @@ fn copy_release_evidence(expected_sha256: &[u8; 32]) -> anyhow::Result<()> {
     validate_release_evidence(&bytes)?;
     validate_release_evidence_sha256(&bytes, expected_sha256)?;
 
-    let mut destination = create_secret_destination(Path::new(RELEASE_EVIDENCE_TARGET_PATH))?;
+    let mut destination = create_secret_destination(Path::new(RELEASE_EVIDENCE_TARGET_PATH))
+        .context("creating release-evidence destination")?;
     ensure!(
         destination.as_raw_fd() == 4,
         "release evidence destination descriptor must be 4"
@@ -151,11 +177,17 @@ fn copy_release_evidence(expected_sha256: &[u8; 32]) -> anyhow::Result<()> {
         &destination,
         Some(Uid::from_raw(MANAGER_UID)),
         Some(Gid::from_raw(MANAGER_GID)),
-    )?;
-    fchmod(&destination, Mode::S_IRUSR)?;
-    destination.write_all(&bytes)?;
-    destination.sync_all()?;
-    File::open(TARGET_DIRECTORY)?.sync_all()?;
+    )
+    .context("changing release-evidence ownership")?;
+    fchmod(&destination, Mode::S_IRUSR).context("setting release-evidence mode")?;
+    destination
+        .write_all(&bytes)
+        .context("writing release evidence")?;
+    destination.sync_all().context("syncing release evidence")?;
+    File::open(TARGET_DIRECTORY)
+        .context("opening manager runtime directory for release-evidence sync")?
+        .sync_all()
+        .context("syncing manager runtime directory after release-evidence write")?;
     require_manager_regular(&destination)?;
     drop(destination);
     drop(source);

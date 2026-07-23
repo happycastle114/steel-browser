@@ -1,4 +1,4 @@
-use anyhow::ensure;
+use anyhow::{Context as _, ensure};
 use caps::{CapSet, Capability};
 use nix::sys::prctl;
 use nix::unistd::{Gid, Uid, setgroups, setresgid, setresuid};
@@ -20,7 +20,8 @@ impl PrivilegeKernel for LinuxPrivilegeKernel {
             Capability::CAP_SETPCAP,
             Capability::CAP_SETUID,
         ];
-        let effective = caps::read(None, CapSet::Effective)?;
+        let effective =
+            caps::read(None, CapSet::Effective).context("reading effective capability set")?;
         ensure!(
             required
                 .iter()
@@ -31,31 +32,32 @@ impl PrivilegeKernel for LinuxPrivilegeKernel {
     }
 
     fn setgroups_empty(&mut self) -> anyhow::Result<()> {
-        setgroups(&[])?;
+        setgroups(&[]).context("clearing supplementary groups")?;
         Ok(())
     }
 
     fn drop_capability_bounding_set(&mut self) -> anyhow::Result<()> {
         for capability in caps::all() {
-            caps::drop(None, CapSet::Bounding, capability)?;
+            caps::drop(None, CapSet::Bounding, capability)
+                .with_context(|| format!("dropping {capability:?} from capability bounding set"))?;
         }
         Ok(())
     }
 
     fn set_no_new_privileges(&mut self) -> anyhow::Result<()> {
-        prctl::set_no_new_privs()?;
+        prctl::set_no_new_privs().context("setting no-new-privileges")?;
         Ok(())
     }
 
     fn setresgid_manager(&mut self) -> anyhow::Result<()> {
         let gid = Gid::from_raw(MANAGER_GID);
-        setresgid(gid, gid, gid)?;
+        setresgid(gid, gid, gid).context("switching to manager gid")?;
         Ok(())
     }
 
     fn setresuid_manager(&mut self) -> anyhow::Result<()> {
         let uid = Uid::from_raw(MANAGER_UID);
-        setresuid(uid, uid, uid)?;
+        setresuid(uid, uid, uid).context("switching to manager uid")?;
         Ok(())
     }
 
@@ -66,7 +68,7 @@ impl PrivilegeKernel for LinuxPrivilegeKernel {
             CapSet::Inheritable,
             CapSet::Permitted,
         ] {
-            caps::clear(None, set)?;
+            caps::clear(None, set).with_context(|| format!("clearing {set:?} capability set"))?;
         }
         Ok(())
     }
