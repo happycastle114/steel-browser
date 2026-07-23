@@ -12,7 +12,7 @@ export function SessionEvents({ sessionId }: Readonly<{ readonly sessionId: Sess
   const events = useEventsQuery()
   if (events.isPending) return <div aria-busy="true" aria-label="Loading session events" className="skeleton skeleton--line" />
   if (events.isError) return <InlineNotice message="The event ledger could not be loaded for this session." title="Events unavailable" tone={NoticeTone.ERROR} />
-  const matching = events.data.items.filter((event) => event.sessionId === sessionId)
+  const matching = events.data.items.filter((event) => "sessionId" in event && event.sessionId === sessionId)
   if (matching.length === 0) return <EmptyState icon={Activity} message="No retained event references this session." title="No session events" />
   return <ol className="session-event-list">{matching.map((event) => <li key={event.eventId}><time dateTime={event.occurredAt}>{formatTimestamp(event.occurredAt)}</time><strong>{event.type}</strong><span>{eventDetail(event)}</span></li>)}</ol>
 }
