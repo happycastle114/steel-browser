@@ -8,6 +8,8 @@ use std::path::Path;
 use std::process::Command;
 
 use anyhow::{Context as _, ensure};
+use nix::dir::Dir;
+use nix::fcntl::OFlag;
 use nix::sys::stat::{Mode, fchmod};
 use nix::unistd::{Gid, Uid, fchown, getgid, getpid, getuid};
 use steel_manager_init::{
@@ -26,6 +28,7 @@ use privilege::drop_privileges;
 const SOURCE_DIRECTORY: &str = "/run/steel-secret-source";
 const RELEASE_EVIDENCE_SOURCE_DIRECTORY: &str = "/run/steel-release-evidence-source";
 const TARGET_DIRECTORY: &str = "/run/steel";
+const PROC_SELF_FD_DIRECTORY: &str = "/proc/self/fd";
 
 struct DestinationCleanup;
 
@@ -277,17 +280,26 @@ fn require_manager_regular(file: &File) -> anyhow::Result<()> {
 }
 
 fn scan_descriptors() -> anyhow::Result<Vec<(i32, String)>> {
-    let entries = fs::read_dir("/proc/self/fd")?.collect::<Result<Vec<_>, _>>()?;
-    let mut descriptors = Vec::with_capacity(entries.len());
-    for entry in entries {
-        let Some(raw_descriptor) = entry
-            .file_name()
-            .to_str()
-            .and_then(|name| name.parse::<i32>().ok())
-        else {
+    let mut directory = Dir::open(
+        PROC_SELF_FD_DIRECTORY,
+        OFlag::O_RDONLY | OFlag::O_DIRECTORY | OFlag::O_CLOEXEC,
+        Mode::empty(),
+    )
+    .context("opening init descriptor directory")?;
+    let scanner_descriptor = directory.as_raw_fd();
+    let mut descriptors = Vec::new();
+    for entry in directory.iter() {
+        let entry = entry.context("reading init descriptor directory")?;
+        let Ok(name) = entry.file_name().to_str() else {
             continue;
         };
-        match fs::read_link(entry.path()) {
+        let Ok(raw_descriptor) = name.parse::<i32>() else {
+            continue;
+        };
+        if raw_descriptor == scanner_descriptor {
+            continue;
+        }
+        match fs::read_link(Path::new(PROC_SELF_FD_DIRECTORY).join(name)) {
             Ok(target) => descriptors.push((raw_descriptor, target.to_string_lossy().into_owned())),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(error.into()),
