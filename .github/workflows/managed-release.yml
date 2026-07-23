@@ -149,7 +149,7 @@ jobs:
             --tmpfs /var/lib/steel/profile:rw,noexec,nosuid,nodev,size=268435456,mode=0700,uid=10001,gid=10001 \
             --entrypoint /bin/sh \
             "${worker_image}" \
-            -c 'mkdir -p /run/steel/runtime /tmp/home /tmp/files /tmp/cache /var/lib/steel/profile/persist && exec /usr/bin/chromium --headless=new --disable-setuid-sandbox --disable-gpu --disable-dev-shm-usage --no-first-run --no-default-browser-check --remote-debugging-port=0 --dump-dom about:blank')"
+            -c 'mkdir -p /run/steel/runtime /tmp/home /tmp/files /tmp/cache /var/lib/steel/profile/persist && exec /usr/bin/timeout --signal=TERM --kill-after=10s 90s /usr/bin/chromium --headless=new --disable-setuid-sandbox --disable-gpu --disable-dev-shm-usage --no-first-run --no-default-browser-check --dump-dom about:blank')"
           grep -Fq '<html' <<< "${sandbox_output}"
           browser_output="$(docker run --rm --entrypoint /usr/bin/chromium "${worker_image}" --version)"
           browser_version="$(sed -nE 's/.* ([0-9]+(\.[0-9]+){3}).*/\1/p' <<< "${browser_output}")"
