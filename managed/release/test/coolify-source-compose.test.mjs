@@ -5,6 +5,7 @@ import { test } from "node:test"
 import {
   CoolifyComposeProfileLocation,
   CoolifyPoolSlot,
+  CoolifyWorkerSecurityOption,
   verifyCoolifyCompose,
 } from "../coolify-bundle.mjs"
 import {
@@ -35,7 +36,8 @@ test("source templates materialize into exact verified release Compose", async (
     )
     for (const workerId of ["worker-00", "worker-01"]) {
       assert.deepEqual(checkedIn.services[workerId].security_opt, [
-        "no-new-privileges:true",
+        CoolifyWorkerSecurityOption.APPARMOR_USER_NAMESPACE_COMPATIBILITY,
+        CoolifyWorkerSecurityOption.NO_NEW_PRIVILEGES,
         "seccomp=./deploy/coolify/chromium-seccomp.json",
       ])
     }

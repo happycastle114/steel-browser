@@ -96,6 +96,7 @@
         "ALL"
       ],
       "security_opt": [
+        "apparmor=unconfined",
         "no-new-privileges:true",
         "seccomp=./deploy/coolify/chromium-seccomp.json"
       ],
@@ -125,6 +126,7 @@
         "ALL"
       ],
       "security_opt": [
+        "apparmor=unconfined",
         "no-new-privileges:true",
         "seccomp=./deploy/coolify/chromium-seccomp.json"
       ],

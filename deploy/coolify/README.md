@@ -13,6 +13,14 @@ deny-by-default seccomp policy while allowing only the `clone`, `setns`, and `un
 Chromium needs to create its user namespace. Do not replace it with `seccomp=unconfined`,
 `privileged`, capabilities, or a sandbox-disabling browser flag.
 
+Ubuntu's host-level AppArmor user-namespace restriction can otherwise force Chromium away from
+its namespace sandbox and into the SUID fallback. Coolify application bundles cannot install a
+host AppArmor profile, so the workers use `apparmor=unconfined` only to permit Chromium's own user
+namespace. They remain numeric non-root, read-only, capability-free, `no-new-privileges`, covered
+by the pinned seccomp profile, and isolated on the private network. A host-loaded AppArmor profile
+that grants only Chromium's required `userns` permission is the preferred future replacement when
+Coolify supports provisioning it as part of the server configuration.
+
 Coolify runs Compose with the repository root as `--project-directory`. The checked-in source
 templates therefore use `./deploy/coolify/chromium-seccomp.json`; standalone release bundles
 keep the verified profile beside their `compose.yml`. These paths are separate typed deployment

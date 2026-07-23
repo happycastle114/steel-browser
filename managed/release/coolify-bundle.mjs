@@ -12,6 +12,11 @@ export const CoolifyComposeProfileLocation = Object.freeze({
   SOURCE: "SOURCE",
 })
 
+export const CoolifyWorkerSecurityOption = Object.freeze({
+  APPARMOR_USER_NAMESPACE_COMPATIBILITY: "apparmor=unconfined",
+  NO_NEW_PRIVILEGES: "no-new-privileges:true",
+})
+
 const poolBySlot = Object.freeze({
   [CoolifyPoolSlot.BLUE]: Object.freeze({
     poolId: "managed-blue-pool",
@@ -183,7 +188,8 @@ function buildWorker(image, workerId, seccompProfilePath) {
     tmpfs: workerTmpfs,
     cap_drop: ["ALL"],
     security_opt: [
-      "no-new-privileges:true",
+      CoolifyWorkerSecurityOption.APPARMOR_USER_NAMESPACE_COMPATIBILITY,
+      CoolifyWorkerSecurityOption.NO_NEW_PRIVILEGES,
       `seccomp=${seccompProfilePath}`,
     ],
     pids_limit: 512,

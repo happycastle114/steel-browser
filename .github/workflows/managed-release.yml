@@ -124,6 +124,23 @@ jobs:
           receipts="${STEEL_RELEASE_ROOT}/receipts"
           worker_image="$(jq -er '.candidateImage' "${receipts}/worker-runtime-strategy.json")"
           docker pull "${worker_image}"
+          sandbox_output="$(docker run --rm \
+            --user 10001:10001 \
+            --read-only \
+            --network none \
+            --cap-drop ALL \
+            --security-opt apparmor=unconfined \
+            --security-opt no-new-privileges:true \
+            --security-opt "seccomp=${GITHUB_WORKSPACE}/deploy/coolify/chromium-seccomp.json" \
+            --pids-limit 512 \
+            --shm-size 512m \
+            --tmpfs /run/steel:rw,noexec,nosuid,nodev,size=67108864,mode=0700,uid=10001,gid=10001 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=268435456,mode=1777,uid=10001,gid=10001 \
+            --tmpfs /var/lib/steel/profile:rw,noexec,nosuid,nodev,size=268435456,mode=0700,uid=10001,gid=10001 \
+            --entrypoint /bin/sh \
+            "${worker_image}" \
+            -c 'mkdir -p /run/steel/runtime /tmp/home /tmp/files /tmp/cache /var/lib/steel/profile/persist && exec /usr/bin/chromium --headless=new --disable-gpu --disable-dev-shm-usage --no-first-run --no-default-browser-check --remote-debugging-port=0 --dump-dom about:blank')"
+          grep -Fq '<html' <<< "${sandbox_output}"
           browser_output="$(docker run --rm --entrypoint /usr/bin/chromium "${worker_image}" --version)"
           browser_version="$(sed -nE 's/.* ([0-9]+(\.[0-9]+){3}).*/\1/p' <<< "${browser_output}")"
           test -n "${browser_version}"

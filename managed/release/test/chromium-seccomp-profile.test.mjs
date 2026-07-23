@@ -6,7 +6,11 @@ import {
   CHROMIUM_SECCOMP_PROFILE,
   verifyChromiumSeccompProfileBytes,
 } from "../chromium-seccomp-profile.mjs"
-import { CoolifyPoolSlot, buildCoolifyCompose } from "../coolify-bundle.mjs"
+import {
+  CoolifyPoolSlot,
+  CoolifyWorkerSecurityOption,
+  buildCoolifyCompose,
+} from "../coolify-bundle.mjs"
 
 const managerImage = `ghcr.io/example/manager@sha256:${"1".repeat(64)}`
 const workerImage = `ghcr.io/example/worker@sha256:${"2".repeat(64)}`
@@ -30,7 +34,8 @@ test("applies the sandbox profile only to private non-root workers", () => {
     workerImage,
   })
   const expected = [
-    "no-new-privileges:true",
+    CoolifyWorkerSecurityOption.APPARMOR_USER_NAMESPACE_COMPATIBILITY,
+    CoolifyWorkerSecurityOption.NO_NEW_PRIVILEGES,
     `seccomp=${CHROMIUM_SECCOMP_PROFILE.bundleDeploymentPath}`,
   ]
 

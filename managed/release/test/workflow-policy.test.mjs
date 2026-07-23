@@ -105,6 +105,27 @@ test("keeps Chromium sandboxed while adapting ephemeral Ubuntu runners", async (
   }
 })
 
+test("launches Chromium under the exact worker security boundary before release", async () => {
+  const bytes = await readFile(
+    new URL("../../../.github/workflows/managed-release.yml", import.meta.url),
+    "utf8",
+  )
+  const workflow = yaml.parse(bytes)
+  const readbackStep = workflow.jobs.release.steps.find(
+    ({ name }) => name === "Read back Chromium and generate digest-pinned Coolify bundles",
+  )
+
+  assert.match(readbackStep.run, /--user 10001:10001/u)
+  assert.match(readbackStep.run, /--read-only/u)
+  assert.match(readbackStep.run, /--network none/u)
+  assert.match(readbackStep.run, /--cap-drop ALL/u)
+  assert.match(readbackStep.run, /--security-opt apparmor=unconfined/u)
+  assert.match(readbackStep.run, /--security-opt no-new-privileges:true/u)
+  assert.match(readbackStep.run, /--security-opt "seccomp=\$\{GITHUB_WORKSPACE\}\/deploy\/coolify\/chromium-seccomp\.json"/u)
+  assert.match(readbackStep.run, /--dump-dom about:blank/u)
+  assert.doesNotMatch(readbackStep.run, /--no-sandbox|--disable-setuid-sandbox/u)
+})
+
 test("threads the private DBus session into every Chromium verification", async () => {
   const [environmentSource, cdpSource] = await Promise.all([
     readFile(new URL("../../../api/src/env.ts", import.meta.url), "utf8"),
