@@ -1,5 +1,11 @@
 import { defineConfig } from "@playwright/test"
 
+const testPort = Number(process.env["STEEL_CONSOLE_TEST_PORT"] ?? "4173")
+if (!Number.isInteger(testPort) || testPort < 1 || testPort > 65_535) {
+  throw new TypeError("STEEL_CONSOLE_TEST_PORT must be a valid TCP port")
+}
+const testUrl = `http://127.0.0.1:${testPort}/ui/`
+
 const viewports = {
   compact: { height: 812, width: 375 },
   mid: { height: 1024, width: 768 },
@@ -18,14 +24,14 @@ export default defineConfig({
   testDir: "test/visual",
   testIgnore: "primitive.spec.ts",
   use: {
-    baseURL: "http://127.0.0.1:4173/ui/",
+    baseURL: testUrl,
     colorScheme: "light",
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "tsx test/visual/server.ts",
+    command: `STEEL_CONSOLE_TEST_PORT=${testPort} tsx test/visual/server.ts`,
     reuseExistingServer: true,
     timeout: 30_000,
-    url: "http://127.0.0.1:4173/ui/",
+    url: testUrl,
   },
 })
