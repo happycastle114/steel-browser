@@ -93,14 +93,14 @@ fn require_destination_mount() -> anyhow::Result<()> {
     let metadata =
         fs::symlink_metadata(TARGET_DIRECTORY).context("reading manager runtime tmpfs metadata")?;
     ensure!(metadata.is_dir(), "secret destination must be a directory");
+    fs::set_permissions(TARGET_DIRECTORY, fs::Permissions::from_mode(0o700))
+        .context("setting manager runtime tmpfs mode")?;
     nix::unistd::chown(
         Path::new(TARGET_DIRECTORY),
         Some(Uid::from_raw(MANAGER_UID)),
         Some(Gid::from_raw(MANAGER_GID)),
     )
     .context("changing manager runtime tmpfs ownership")?;
-    fs::set_permissions(TARGET_DIRECTORY, fs::Permissions::from_mode(0o700))
-        .context("setting manager runtime tmpfs mode")?;
     Ok(())
 }
 
