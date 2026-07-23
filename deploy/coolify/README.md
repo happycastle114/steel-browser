@@ -87,7 +87,8 @@ A minimal configuration envelope is:
 
 Cloudflare Access must protect both hosts and forward its signed
 `Cf-Access-Jwt-Assertion`. The configured service-token common name becomes an operator only when
-it is listed in `operatorServicePrincipals`.
+it is listed in `operatorServicePrincipals`. Managed OAuth human identities remain bounded users;
+pool drain and resume operations require one of those explicitly configured service principals.
 
 ## Release and deployment
 
