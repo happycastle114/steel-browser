@@ -56,8 +56,24 @@ describe("centralized control-plane configuration", () => {
     })
     expect(config.bootMode).toBe(CONTROL_PLANE_FIXED.bootMode)
     expect(config.additionalAccessAudiences).toEqual([])
+    expect(config.operatorUserEmails).toEqual([])
     expect(config.allowedOrigins).toEqual(Object.values(validInput.publicOriginByHost))
     expect(config.legacyQuiescenceMs).toBe(120_000)
+  })
+
+  it("normalizes operator user emails and rejects duplicates", () => {
+    // Given: a production Owner email is explicitly allowlisted.
+    const config = parseControlPlaneConfig({
+      ...validInput,
+      operatorUserEmails: ["Operator@Example.com"],
+    })
+
+    // Then: authorization comparisons use one canonical form.
+    expect(config.operatorUserEmails).toEqual(["operator@example.com"])
+    expect(() => parseControlPlaneConfig({
+      ...validInput,
+      operatorUserEmails: ["Operator@Example.com", "operator@example.com"],
+    })).toThrow()
   })
 
   it("accepts unique additional Access audiences and rejects duplicates", () => {
