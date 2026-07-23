@@ -1,1 +1,8 @@
-m«ëˆ§½©buªàºg§µÊ{Ü¢wâ‚Ú&•KæÚ±î¸Ø[é¢Šwâ•ê(º×â•æÛ­æ¤n·š‘éÜ¡×¢ëiºÛ©Š{h–)Ş²‡åzx-†{¦×^r‡^uç(uè§¦ëa…éiv+)•¬­†+&zËè¢›­Šznµø¥y×Ÿjém~ŠìµØ§¢‹­¦ëhºÚnµø¥y×Ÿjém~ŠìµÚ.
+[mcp_servers.steel_managed]
+url = "https://steel.soungmin.tech/mcp"
+auth = "oauth"
+enabled = true
+required = false
+startup_timeout_sec = 20
+tool_timeout_sec = 75
+default_tools_approval_mode = "writes"
