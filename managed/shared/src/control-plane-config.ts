@@ -23,6 +23,7 @@ const bounded = (key: keyof typeof CONFIGURABLE_NUMERIC_BOUNDS, fallback: number
 }
 
 const HostnameSchema = z.string().max(253).regex(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u)
+const OperatorUserEmailSchema = z.string().email().max(254).transform((value) => value.toLowerCase())
 
 const ControlPlaneConfigInputSchema = z.object({
   maxConcurrentManagedProjects: z.literal(CONTROL_PLANE_FIXED.maxConcurrentManagedProjects).default(CONTROL_PLANE_FIXED.maxConcurrentManagedProjects),
@@ -67,6 +68,7 @@ const ControlPlaneConfigInputSchema = z.object({
   allowedHosts: z.array(HostnameSchema).min(1).max(16),
   publicOriginByHost: z.record(PublicOriginSchema),
   operatorServicePrincipals: z.array(z.string().min(1).max(256)).min(1).max(16),
+  operatorUserEmails: z.array(OperatorUserEmailSchema).max(16).default([]),
   poolId: PoolIdSchema,
 }).strict().superRefine((input, context) => {
   const hostSet = new Set(input.allowedHosts)
@@ -79,6 +81,9 @@ const ControlPlaneConfigInputSchema = z.object({
   }
   if (new Set(input.operatorServicePrincipals).size !== input.operatorServicePrincipals.length) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: "operator service principals must be unique" })
+  }
+  if (new Set(input.operatorUserEmails).size !== input.operatorUserEmails.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "operator user emails must be unique" })
   }
   const accessAudiences = [input.accessAudience, ...input.additionalAccessAudiences]
   if (new Set(accessAudiences).size !== accessAudiences.length) {
