@@ -1,4 +1,8 @@
 import { z } from "zod"
+import {
+  TOOL_NAMES,
+  ToolSchemaDescriptorSchema,
+} from "@happycastle/steel-managed-shared/browser"
 
 import {
   ActionKind,
@@ -14,6 +18,7 @@ import {
   ByteCountSchema,
   IsoTimeSchema,
   MCP_PROTOCOL_VERSION,
+  OpaqueCursorSchema,
   ResultIdSchema,
   SessionIdSchema,
   Sha256Schema,
@@ -58,9 +63,26 @@ const capabilitiesBaseSchema = z.object({
 
 export const CapabilitiesSchema = capabilitiesBaseSchema.readonly()
 
-export const ToolsResponseSchema = capabilitiesBaseSchema.extend({
-  tools: z.array(descriptorSchema.extend({ inputSchema: z.record(z.string(), z.unknown()), outputSchema: z.record(z.string(), z.unknown()) }).strict()),
-}).strict().readonly()
+const ToolsPageResponseSchema = z.object({
+  apiVersion: ApiVersionSchema,
+  items: z.array(ToolSchemaDescriptorSchema).max(TOOL_NAMES.length),
+  page: z.object({
+    pageSize: z.number().int().min(1).max(TOOL_NAMES.length),
+    hasMore: z.boolean(),
+    nextCursor: OpaqueCursorSchema.optional(),
+  }).strict(),
+}).strict().superRefine((response, context) => {
+  if (response.items.length > response.page.pageSize) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "tool items must fit the advertised page size" })
+  }
+  if (response.page.hasMore !== (response.page.nextCursor !== undefined)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "next cursor presence must match hasMore" })
+  }
+})
+
+export const ToolsResponseSchema = ToolsPageResponseSchema
+  .transform((response) => ({ tools: response.items }))
+  .readonly()
 
 const actionBase = {} as const
 export const BrowserActionInputSchema = z.discriminatedUnion("kind", [

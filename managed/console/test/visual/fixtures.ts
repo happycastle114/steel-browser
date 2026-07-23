@@ -87,10 +87,8 @@ export const fixtures = {
   sessions: { apiVersion, items: [liveSession, queuedSession], page },
   tools: {
     apiVersion,
-    limits: { actionCount: 2, actionTimeoutMs: 30_000, binaryBytes: 8_388_608, httpBodyBytes: 1_048_576, httpBodyCount: 16, httpBodyReservedBytes: 1_048_576, httpConnectionCount: 16, httpConnectionReservedBytes: 524_288, httpHeaderBytes: 16_384, resultBytes: 16_777_216, resultCount: 32, textBytes: 1_048_576, webSocketCount: 2, webSocketReservedBytes: 524_288 },
-    mcp: { endpoint: "/mcp", protocolVersion: "2025-11-25", stateless: true },
-    service: { name: "happycastle-steel-managed", version: "1.0.0" },
-    tools: tools.map((tool) => ({ ...tool, inputSchema: { type: "object" }, outputSchema: { type: "object" } })),
+    items: tools.map((tool) => ({ ...tool, inputSchema: { type: "object" }, outputSchema: { type: "object" } })),
+    page: { pageSize: tools.length, hasMore: false },
   },
   version: { apiVersion, browserVersion: "125.0.6422.60", createTokenKeyId: "0123456789abcdef", managedSha: "c".repeat(40), managerConfigSha256: "2".repeat(64), managerDigest: `sha256:${"d".repeat(64)}`, releaseEvidenceMode: "CONFIG_FILE", releaseEvidenceSha256: "3".repeat(64), startedAt: now, toolchainLockSha256: "e".repeat(64), upstreamSha: "f".repeat(40), workerDigest: `sha256:${"1".repeat(64)}` },
   workers: { apiVersion, items: [{ instanceId: instanceOne, lastSeenAt: now, sessionId: liveSessionId, state: "LIVE", stateChangedAt: now, workerId: "worker-00" }, { instanceId: instanceTwo, lastSeenAt: now, state: "IDLE", stateChangedAt: now, workerId: "worker-01" }], page },

@@ -22,6 +22,27 @@ const versionFixture = {
 } as const
 
 describe("createManagedApi", () => {
+  it("normalizes the canonical paginated tool registry response", async () => {
+    const tool = fixtures.tools.items[0]
+    if (tool === undefined) throw new TypeError("expected a tool fixture")
+    let requestedPath = ""
+    const mockFetch = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const request = input instanceof Request ? input : new Request(input)
+      requestedPath = new URL(request.url).pathname
+      return response({
+        apiVersion: CONTROL_PLANE_API_VERSION,
+        items: [tool],
+        page: { pageSize: 1, hasMore: false },
+      })
+    })
+    const api = createManagedApi(ky.create({ fetch: mockFetch, retry: 0 }))
+
+    const tools = await api.tools()
+
+    expect(requestedPath).toBe("/v1/tools")
+    expect(tools.tools).toEqual([tool])
+  })
+
   it("requests managed resources from the same origin and parses the response", async () => {
     const mockFetch = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(versionFixture), {
       headers: { "content-type": "application/json" },
