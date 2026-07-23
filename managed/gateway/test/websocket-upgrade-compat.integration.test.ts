@@ -86,6 +86,7 @@ async function upstream(): Promise<{
   let connection: WebSocket | undefined
   const server = new WebSocketServer({
     handleProtocols: (protocols) => protocols.has("steel-v1") ? "steel-v1" : false,
+    host: "127.0.0.1",
     port: 0,
   })
   server.on("headers", (headers) => {
@@ -114,7 +115,7 @@ async function upstream(): Promise<{
   await new Promise<void>((resolve) => server.once("listening", resolve))
   const address = server.address()
   if (address === null || typeof address === "string") throw new TypeError("expected TCP address")
-  privateLocation = `HTTP://LOCALHOST:${address.port}/private`
+  privateLocation = `HTTP://127.0.0.1:${address.port}/private`
   closeTasks.push(async () => new Promise<void>((resolve) => server.close(() => resolve())))
   return {
     activeConnections: () => activeConnections,
@@ -127,7 +128,7 @@ async function upstream(): Promise<{
       if (activeConnections === 0) return
       await new Promise<void>((resolve) => idleWaiters.push(resolve))
     },
-    origin: `http://localhost:${address.port}`,
+    origin: `http://127.0.0.1:${address.port}`,
     protocol: () => protocol,
   }
 }

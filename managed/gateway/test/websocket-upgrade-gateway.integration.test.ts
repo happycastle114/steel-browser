@@ -66,7 +66,7 @@ async function upstreamServer(): Promise<{
 }> {
   let connectionCount = 0
   let headers: Readonly<Record<string, string | string[] | undefined>> = {}
-  const server = new WebSocketServer({ port: 0 })
+  const server = new WebSocketServer({ host: "127.0.0.1", port: 0 })
   server.on("connection", (socket, request) => {
     connectionCount += 1
     headers = request.headers

@@ -20,7 +20,7 @@ function startServer(
   connection: (socket: WebSocket, requestPath: string) => void,
 ): Promise<{ readonly server: WebSocketServer; readonly url: string }> {
   return new Promise((resolve) => {
-    const server = new WebSocketServer({ port: 0 })
+    const server = new WebSocketServer({ host: "127.0.0.1", port: 0 })
     servers.push(server)
     server.once("listening", () => {
       const address = server.address()
